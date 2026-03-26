@@ -7,6 +7,7 @@
 #include <map>
 #include "Connection.hpp"
 #include "ServerBlock.hpp"
+#include "EpollLoop.hpp"
 
 #define MAX_EVENTS 64
 

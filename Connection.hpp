@@ -1,3 +1,4 @@
+#pragma once
 #include "ServerBlock.hpp"
 
 struct Connection {
@@ -6,4 +7,5 @@ struct Connection {
 	ServerBlock *config;
 	std::string write_buf;
 	size_t write_offset;
+	void enqueue_response(int epoll_fd, const std::string &response);
 };
