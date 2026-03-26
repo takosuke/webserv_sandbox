@@ -123,59 +123,69 @@ int main() {
 				active_conns[client_fd] = client_conn;
 
             } else {
-                // Existing client has data
-                char buffer[4096];
-                int  bytes = read(conn->fd, buffer, sizeof(buffer) - 1);
-
-                if (bytes <= 0) {
-                    std::cout << "Client fd=" << conn->fd << " disconnected\n";
-                    epoll_ctl(epoll_fd, EPOLL_CTL_DEL, conn->fd, NULL); // unregister
-					active_conns.erase(conn->fd);
-                    close(conn->fd);
-					delete conn;
-                } else {
-                    buffer[bytes] = '\0';
-//                    std::cout << "fd=" << conn->fd << ": " << buffer;
-					//mock response
-					std::string response = "HTTP/1.0 200 OK\r\nContent-Length: 5\r\n\r\nidiot";
-					enqueue_response(epoll_fd, conn, response);
-                }
-            }
-			// send buffered data
-			if (events[i].events & EPOLLOUT)
-			{
-				const char *data = conn->write_buf.c_str() + conn->write_offset;
-				size_t	remaining = conn->write_buf.size() - conn->write_offset;
-
-				int sent = write(conn->fd, data, remaining);
-
-				if (sent < 0)
+				// Error or hangup
+				if (events[i].events & (EPOLLERR | EPOLLHUP))
 				{
-					//error, close connection
 					epoll_ctl(epoll_fd, EPOLL_CTL_DEL, conn->fd, NULL);
 					active_conns.erase(conn->fd);
 					close(conn->fd);
 					delete conn;
-				} else {
-					conn->write_offset += sent;
-					
-					if (conn->write_offset == conn->write_buf.size())
-					{
-						//fully sent, stop watching for EPOLLOUT
-						conn->write_buf.clear();
-						conn->write_offset = 0;
-
-						epoll_event ev;
-						memset(&ev, 0, sizeof(ev));
-						ev.events = EPOLLIN;
-						ev.data.ptr = conn;
-						epoll_ctl(epoll_fd, EPOLL_CTL_MOD, conn->fd, &ev);
-					}
-					// if not fully sent, leave EPOLLOUT registered
-					// next wakeup will continue from write_offset
 				}
-					
-			}
+                // Existing client has data
+				if (events[i].events & EPOLLIN)
+				{
+					char buffer[4096];
+					int  bytes = read(conn->fd, buffer, sizeof(buffer) - 1);
+					if (bytes <= 0) {
+						std::cout << "Client fd=" << conn->fd << " disconnected\n";
+						epoll_ctl(epoll_fd, EPOLL_CTL_DEL, conn->fd, NULL); // unregister
+						active_conns.erase(conn->fd);
+						close(conn->fd);
+						delete conn;
+					} else {
+						buffer[bytes] = '\0';
+	//                    std::cout << "fd=" << conn->fd << ": " << buffer;
+						//mock response
+						std::string response = "HTTP/1.0 200 OK\r\nContent-Length: 5\r\n\r\nidiot";
+						enqueue_response(epoll_fd, conn, response);
+					}
+				}
+
+				if (events[i].events & EPOLLOUT)
+				{
+					const char *data = conn->write_buf.c_str() + conn->write_offset;
+					size_t	remaining = conn->write_buf.size() - conn->write_offset;
+
+					int sent = write(conn->fd, data, remaining);
+
+					if (sent < 0)
+					{
+						//error, close connection
+						epoll_ctl(epoll_fd, EPOLL_CTL_DEL, conn->fd, NULL);
+						active_conns.erase(conn->fd);
+						close(conn->fd);
+						delete conn;
+					} else {
+						conn->write_offset += sent;
+						
+						if (conn->write_offset == conn->write_buf.size())
+						{
+							//fully sent, stop watching for EPOLLOUT
+							conn->write_buf.clear();
+							conn->write_offset = 0;
+
+							epoll_event ev;
+							memset(&ev, 0, sizeof(ev));
+							ev.events = EPOLLIN;
+							ev.data.ptr = conn;
+							epoll_ctl(epoll_fd, EPOLL_CTL_MOD, conn->fd, &ev);
+						}
+						// if not fully sent, leave EPOLLOUT registered
+						// next wakeup will continue from write_offset
+					}
+				}
+            }
+			// send buffered data
         }
     }
 
