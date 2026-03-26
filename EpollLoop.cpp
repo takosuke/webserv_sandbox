@@ -1,6 +1,7 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include "EpollLoop.hpp"
+#include "Connection.hpp"
 #include <iostream>
 #include <netinet/in.h>
 #include <sys/epoll.h>

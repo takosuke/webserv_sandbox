@@ -1,7 +1,8 @@
 #pragma once
 #include <map>
-#include "Connection.hpp"
 #include <sys/epoll.h>
+
+struct Connection;
 
 #define MAX_EVENTS 64
 

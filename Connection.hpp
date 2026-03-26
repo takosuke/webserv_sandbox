@@ -1,6 +1,7 @@
 #pragma once
 #include "ServerBlock.hpp"
-#include "EpollLoop.hpp"
+
+class EpollLoop;
 
 struct Connection {
 	int	fd;
