@@ -9,7 +9,8 @@ struct Location {
 };
 
 struct ServerBlock {
-//	ServerBlock(int p, const std::string &h, const std::string &r);
+	ServerBlock();
+	ServerBlock(int p, const std::string &h, const std::string &r);
 	int	port;
 	std::string host;
 	std::string root;

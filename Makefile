@@ -2,13 +2,13 @@ CFLAGS = -Wall -Wextra -Werror -std=c++98
 CC = c++
 
 TARGET = webserv
-SOURCE = webserv_epoll_5.cpp
+SOURCE = webserv_epoll_6.cpp ServerBlock.cpp
 
 .PHONY: all
 all: $(TARGET)
 
 $(TARGET): $(SOURCE)
-	$(CC) $(CFLAGS) $< -o $@
+	$(CC) $(CFLAGS) $^ -o $@
 
 .PHONY: clean
 clean:
