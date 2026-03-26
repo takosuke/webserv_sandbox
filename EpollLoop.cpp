@@ -84,7 +84,7 @@ void	EpollLoop::run() {
 					} else {
 						buffer[bytes] = '\0';
 						std::string response = "HTTP/1.0 200 OK\r\nContent-Length: 5\r\n\r\nidiot";
-						conn->enqueue_response(_epoll_fd, response);
+						conn->enqueue_response(this, response);
 					}
 				}
 				if (_events[i].events & EPOLLOUT) {
