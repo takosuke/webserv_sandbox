@@ -2,7 +2,7 @@ CFLAGS = -Wall -Wextra -Werror -std=c++98
 CC = c++
 
 TARGET = webserv
-SOURCE = webserv_epoll.cpp ServerBlock.cpp EpollLoop.cpp Connection.cpp
+SOURCE = webserv_epoll.cpp ServerBlock.cpp EpollLoop.cpp Connection.cpp utils.cpp
 
 .PHONY: all
 all: $(TARGET)
