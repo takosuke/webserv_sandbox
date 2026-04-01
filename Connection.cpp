@@ -18,10 +18,9 @@ void	ServerConnection::handle(EpollLoop &loop, uint32_t events) {
 	int client_fd = accept(fd, (sockaddr*)&client_addr, &client_len);
 	set_nonblocking(client_fd);
 	ClientConnection *client_conn = new ClientConnection();
-	fd = client_fd;
+	client_conn->fd = client_fd;
 	if (client_fd < 0) return; // TODO handle error?
 
-	std::cout << "New connection fd=" << client_fd << std::endl;
 	loop.add(client_conn);
 }
 
@@ -42,7 +41,6 @@ void ClientConnection::handle(EpollLoop &loop, uint32_t events) {
 			throw std::runtime_error(std::string("Read from client error: ") + strerror(errno));
 		}
 		if (bytes == 0) {
-			std::cout << "Client disconnected" << std::endl;
 			loop.del(this);
 		} else {
 			buffer[bytes] = '\0';
