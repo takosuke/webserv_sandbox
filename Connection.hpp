@@ -6,6 +6,7 @@
 class EpollLoop;
 
 class Connection {
+		// TODO constructors, destructors etc
 	public:
 		virtual void handle(EpollLoop &loop, uint32_t events) = 0;
 		virtual ~Connection() {}
@@ -16,6 +17,7 @@ class Connection {
 // TODO split to separate files
 class ClientConnection : public Connection {
 	public:
+		// TODO constructors, destructors etc
 		void handle(EpollLoop &loop, uint32_t events);
 	private:
 		std::string	_write_buf;
@@ -25,6 +27,7 @@ class ClientConnection : public Connection {
 };
 
 class ServerConnection : public Connection {
+		// TODO constructors, destructors etc
 	public:
 		void handle(EpollLoop &loop, uint32_t events);
 };

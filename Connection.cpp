@@ -33,19 +33,31 @@ void	ClientConnection::enqueue_response(EpollLoop &loop, const std::string &resp
 
 void ClientConnection::handle(EpollLoop &loop, uint32_t events) {
 	if (events & EPOLLIN) {
-		char buffer[4096];
+		char buffer[24];
 		int bytes = read(fd, buffer, sizeof(buffer) - 1);
 		if (bytes < 0) {
 			if (errno == EAGAIN || errno == EWOULDBLOCK)
 				return ;
+			loop.del(this);
 			throw std::runtime_error(std::string("Read from client error: ") + strerror(errno));
 		}
 		if (bytes == 0) {
 			loop.del(this);
 		} else {
-			buffer[bytes] = '\0';
-			std::string response = "HTTP/1.0 200 OK\r\nContent-Length: 5\r\n\r\nidiot";
-			enqueue_response(loop, response);
+			_parser.feed(buffer, bytes);
+			std::cout << "parsing..." << _parser._i << std::endl;
+
+			if (_parser.complete()) {
+				buffer[bytes] = '\0';
+				std::cout << "parser done being fed" << std::endl;
+				// hand off to request handler
+				// eventually enqueue_response()
+				std::string response = "HTTP/1.0 200 OK\r\nContent-Length: 5\r\n\r\nidiot";
+				enqueue_response(loop, response);
+			}
+			// buffer[bytes] = '\0';
+			// std::string response = "HTTP/1.0 200 OK\r\nContent-Length: 5\r\n\r\nidiot";
+			// enqueue_response(loop, response);
 		}
 	}
 	if (events & EPOLLOUT) {
