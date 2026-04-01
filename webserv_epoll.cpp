@@ -27,9 +27,8 @@ int main() {
 			it != server_blocks.end(); ++it)
 		{
 			int server_fd = make_server_socket((*it)->port);
-			Connection *server_conn = new Connection();
+			ServerConnection *server_conn = new ServerConnection();
 			server_conn->fd = server_fd;
-			server_conn->type = Connection::SERVER;
 			std::cout << "Listening on port " << (*it)->port << "...\n";
 
 			// Register the listening socket
