@@ -3,7 +3,7 @@
 #include <netinet/in.h>
 #include <sys/epoll.h>
 #include <unistd.h>
-#include "Connection.hpp"
+#include "ServerConnection.hpp"
 #include "ServerBlock.hpp"
 #include "EpollLoop.hpp"
 #include "utils.hpp"

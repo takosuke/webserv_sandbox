@@ -14,7 +14,8 @@ SRCS	:=
 vpath %.cpp $(SDIR)
 SRCS	+= webserv.cpp
 
-SRCS	+= Connection.cpp
+SRCS	+= ServerConnection.cpp
+SRCS	+= ClientConnection.cpp
 SRCS	+= EpollLoop.cpp
 SRCS	+= ServerBlock.cpp
 SRCS	+= utils.cpp
