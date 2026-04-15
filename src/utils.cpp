@@ -15,23 +15,19 @@ void	set_nonblocking(int fd) {
 		throw std::runtime_error(std::string("fcntl F_SETFL failed: ") + strerror(errno));
 }
 
-int	make_server_socket(int port) {
-    int fd = socket(AF_INET, SOCK_STREAM, 0);
+int	make_server_socket(const config::listen &l) {
+    int fd = socket(AF_INET, SOCK_STREAM | SOCK_NONBLOCK, 0);
+    if (fd < 0)
+        throw std::runtime_error(std::string("socket() failed: ") + strerror(errno));
     int opt = 1;
     setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt));
 
-    sockaddr_in addr;
-    memset(&addr, 0, sizeof(addr));
-    addr.sin_family      = AF_INET;
-    addr.sin_addr.s_addr = INADDR_ANY;
-    addr.sin_port        = htons(port);
-
+    const sockaddr_in &addr = l.get_sockaddr();
     if (bind(fd, (sockaddr*)&addr, sizeof(addr)) == -1)
-	{
-		std::cerr << "Socket bind failed" << std::endl;
-		return -1;
-	}
-	set_nonblocking(fd);
-    listen(fd, 10);
+        throw std::runtime_error(std::string("bind() failed: ") + strerror(errno));
+
+    if (::listen(fd, l.backlog) == -1)
+        throw std::runtime_error(std::string("listen() failed: ") + strerror(errno));
+
     return fd;
 }

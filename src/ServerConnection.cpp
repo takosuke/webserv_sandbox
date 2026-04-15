@@ -16,6 +16,8 @@ void	ServerConnection::handle(EpollLoop &loop, uint32_t events) {
 	set_nonblocking(client_fd);
 	ClientConnection *client_conn = new ClientConnection();
 	client_conn->fd = client_fd;
+	client_conn->http = http;
+	client_conn->listening_addr = addr;
 	if (client_fd < 0) return; // TODO handle error?
 
 	loop.add(client_conn);

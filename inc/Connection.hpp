@@ -1,5 +1,6 @@
 #pragma once
-#include "ServerBlock.hpp"
+//#include "ServerBlock.hpp"
+#include "Http.hpp"
 #include <stdint.h>
 
 class EpollLoop;
@@ -10,5 +11,8 @@ class Connection {
 		virtual void handle(EpollLoop &loop, uint32_t events) = 0;
 		virtual ~Connection() {}
 		int	fd;
-		ServerBlock *config;
+	//:w
+	//ServerBlock *config;
+		Http *http;
+	protected:
 };

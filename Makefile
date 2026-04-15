@@ -36,7 +36,7 @@ MKDIR	:= mkdir -p
 CXXFLAGS	?=
 CXXFLAGS	+= -Wall -Werror -Wextra
 CXXFLAGS	+= -std=c++98 -MMD -MP
-CPPFLAGS	:= -I $(IDIR)
+CPPFLAGS	:= -I $(IDIR) -I parser/inc/
 
 ifdef DEBUG
 	CXXFLAGS	+= -g3
@@ -49,8 +49,13 @@ endif
 
 all: $(NAME)
 
-$(NAME): $(ODIR) $(OBJS)
-	$(CXX) $(LDFLAGS) -o $(NAME) $(OBJS)
+PARSER_LIB	:= parser/libparser.a
+
+$(NAME): $(PARSER_LIB) $(ODIR) $(OBJS)
+	$(CXX) -o $(NAME) $(OBJS) -L parser/ -lparser
+
+$(PARSER_LIB):
+	$(MAKE) -C parser lib
 
 $(ODIR):
 	$(MKDIR) $(ODIR)
@@ -65,6 +70,7 @@ clean:
 
 fclean: clean
 	$(RM) $(NAME)
+	$(MAKE) -C parser fclean
 
 re: fclean all
 
