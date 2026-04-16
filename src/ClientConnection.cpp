@@ -18,6 +18,7 @@ void	ClientConnection::enqueue_response(EpollLoop &loop, const std::string &resp
 
 void	ClientConnection::handle(EpollLoop &loop, uint32_t events) {
 	if (events & EPOLLIN) {
+		// small buffer to test for multiple reads
 		char buffer[24];
 		int bytes = read(fd, buffer, sizeof(buffer) - 1);
 		if (bytes < 0) {
@@ -30,11 +31,12 @@ void	ClientConnection::handle(EpollLoop &loop, uint32_t events) {
 			loop.del(this);
 		} else {
 			_parser.feed(buffer, bytes);
-			std::cout << "parsing..." << _parser._i << std::endl;
 
 			if (_parser.complete()) {
 				buffer[bytes] = '\0';
 				std::cout << "parser done being fed" << std::endl;
+				std::cout << _parser.raw() << std::endl;
+				// Response res(_parser.request);
 				// hand off to request handler
 				// eventually enqueue_response()
 				std::string response = "HTTP/1.0 200 OK\r\nContent-Length: 5\r\n\r\nidiot";

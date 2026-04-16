@@ -2,7 +2,7 @@
 #include <map>
 #include <sys/epoll.h>
 
-struct Connection;
+class Connection;
 
 #define MAX_EVENTS 64
 
