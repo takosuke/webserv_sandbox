@@ -1,6 +1,6 @@
 #pragma once
 #include "Connection.hpp"
-#include "HttpParser.hpp"
+#include "RequestParser.hpp"
 //#include "Http.hpp"
 
 #include <netinet/in.h>
@@ -16,6 +16,6 @@ class ClientConnection : public Connection {
 		std::string	_write_buf;
 		size_t	_write_offset;
 
-		HttpParser	_parser;
+		RequestParser	_parser;
 		void enqueue_response(EpollLoop &loop, const std::string &response);
 };

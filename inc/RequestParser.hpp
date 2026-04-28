@@ -4,9 +4,9 @@
 
 //DUMMY PARSER
 
-class	HttpParser {
+class	RequestParser {
 	public:
-		HttpParser() : _complete(false), _error(false) {}
+		RequestParser() : _complete(false), _error(false) {}
 		
 
 		// feed function should complain if more data than declared was sent
