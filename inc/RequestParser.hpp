@@ -3,6 +3,20 @@
 #include <string>
 
 //DUMMY PARSER
+// make an enum of states - request line, headers, body, complete, error
+// enum of parse results - complete, incomplete, error
+// feed until we have a line
+// parse it
+// move the state ahead, or to error if something wrong
+// when request complete, signal it, flush it, all that
+// feed fn does a lot of things
+// checks if request header is too big
+// checks if it matches the content length
+// checks if there
+// need fns to parse the request line, the uri, the headers. the body just gets
+// passed on?
+// parse request line checks that the method is accepted, that the http version
+// is accepted, pass uri to parse_uri
 
 class	RequestParser {
 	public:
