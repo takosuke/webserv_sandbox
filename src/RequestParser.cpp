@@ -1,6 +1,7 @@
 #include "RequestParser.hpp"
 #include <cctype>
 #include <algorithm>
+#include "Logger.hpp"
 
 
 void RequestParser::feed(const char *data, int len) {

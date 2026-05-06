@@ -1,4 +1,5 @@
 #include <iostream>
+#include <cstdlib>
 #include "ServerConnection.hpp"
 //#include "ServerBlock.hpp"
 #include "EpollLoop.hpp"
@@ -6,6 +7,8 @@
 
 #include "Http.hpp"
 #include "Grouper.hpp"
+#include "Logger.hpp"
+
 #define MAX_EVENTS 64
 
 int main(int ac, char *av[]) {
@@ -18,6 +21,14 @@ int main(int ac, char *av[]) {
 	//server_blocks.push_back(&block_2);
 	// Arns config thing
 	const char *config_path = (ac > 1) ? av[1] : "webserv.conf";
+	const char* lvl = std::getenv("LOG_LEVEL");
+	if (lvl) {
+		std::string s(lvl);
+		if (s == "DEBUG") Logger::instance().setLevel(LOG_DEBUG);
+		else if (s == "INFO") Logger::instance().setLevel(LOG_INFO);
+		else if (s == "WARN") Logger::instance().setLevel(LOG_WARN);
+		else if (s == "ERROR") Logger::instance().setLevel(LOG_ERROR);
+	}
 	Grouper grouper(config_path);
 	if (!grouper.group()) {
 		std::cerr << "Failed to parse config" << std::endl;
