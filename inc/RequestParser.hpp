@@ -1,6 +1,8 @@
 #pragma once
 #include <iostream>
 #include <string>
+#include <sstream>
+#include "Request.hpp"
 
 //DUMMY PARSER
 // make an enum of states - request line, headers, body, complete, error
@@ -18,25 +20,33 @@
 // parse request line checks that the method is accepted, that the http version
 // is accepted, pass uri to parse_uri
 
+enum State {
+	REQUEST_LINE,
+	HEADERS,
+	BODY,
+	COMPLETE
+};
+
 class	RequestParser {
 	public:
-		RequestParser() : _complete(false), _error(false) {}
-		
+		RequestParser() : _state(REQUEST_LINE), _complete(false), _error(false), _req(Request()){}
 
 		// feed function should complain if more data than declared was sent
 		// (400 bad request)
-		void feed(const char *data, int len){
-			if (_complete || _error)
-				return;
-			_buf.append(data, len);
-			if (_buf.find("\r\n\r\n") != std::string::npos)
-				_complete = true;
-		}
+		// should feed etc return ints for error codes
+		void feed(const char *data, int len);
+		void parse_request_line();
+		void parse_uri();
+		void parse_headers();
+		void parse_body();
+		void parse_content_length();
 		bool complete() const { return _complete;}
 		bool error() const { return _error; }
 		const std::string &raw() const { return _buf;}
 	private:
 		std::string _buf;
+		State _state;
 		bool _complete;
 		bool _error;
+		Request _req;
 };

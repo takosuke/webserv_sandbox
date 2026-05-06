@@ -1,5 +1,6 @@
 #pragma once
 #include <string>
+#include <iostream>
 #include <map>
 
 enum HttpMethod {
@@ -10,6 +11,7 @@ enum HttpMethod {
 };
 
 struct Request {
+	// TODO beginning underscores for consistency?
 	HttpMethod	method;
 	std::string	uri;		// raw: "/site/images/42.gif?val=43"
 	std::string	path;		// decoded: "/site/images/42.gif"
@@ -28,4 +30,11 @@ struct Request {
 
 	std::string methodToString(HttpMethod m);
 	HttpMethod stringToMethod(const std::string& s);
+	void		printRequest();
+	friend std::ostream& operator<<(std::ostream& os, const Request& req) {
+		os << "Request method:" << req.method << std::endl
+			<< "Request path:" << req.path << std::endl
+			<< "Query string:" << req.query << std::endl;
+		return os;
+	}
 };
