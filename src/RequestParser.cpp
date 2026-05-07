@@ -47,7 +47,7 @@ int RequestParser::parse_request_line() {
 		if (request_line.find(' ', sp_second + 1) != std::string::npos)
 			return 400;
 		std::string method = request_line.substr(0, sp_first);
-		if (!isValidMethodString(method))
+		if (!isValidToken(method))
 			return 400;
 		_req.method = _req.stringToMethod(method);
 		if (_req.method == UNKNOWN)
@@ -98,8 +98,8 @@ int RequestParser::parse_headers() {
 		_req.headers.insert(std::make_pair(key, val));
 		_buf.erase(0, pos + 2);
 		pos = _buf.find("\r\n");
-		return 0;
 	}
+	return 0;
 }
 
 void RequestParser::parse_content_length() {
@@ -125,16 +125,18 @@ void RequestParser::parse_body() {
 	}
 }
 
-bool RequestParser::isValidMethodString(const std::string& method) {
-	if (method.empty()) return false;
+static bool isTokenChar(unsigned char c) {
 	static const std::string separators = "()<>@,;:\\\"/[]?={} \t";
-	for (size_t i = 0; i < method.size(); ++i)
-	{
-		if (method[i] >= 127) return false;
-		if (method[i] <= 31) return false;
-		if (separators.find(static_cast<char>(method[i])) != std::string::npos)
-			return false;
-	}
-	return true;
+
+	if (c >= 127)	return false;
+	if (c <= 31)	return false;
+	return separators.find(static_cast<char>(c)) == std::string::npos;
 }
 
+static bool isValidToken(const std::string& token) {
+	if (token.empty()) return false;
+	for (size_t i = 0; i < token.size(); ++i)
+		if (!isTokenChar(static_cast<unsigned char>(token[i])))
+			return false;
+	return true;
+}

@@ -42,7 +42,6 @@ class	RequestParser {
 		void parse_content_length();
 		bool complete() const { return _complete;}
 		const std::string &raw() const { return _buf;}
-		bool isValidMethodString(const std::string& method);
 	private:
 		std::string _buf;
 		State _state;
