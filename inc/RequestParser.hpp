@@ -29,24 +29,23 @@ enum State {
 
 class	RequestParser {
 	public:
-		RequestParser() : _state(REQUEST_LINE), _complete(false), _error(false), _req(Request()){}
+		RequestParser() : _state(REQUEST_LINE), _complete(false), _req(Request()){}
 
 		// feed function should complain if more data than declared was sent
 		// (400 bad request)
 		// should feed etc return ints for error codes
 		void feed(const char *data, int len);
-		void parse_request_line();
+		int parse_request_line();
 		void parse_uri();
-		void parse_headers();
+		int parse_headers();
 		void parse_body();
 		void parse_content_length();
 		bool complete() const { return _complete;}
-		bool error() const { return _error; }
 		const std::string &raw() const { return _buf;}
+		bool isValidMethodString(const std::string& method);
 	private:
 		std::string _buf;
 		State _state;
 		bool _complete;
-		bool _error;
 		Request _req;
 };

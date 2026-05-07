@@ -19,9 +19,9 @@ void	ClientConnection::enqueue_response(EpollLoop &loop, const std::string &resp
 void	ClientConnection::handle(EpollLoop &loop, uint32_t events) {
 	if (events & EPOLLIN) {
 		// small buffer to test for multiple reads
+		// TODO make it a big number!
 		char buffer[24];
 		int bytes = read(fd, buffer, sizeof(buffer) - 1);
-		std::cout << "Buf:" << buffer << std::endl;
 		if (bytes < 0) {
 			if (errno == EAGAIN || errno == EWOULDBLOCK)
 				return ;
@@ -33,17 +33,17 @@ void	ClientConnection::handle(EpollLoop &loop, uint32_t events) {
 		} else {
 			_parser.feed(buffer, bytes);
 
+			if (_parser.error())
+				std::cout << "parser error" << std::endl; // route to error page
 			if (_parser.complete()) {
 				buffer[bytes] = '\0';
 				// Response res(_parser.request);
+				// make route
 				// hand off to request handler
 				// eventually enqueue_response()
 				std::string response = "HTTP/1.0 200 OK\r\nContent-Length: 5\r\n\r\nidiot";
 				enqueue_response(loop, response);
 			}
-			// buffer[bytes] = '\0';
-			// std::string response = "HTTP/1.0 200 OK\r\nContent-Length: 5\r\n\r\nidiot";
-			// enqueue_response(loop, response);
 		}
 	}
 	if (events & EPOLLOUT) {

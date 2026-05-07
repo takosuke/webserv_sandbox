@@ -17,7 +17,7 @@ struct Request {
 	std::string	path;		// decoded: "/site/images/42.gif"
 	std::string	query;		// querystring "val=43" or nothing
 	std::string	version;	// "HTTP/1.0"
-	std::map<std::string, std::string> headers; // lowercased keys
+	std::map<std::string, std::string> headers; // lowercased ke=ys
 	std::string	body;
 	size_t		content_length;
 
