@@ -36,7 +36,7 @@ class	RequestParser {
 		// should feed etc return ints for error codes
 		void feed(const char *data, int len);
 		int parse_request_line();
-		void parse_uri();
+		bool parse_uri();
 		int parse_headers();
 		void parse_body();
 		void parse_content_length();

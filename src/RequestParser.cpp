@@ -4,6 +4,42 @@
 #include "Logger.hpp"
 #include "Request.hpp"
 
+static bool isTokenChar(unsigned char c) {
+	static const std::string separators = "()<>@,;:\\\"/[]?={} \t";
+
+	if (c >= 127)	return false;
+	if (c <= 31)	return false;
+	return separators.find(static_cast<char>(c)) == std::string::npos;
+}
+
+static bool isValidToken(const std::string& token) {
+	if (token.empty()) return false;
+	for (size_t i = 0; i < token.size(); ++i)
+		if (!isTokenChar(static_cast<unsigned char>(token[i])))
+			return false;
+	return true;
+}
+
+static int validateVersion(const std::string& version) {
+	// should we allow extra 0s after?it's officially valid according to RFC
+	// 2145
+	if (version.size() > 8)
+		return 400;
+	if (version == "HTTP/1.0" || version == "HTTP/1.1")
+		return 0;
+	else if (version == "HTTP/2.0")
+		return 505;
+	else
+		return 400;
+
+}
+
+static bool validateReqPath(const std::string& path) {
+	// path validation logic
+	if (path.empty())
+		return false;
+	return true;
+}
 
 void RequestParser::feed(const char *data, int len) {
 	_buf.append(data, len);
@@ -54,22 +90,31 @@ int RequestParser::parse_request_line() {
 			return 501;
 		_req.uri = request_line.substr(sp_first + 1, sp_second - sp_first - 1);
 		_req.version = request_line.substr(sp_second + 1);
+		if (validateVersion(_req.version))
+			return (validateVersion(_req.version));
 		if (_req.uri.empty() || _req.version.empty())
 			return 400;
 
-		parse_uri();
+		if (!parse_uri())
+			return 400;
 		_state = HEADERS;
 		_buf.erase(0, pos + 1);
 	}
 	return 0;
 }
 
-void RequestParser::parse_uri() {
+bool RequestParser::parse_uri() {
 	size_t pos = _req.uri.find("?");
+	// TODO resolve dot segments
+	// Root escape check belongs to router
 	_req.path = _req.uri.substr(0, pos);
+	if (!(validateReqPath(_req.path)))
+		return false;
+	// TODO resolve percent decodes etc
 	if (pos != std::string::npos) {
 		_req.query = _req.uri.substr(pos + 1);
 	}
+	return true;
 
 }
 
@@ -125,18 +170,3 @@ void RequestParser::parse_body() {
 	}
 }
 
-static bool isTokenChar(unsigned char c) {
-	static const std::string separators = "()<>@,;:\\\"/[]?={} \t";
-
-	if (c >= 127)	return false;
-	if (c <= 31)	return false;
-	return separators.find(static_cast<char>(c)) == std::string::npos;
-}
-
-static bool isValidToken(const std::string& token) {
-	if (token.empty()) return false;
-	for (size_t i = 0; i < token.size(); ++i)
-		if (!isTokenChar(static_cast<unsigned char>(token[i])))
-			return false;
-	return true;
-}
