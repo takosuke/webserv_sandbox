@@ -9,8 +9,6 @@
 #include "Grouper.hpp"
 #include "Logger.hpp"
 
-#define MAX_EVENTS 64
-
 int main(int ac, char *av[]) {
 	// Should be getting these from parsing the config file
 //	ServerBlock block_1(8080, "localhost", "/var/www/");
