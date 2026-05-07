@@ -26,6 +26,8 @@ void	ClientConnection::handle(EpollLoop &loop, uint32_t events) {
 			if (errno == EAGAIN || errno == EWOULDBLOCK)
 				return ;
 			loop.del(this);
+			// TODO throw will kill the server - should wrap conn->handle
+			// in try-catch
 			throw std::runtime_error(std::string("Read from client error: ") + strerror(errno));
 		}
 		if (bytes == 0) {
@@ -33,7 +35,7 @@ void	ClientConnection::handle(EpollLoop &loop, uint32_t events) {
 		} else {
 			_parser.feed(buffer, bytes);
 
-			if (_parser.error())
+			if (_parser.getRequest().error)
 				std::cout << "parser error" << std::endl; // route to error page
 			if (_parser.complete()) {
 				buffer[bytes] = '\0';

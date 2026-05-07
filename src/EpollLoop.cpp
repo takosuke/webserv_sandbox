@@ -34,6 +34,7 @@ void	EpollLoop::add(Connection *conn) {
 	memset(&ev, 0, sizeof(ev));
 	ev.events = EPOLLIN | EPOLLERR | EPOLLHUP;
 	ev.data.ptr = conn;
+	// TODO error check EPOLL_CTL_ADD
 	epoll_ctl(_epoll_fd, EPOLL_CTL_ADD, conn->fd, &ev);
 	_connections[conn->fd] = conn;
 }
@@ -43,11 +44,13 @@ void	EpollLoop::mod(Connection *conn, uint32_t events) {
 	memset(&ev, 0, sizeof(ev));
 	ev.events = events;
 	ev.data.ptr = conn;
+	// TODO error check EPOLL_CTL_MOD
 	epoll_ctl(_epoll_fd, EPOLL_CTL_MOD, conn->fd, &ev);
 }
 
 void	EpollLoop::del(Connection *conn) {
 	std::cout << "Client fd=" << conn->fd << " disconnected\n";
+	// TODO error check EPOLL_CTL_DEL
 	epoll_ctl(_epoll_fd, EPOLL_CTL_DEL, conn->fd, NULL);
 	_connections.erase(conn->fd);
 	close(conn->fd);
@@ -57,11 +60,18 @@ void	EpollLoop::del(Connection *conn) {
 void	EpollLoop::run() {
 	while (true) {
 		int ready = epoll_wait(_epoll_fd, _events, MAX_EVENTS, -1);
+		// TODO EINTR not handled
+		// if (ready < 0 && errno == EINTR) continue;
 		if (ready < 0) {
 			std::cerr << "epoll_wait() failed" << std::endl; // TODO throw exception
 			// here
 			break;
 		}
+		// TODO events.data after i can become dangling pointer if kernel
+		// returns events after i in the same epoll_wait batch (possible when
+		// EPOLLIN and EPOLLHUP arrive together) - should skip remaining
+		// processing for this fd after del(conn) or check _connections.count
+		// before dereferencing
 		for (int i = 0; i < ready; i++) {
 			Connection *conn = (Connection*)_events[i].data.ptr;
 			if (_events[i].events & (EPOLLERR | EPOLLHUP)) {

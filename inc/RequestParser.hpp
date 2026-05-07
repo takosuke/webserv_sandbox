@@ -42,6 +42,7 @@ class	RequestParser {
 		void parse_content_length();
 		bool complete() const { return _complete;}
 		const std::string &raw() const { return _buf;}
+		const Request& getRequest() const { return _req; }
 	private:
 		std::string _buf;
 		State _state;
