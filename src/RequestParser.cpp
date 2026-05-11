@@ -20,6 +20,17 @@ static bool isValidToken(const std::string& token) {
 	return true;
 }
 
+static bool isURITokenChar(unsigned char c) {
+	if (c >= 127)	return false;
+	if (c <= 32)	return false;
+	return true;
+}
+
+static bool isValidHex(char a, char b) {
+	//TODO 
+	return std::isxdigit((unsigned char)a) && std::isxdigit((unsigned char)b);
+}
+
 static int validateVersion(const std::string& version) {
 	// should we allow extra 0s after?it's officially valid according to RFC
 	// 2145
@@ -36,8 +47,21 @@ static int validateVersion(const std::string& version) {
 
 static bool validateReqPath(const std::string& path) {
 	// path validation logic
-	if (path.empty())
-		return false;
+	// check for: malformed %HH encodes, reject literal CTLs and nonascii
+	// resolve . and ..
+	// its up to router to check if path stays within root
+	if (path.empty()) return false;
+	for (size_t i = 0; i < path.size(); ++i)
+		if (!isURITokenChar(static_cast<unsigned char>(path[i])))
+			return false;
+	for (size_t i = 0; i < path.size(); ++i) {
+		if (path[i] == '%') {
+			if (i + 2 >= path.size())
+				return false;
+			if (!isValidHex(path[i + 1], path[i + 2]))
+				return false;
+		}
+	}
 	return true;
 }
 
@@ -67,7 +91,7 @@ int RequestParser::parse_request_line() {
 	// method should have more granular error checking?
 	// check URI char validity (no raw control, no null, percent encoding
 	// something - every % followed by 2 hex digits)
-	// path traversal - check paths are /../
+	// path traversal - check paths are /../ --> router responsibility
 	size_t pos = _buf.find("\n");
 	// we check if the full CLRF is there
 	if (_buf[pos - 1] != '\r')
@@ -106,11 +130,12 @@ int RequestParser::parse_request_line() {
 bool RequestParser::parse_uri() {
 	size_t pos = _req.uri.find("?");
 	// TODO resolve dot segments
-	// Root escape check belongs to router
+	// Root escape check belongs to router?
 	_req.path = _req.uri.substr(0, pos);
 	if (!(validateReqPath(_req.path)))
 		return false;
-	// TODO resolve percent decodes etc
+	// query string sent as is to CGI handler who is supposed to do the percent
+	// decoding etc
 	if (pos != std::string::npos) {
 		_req.query = _req.uri.substr(pos + 1);
 	}
@@ -157,6 +182,7 @@ void RequestParser::parse_content_length() {
 	}
 
 }
+
 void RequestParser::parse_body() {
 	if (_req.content_length == 0)
 	{

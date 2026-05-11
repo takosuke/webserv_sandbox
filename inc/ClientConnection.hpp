@@ -9,7 +9,7 @@
 class ClientConnection : public Connection {
 	public:
 		// TODO constructors, destructors etc
-		ClientConnection() _write_offset(0) {}
+		ClientConnection() : _write_offset(0) {}
 		void handle(EpollLoop &loop, uint32_t events);
 		struct sockaddr_in listening_addr;
 
