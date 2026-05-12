@@ -23,6 +23,9 @@ SRCS	+= EpollLoop.cpp
 SRCS	+= ServerBlock.cpp
 SRCS	+= RequestParser.cpp
 SRCS	+= Request.cpp
+
+SRCS	+= Response.cpp
+
 SRCS	+= utils.cpp
 
 OBJS	:= $(SRCS:.cpp=.o)
