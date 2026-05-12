@@ -1,5 +1,6 @@
 #pragma once
-#include "config.hpp"
+
+#include "Config.hpp"
 
 void	set_nonblocking(int fd);
 int		make_server_socket(const config::listen &l);

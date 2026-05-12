@@ -5,8 +5,7 @@
 #include "EpollLoop.hpp"
 #include "utils.hpp"
 
-#include "Http.hpp"
-#include "Grouper.hpp"
+#include "Config.hpp"
 #include "Logger.hpp"
 
 int main(int ac, char *av[]) {

@@ -1,0 +1,1524 @@
+#include "Config.hpp"
+
+#include <stdexcept>
+#include <sys/socket.h>
+#include <unistd.h>
+#include <sstream>
+#include <map>
+#include <utility>
+#include <vector>
+#include <iostream>
+
+/* DIRECTIVE STRUCTS **********************************************************/
+
+/* CONFIG :: HEADER ***********************************************************/
+
+config::header::header() {
+	buffer_size = 1024;
+	timeout = 60;
+	nlbuffers = 4;
+	lbuffer_size = 8192;
+}
+
+config::header::header(const header & other) {
+	*this = other;
+}
+
+config::header::~header() { };
+
+config::header & config::header::operator=(const header & other) {
+	if (this == &other)
+		return (*this);
+	buffer_size = other.buffer_size;
+	timeout = other.timeout;
+	nlbuffers = other.nlbuffers;
+	lbuffer_size = other.lbuffer_size;
+	return (*this);
+}
+
+void config::add_client_header_buffer_size(config::header & header, const std::vector<Token> & tokens) {
+	try {
+		check_parameter_count(1, 1, tokens.size());
+
+		if (tokens[0].type != Token::number && tokens[0].type != Token::memory)
+			throw (std::runtime_error("expected number/memory parameter"));
+
+		header.buffer_size = tokens[0].num;
+	} catch (std::exception & e) {
+		throw (std::runtime_error(std::string("[client_header_buffer_size] ") + e.what()));
+	}
+}
+
+void config::add_client_header_timeout(config::header & header, const std::vector<Token> & tokens) {
+	try {
+		check_parameter_count(1, 1, tokens.size());
+
+		if (tokens[0].type != Token::number && tokens[0].type != Token::time)
+			throw (std::runtime_error("expected number/time parameter"));
+
+		header.timeout = tokens[0].num;
+	} catch (std::exception & e) {
+		throw (std::runtime_error(std::string("[client_header_timeout] ") + e.what()));
+	}
+}
+
+void config::add_large_client_header_buffers(config::header & header, const std::vector<Token> & tokens) {
+	try {
+		check_parameter_count(1, 2, tokens.size());
+
+		if (tokens[0].type != Token::number)
+			throw (std::runtime_error("expected number parameter"));
+		header.nlbuffers = tokens[0].num;
+
+		if (tokens[1].type != Token::number && tokens[1].type != Token::memory)
+			throw (std::runtime_error("expected number/memory parameter"));
+		header.lbuffer_size = tokens[1].num;
+	} catch (std::exception & e) {
+		throw (std::runtime_error(std::string("[large_client_header_buffers] ") + e.what()));
+	}
+}
+
+std::ostream & operator<<(std::ostream & out, const config::header & header) {
+	out << "header { buffer_size: " << header.buffer_size <<
+		", timeout: " << header.timeout <<
+		", large_buffers: " << header.nlbuffers <<
+		", large_buffer_size: " << header.lbuffer_size << " }";
+	return (out);
+}
+
+/* CONFIG :: BODY *************************************************************/
+
+config::body::body() {
+	buffer_size = 8192;
+	max_size = 1048576;
+	timeout = 60;
+}
+
+config::body::body(const body & other) {
+	*this = other;
+}
+
+config::body::~body() { }
+
+config::body & config::body::operator=(const body & other) {
+	if (this == &other)
+		return (*this);
+	buffer_size = other.buffer_size;
+	max_size = other.max_size;
+	timeout = other.timeout;
+	return (*this);
+}
+
+void config::add_client_body_buffer_size(config::body & body, const std::vector<Token> & tokens) {
+	try {
+		check_parameter_count(1, 1, tokens.size());
+		if (tokens[0].type != Token::number && tokens[0].type != Token::memory)
+			throw (std::runtime_error("expected numerical parameter"));
+		body.buffer_size = tokens[0].num;
+	} catch (std::exception & e) {
+		throw (std::runtime_error(std::string("[client_body_buffer_size] ") + e.what()));
+	}
+}
+
+void config::add_client_body_timeout(config::body & body, const std::vector<Token> & tokens) {
+	try {
+		check_parameter_count(1, 1, tokens.size());
+		if (tokens[0].type != Token::number && tokens[0].type != Token::time)
+			throw (std::runtime_error("expected numerical parameter"));
+		body.timeout = tokens[0].num;
+	} catch (std::exception & e) {
+		throw (std::runtime_error(std::string("[client_body_timeout] ") + e.what()));
+	}
+}
+
+void config::add_client_max_body_size(config::body & body, const std::vector<Token> & tokens) {
+	try {
+		check_parameter_count(1, 1, tokens.size());
+
+		if (tokens[0].type != Token::number && tokens[0].type != Token::memory)
+			throw (std::runtime_error("expected numerical parameter"));
+
+		body.max_size = tokens[0].num;
+	} catch (std::exception & e) {
+		throw (std::runtime_error(std::string("[client_max_body_size] ") + e.what()));
+	}
+}
+
+std::ostream & operator<<(std::ostream & out, const config::body & body) {
+	out << "body { buffer_size: " << body.buffer_size <<
+		", max_size: " << body.max_size <<
+		", timeout: " << body.timeout << " }";
+	return (out);
+}
+
+/* CONFIG :: OUTPUT ***********************************************************/
+
+config::output::output() {
+	buffer_size = 32000;
+	nbuffers = 2;
+}
+
+config::output::output(const config::output & other) {
+	*this = other;
+}
+
+config::output::~output() {
+
+}
+
+config::output & config::output::operator=(const config::output & other) {
+	if (this == &other)
+		return (*this);
+	buffer_size = other.buffer_size;
+	nbuffers = other.nbuffers;
+	return (*this);
+}
+
+void config::add_output_buffers(config::output & output, const std::vector<Token> & tokens) {
+	try {
+		check_parameter_count(2, 2, tokens.size());
+
+		if (tokens[0].type != Token::number)
+			throw (std::runtime_error("expected number parameter"));
+		output.buffer_size = tokens[0].num;
+
+		if (tokens[1].type != Token::number)
+			throw (std::runtime_error("expected number parameter"));
+		output.nbuffers = tokens[1].num;
+	} catch (std::exception & e) {
+		throw (std::runtime_error(std::string("[output_buffers] ") + e.what()));
+	}
+}
+
+std::ostream & operator<<(std::ostream & out, const config::output & output) {
+	out << "output { buffer_size: " << output.buffer_size <<
+		", buffers: " << output.nbuffers << " }";
+	return (out);
+}
+
+/* CONFIG :: LIMIT ************************************************************/
+
+config::limit::limit() {
+	allowed.insert(GET);
+	allowed.insert(HEAD);
+	allowed.insert(POST);
+	allowed.insert(PUT);
+	allowed.insert(DELETE);
+	allowed.insert(MKCOL);
+	allowed.insert(COPY);
+	allowed.insert(MOVE);
+	allowed.insert(OPTIONS);
+	allowed.insert(PROPFIND);
+	allowed.insert(PROPPATCH);
+	allowed.insert(LOCK);
+	allowed.insert(UNLOCK);
+	allowed.insert(PATCH);
+}
+
+config::limit::limit(const config::limit & other) {
+	*this = other;
+}
+
+config::limit::~limit() { };
+
+config::limit & config::limit::operator=(const config::limit & other) {
+	if (this == &other)
+		return (*this);
+	allowed = other.allowed;
+	return (*this);
+}
+
+bool config::limit::is_allowed(const std::string & met) const {
+	return (is_allowed(method_from_string(met)));
+}
+
+bool config::limit::is_allowed(const config::limit::method & met) const {
+	std::set<config::limit::method>::const_iterator it = allowed.find(met);
+
+	return (it != allowed.end());
+}
+
+const static std::string methodstrings[15] = {
+	"GET", "HEAD", "POST", "PUT", "DELETE", "MKCOL", "COPY", "MOVE",
+	"OPTIONS", "PROPFIND", "PROPPATCH", "LOCK", "UNLOCK", "PATCH", "INVALID"
+};
+const static config::limit::method methodarr[15] = {
+	config::limit::GET, config::limit::HEAD,
+	config::limit::POST, config::limit::PUT,
+	config::limit::DELETE, config::limit::MKCOL,
+	config::limit::COPY, config::limit::MOVE,
+	config::limit::OPTIONS, config::limit::PROPFIND,
+	config::limit::PROPPATCH, config::limit::LOCK,
+	config::limit::UNLOCK, config::limit::PATCH
+};
+
+config::limit::method config::limit::method_from_string(const std::string & str) {
+	for (int i = 0; i < 14; i++) {
+		if (str == methodstrings[i])
+			return (methodarr[i]);
+	}
+	return (config::limit::INVALID);
+}
+
+std::string config::limit::string_from_method(const config::limit::method & method) {
+	for (int i = 0; i < 15; i++) {
+		if (method == methodarr[i])
+			return (methodstrings[i]);
+	}
+	return (methodstrings[15]);
+}
+
+void config::limit::set_allowed(const std::vector<Token> & tokens) {
+	if (tokens.size() == 0)
+		 throw (std::runtime_error("no parameteres provided for limit_except directive"));
+
+	allowed = std::set<config::limit::method>();
+
+	for (std::vector<Token>::const_iterator it = tokens.begin();
+		it != tokens.end(); it++) {
+		if (it->type != Token::string)
+			throw (std::runtime_error("non string token provided as a parameter"));
+		method tmp = method_from_string(it->str);
+		if (tmp == INVALID)
+			throw (std::runtime_error("non method string provided as a parameter"));
+		allowed.insert(tmp);
+	}
+}
+
+void config::add_limit_except(config::limit & limit, const std::vector<Token> & tokens) {
+	try {
+		limit.set_allowed(tokens);
+	} catch (std::exception & e) {
+		throw (std::runtime_error(std::string("[limit_except] ") + e.what()));
+	}
+}
+
+std::ostream & operator<<(std::ostream & out, const config::limit & limit) {
+	out << "limit_except { allowed: ";
+	if (limit.allowed.size() == 0) {
+		out << "all }";
+		return (out);
+	}
+	for (std::set<config::limit::method>::const_iterator it = limit.allowed.begin();
+		it != limit.allowed.end(); it++) {
+		if (it != limit.allowed.begin())
+			out << ", ";
+		out << config::limit::string_from_method(*it);
+	}
+	out << " }";
+	return (out);
+}
+
+/* CONFIG :: LISTEN ***********************************************************/
+
+config::listen::listen() {
+	port = 80;
+	addr = 16777343; /** 127.0.0.1 in network-byte order */
+	backlog = 5;
+	is_default = false;
+	create_sockaddr();
+}
+
+config::listen::listen(const listen & other) {
+	*this = other;
+}
+
+config::listen::listen(unsigned long int p, unsigned long int a, unsigned long int b, bool is_d) {
+	port = p;
+	addr = a;
+	backlog = b;
+	is_default = is_d;
+	create_sockaddr();
+}
+
+config::listen & config::listen::operator=(const config::listen & other) {
+	port = other.port;
+	addr = other.addr;
+	backlog = other.backlog;
+	is_default = other.is_default;
+	create_sockaddr();
+	return (*this);
+}
+
+config::listen::~listen() { };
+
+#include <cstring>
+
+void config::listen::create_sockaddr() {
+	bzero(&sockaddr, sizeof(sockaddr));
+	sockaddr.sin_family = AF_INET;
+	sockaddr.sin_port = htons(port);
+	sockaddr.sin_addr.s_addr = static_cast<in_addr_t>(addr);
+}
+
+void config::add_listen(std::vector<config::listen> & listenvec, const std::vector<Token> & tokens) {
+	try {
+		check_parameter_count(1, 3, tokens.size());
+
+		config::listen listen;
+
+		std::vector<Token>::const_iterator	tokenit = tokens.begin();
+
+		unsigned long int		tmpaddr = listen.addr;
+		char *	tmp = reinterpret_cast<char *>(&tmpaddr);
+		int		num;
+
+		std::istringstream	stream(tokenit->str);
+		if (std::isdigit(stream.peek())) {
+			for (int i = 0; i < 4; i++) {
+				stream >> num;
+				if (stream.bad())
+					throw (std::runtime_error("istream error reading address"));
+				tmp[i] = static_cast<char>(num);
+				if (i != 3 && stream.eof()) {
+					if (i == 0) {
+						stream.seekg(0);
+						tmpaddr = listen.addr;
+						break ;
+					}
+					throw (std::runtime_error("address formatting error"));
+				}
+				if (i < 3) {
+					if (stream.peek() == '.')
+						stream.ignore(1, '.');
+					else
+						throw (std::runtime_error("address formatting error"));
+				}
+			}
+		}
+		listen.addr = tmpaddr;
+		if (stream.peek() == ':') {
+			stream.ignore(1, ':');
+		}
+		if (!stream.eof()) {
+			stream >> listen.port;
+			if (stream.bad())
+				throw (std::runtime_error("istream error reading port"));
+		}
+		++tokenit;
+
+		listen.is_default = false;
+		if (tokenit != tokens.end()) {
+			if (tokenit->type != Token::string)
+				throw (std::runtime_error("non-string token as parameter"));
+			if (tokenit->str == "default_server") {
+				listen.is_default = true;
+				++tokenit;
+			}
+		}
+
+		if (tokenit != tokens.end()) {
+			if (tokenit->type != Token::string && tokenit->type != Token::path)
+				throw (std::runtime_error("non-string token as parameter"));
+			size_t	seppos = tokenit->str.find('=');
+
+			if (seppos == std::string::npos)
+				throw (std::runtime_error("expected to find a '=' variable/value seperator"));
+			if (!tokenit->str.compare(0, seppos, "backlog")) {
+				std::istringstream stream(tokenit->str.substr(seppos + 1, tokenit->str.size() - seppos - 1));
+
+				stream >> listen.backlog;
+				if (stream.bad())
+					throw (std::runtime_error("expected number after backlog parameter"));
+			}
+			++tokenit;
+		}
+
+		if (tokenit != tokens.end())
+			throw (std::runtime_error("too many parameters for listen directive"));
+
+		listen.create_sockaddr();
+		listenvec.push_back(listen);
+	} catch (std::exception & e) {
+		throw (std::runtime_error(std::string("[listen] ") + e.what()));
+	}
+}
+
+std::ostream & operator<<(std::ostream & out, const config::listen & listen) {
+	out << "listen { ";
+	if (listen.is_default)
+		out << "default_server, ";
+	int	cpy_addr = listen.addr;
+	char *tmp = reinterpret_cast<char *>(&cpy_addr);
+
+	out << "address: " << static_cast<int>(tmp[0]) <<
+		"." << static_cast<int>(tmp[1]) <<
+		"." << static_cast<int>(tmp[2]) <<
+		"." << static_cast<int>(tmp[3]) <<
+		", port: " << listen.port <<
+		", backlog: " << listen.backlog << " }";
+	return (out);
+}
+
+bool operator==(const config::listen & lhs, const config::listen & rhs) {
+	return (lhs.port == rhs.port &&
+		lhs.addr == rhs.addr &&
+		lhs.backlog == rhs.backlog);
+}
+
+/* CONFIG :: MIME *************************************************************/
+
+config::mime::mime() {
+	_default = std::string("text/plain");
+	add_type("html", "text/html");
+	add_type("gif", "image/gif");
+	add_type("jpeg", "image/jpeg");
+}
+
+config::mime::mime(const mime & other) {
+	*this = other;
+}
+
+config::mime::~mime() { };
+
+config::mime & config::mime::operator=(const mime & other) {
+	if (this == &other)
+		return (*this);
+	_default = other._default;
+	types = other.types;
+	return (*this);
+}
+
+void config::mime::clear_types() {
+	types.clear();
+}
+
+void config::mime::add_type(const std::string & extension, const std::string & type) {
+	types[extension] = type;
+}
+
+void config::mime::set_default(const std::string & type) {
+	_default = type;
+}
+
+std::string config::mime::get_type(const std::string & extension) const {
+	std::map<std::string, std::string>::const_iterator it = types.find(extension);
+
+	if (it == types.end())
+		return (_default);
+	return (it->second);
+}
+
+std::string config::mime::get_default() const{
+	return (_default);
+}
+
+void config::add_types(config::mime & mime, const BodyDirective & directive) {
+	try {
+		mime.clear_types();
+
+		if (directive.body_directives.size() > 0)
+			throw (std::runtime_error("No body directives allowed inside types directive"));
+
+		for (std::vector<SimpleDirective>::const_iterator it = directive.simple_directives.begin();
+		it != directive.simple_directives.end(); it++) {
+			check_parameter_count(1, -1, directive.simple_directives.size());
+
+			for (std::vector<Token>::const_iterator tokit = it->parameters.begin();
+			tokit != it->parameters.end(); tokit++) {
+				if (tokit->type != Token::string)
+					throw (std::runtime_error("expected string token as parameter for type extension"));
+				else
+					mime.add_type(tokit->str, it->name);
+			}
+		}
+	} catch (std::exception & e) {
+		throw (std::runtime_error(std::string("[types] ") + e.what()));
+	}
+}
+
+std::string  config::mime::get_type_ext_string() const {
+	std::vector<std::pair<std::string, std::vector<std::string> > > collect_types;
+
+	for (std::map<std::string, std::string>::const_iterator it = types.begin();
+		it != types.end(); it++) {
+		std::vector<std::pair<std::string, std::vector<std::string> > >::iterator typeit;
+		for (typeit = collect_types.begin();
+			typeit != collect_types.end(); typeit++) {
+			if (typeit->first == it->second) {
+				typeit->second.push_back(it->first);
+				break ;
+			}
+		}
+		if (typeit == collect_types.end()) {
+			std::pair<std::string, std::vector<std::string> > new_type = std::make_pair(it->second, std::vector<std::string>());
+			new_type.second.push_back(it->first);
+			collect_types.push_back(new_type);
+		}
+	} 
+
+	std::ostringstream ret;
+	ret << "type_extension_map { ";
+	for (std::vector<std::pair<std::string, std::vector<std::string> > >::const_iterator it = collect_types.begin();
+		it != collect_types.end(); it++) {
+		if (it != collect_types.begin())
+			ret << ", ";
+		ret << it->first << " extensions { ";
+		for (std::vector<std::string>::const_iterator extit = it->second.begin();
+			extit != it->second.end(); extit++) {
+			if (extit != it->second.begin())
+				ret << ", ";
+			ret << *extit;
+		}
+		ret << " }";
+	}
+	ret << " }";
+	return (ret.str());
+}
+
+void config::add_default_type(config::mime & mime, const std::vector<Token> & tokens) {
+	try {
+		check_parameter_count(1, 1, tokens.size());
+		mime.set_default(tokens[0].str);
+	} catch (std::exception & e) {
+		throw (std::runtime_error(std::string("[default_type] ") + e.what()));
+	}
+}
+
+std::ostream & operator<<(std::ostream & out, const config::mime & mime) {
+	out << "mime { default_type: " << mime.get_default() <<
+		", types: " << mime.get_type_ext_string() << " }";
+	return (out);
+}
+
+/* CONFIG :: ERRORS ***********************************************************/
+
+config::errors::errors() {
+	_default = errorpage(false, false, 404, DEFAULT_ERROR_PAGE);
+}
+
+config::errors::errors(const config::errors & other) {
+	*this = other;
+}
+
+config::errors::~errors() { }
+
+config::errors & config::errors::operator=(const config::errors & other) {
+	if (this == &other)
+		return (*this);
+	_default = other._default;
+	pages = other.pages;
+	return (*this);
+}
+
+void config::errors::clear() {
+	pages.clear();
+}
+
+void config::errors::add_page(int error_code, const std::string & page) {
+	pages[error_code] = config::errorpage(false, false, error_code, page);
+}
+
+void config::errors::add_page(int error_code, const std::string & page, int response_code) {
+	pages[error_code] = config::errorpage(false, true, response_code, page);
+}
+
+void config::errors::add_page(int error_code, const std::string & page, bool ucgir) {
+	pages[error_code] = config::errorpage(ucgir, false, error_code, page);
+}
+
+void config::errors::set_default(const std::string & page) {
+	_default = config::errorpage(false, true, DEFAULT_ERROR_CODE, page);
+}
+
+void config::errors::set_default(const std::string & page, int response) {
+	_default = config::errorpage(false, true, response, page);
+}
+
+void config::errors::set_default(const std::string & page, bool ucgir) {
+	_default = config::errorpage(ucgir, false, DEFAULT_ERROR_CODE, page);
+}
+
+config::errorpage config::errors::get_page(int error_code) const {
+	std::map<int, config::errorpage>::const_iterator it = pages.find(error_code);
+
+	if (it == pages.end())
+		return (_default);
+	return (it->second);
+}
+
+config::errorpage config::errors::get_default() const {
+	return (_default);
+}
+
+std::string config::errors::get_errorpages_string() const {
+	std::vector<std::pair<config::errorpage, std::vector<int> > >	collected_pages;
+
+	for (std::map<int, config::errorpage>::const_iterator it = pages.begin();
+		it != pages.end(); it ++) {
+		std::vector<std::pair<config::errorpage, std::vector<int> > >::iterator pageit;
+		for (pageit = collected_pages.begin();
+			pageit != collected_pages.end(); pageit++) {
+			if (pageit->first== it->second) {
+				pageit->second.push_back(it->first);
+				break ;
+			}
+		}
+		if (pageit == collected_pages.end()) {
+			std::pair<config::errorpage, std::vector<int> > new_code = std::make_pair(it->second, std::vector<int>());
+			new_code.second.push_back(it->first);
+			collected_pages.push_back(new_code);
+		}
+	}
+
+	std::ostringstream ret;
+	ret << "error_pages_map { ";
+	for (std::vector<std::pair<config::errorpage, std::vector<int> > >::const_iterator it = collected_pages.begin();
+		it != collected_pages.end(); it++) {
+		if (it != collected_pages.begin())
+			ret << ", ";
+		ret << it->first << ", error_codes { ";
+		for (std::vector<int>::const_iterator codeit = it->second.begin();
+			codeit != it->second.end(); codeit++) {
+			if (codeit != it->second.begin())
+				ret << ", ";
+			ret << *codeit;
+		}
+		ret << " }";
+	}
+	ret << " }";
+	return (ret.str());
+}
+
+config::errorpage::errorpage() : use_cgi_response(false), overwrite_response(false), response_code(0) { }
+
+config::errorpage::errorpage(bool cgi, bool overwrite, int code, const std::string & p) {
+	use_cgi_response = cgi;
+	overwrite_response = overwrite;
+	response_code = code;
+	page = p;
+}
+
+config::errorpage::~errorpage() { }
+
+config::errorpage & config::errorpage::operator=(const config::errorpage & other) {
+	if (this == &other)
+		return (*this);
+	use_cgi_response = other.use_cgi_response;
+	overwrite_response = other.overwrite_response;
+	response_code = other.response_code;
+	page = other.page;
+	return (*this);
+}
+
+bool operator==(const config::errorpage & ep1, const config::errorpage & ep2) {
+	if (ep1.use_cgi_response != ep2.use_cgi_response ||
+		ep1.overwrite_response != ep2.overwrite_response ||
+		ep1.page != ep2.page)
+		return (false);
+	if (ep1.overwrite_response == true && ep1.response_code != ep2.response_code)
+		return (false);
+	return (true);
+}
+
+void config::add_error_page(config::errors & errors, const std::vector<Token> & tokens) {
+	try {
+		check_parameter_count(2, -1, tokens.size());
+
+		std::vector<Token>::const_iterator it = tokens.begin();
+
+		std::vector<int>	codes;
+
+		while (it != tokens.end()) {
+			if (it->type != Token::number)
+				break ;
+			codes.push_back(it->num);
+			++it;
+		}
+
+		if (codes.size() == 0)
+			throw (std::runtime_error("no error codes provided"));
+
+		bool	overwrite_response = false;
+		int		response_code = DEFAULT_ERROR_CODE;
+		bool	use_cgi_response = false;
+		if (it != tokens.end() && it->type == Token::string && it->str == "=") {
+			use_cgi_response = true;
+			++it;
+		}
+
+		if (it != tokens.end() && it->type == Token::string && it->str[0] == '=') {
+			if (use_cgi_response == true)
+				throw (std::runtime_error("cgi and specific response in same directive"));
+
+			// WARNING
+			/** Potentially we need to check later if a location is valid as a
+		* cgi response code location based on if it has a cgi_pass directive */
+			try {
+				std::istringstream stream(it->str.substr(1, it->str.size() - 1));
+				stream >> response_code;
+				if (stream.bad() || !stream.eof())
+					throw (std::runtime_error("invalid number after response code specifier '='"));
+			} catch(std::exception & e) {
+				throw (std::runtime_error(std::string("exception caught trying to read response code specifier: ") + e.what()));;
+			}
+			overwrite_response = true;
+			++it;
+		}
+
+		if (it == tokens.end())
+			throw (std::runtime_error("no error page provided"));
+		if (it->type != Token::path && it->type != Token::string)
+			throw (std::runtime_error("expected path or string token"));
+
+		std::string path = it++->str;
+
+		if (it != tokens.end())
+			throw (std::runtime_error("too many parameters for error_page directive"));
+
+		try {
+			if (use_cgi_response) {
+				for (std::vector<int>::const_iterator codeit = codes.begin();
+				codeit != codes.end(); codeit++) {
+					errors.add_page(*codeit, path, use_cgi_response);
+				}
+			} else if (overwrite_response) {
+				for (std::vector<int>::const_iterator codeit = codes.begin();
+				codeit != codes.end(); codeit++) {
+					errors.add_page(*codeit, path, response_code);
+				}
+			} else {
+				for (std::vector<int>::const_iterator codeit = codes.begin();
+				codeit != codes.end(); codeit++) {
+					errors.add_page(*codeit, path);
+				}
+			}
+		} catch (std::exception & e) {
+			throw (std::runtime_error(std::string("exception caught adding errorpages: ") + e.what()));
+		}
+	} catch (std::exception & e) {
+		throw (std::runtime_error(std::string("[error_pages] ") + e.what()));
+	}
+}
+
+std::ostream & operator<<(std::ostream & out, const config::errorpage & errorpage) {
+	out << "errorpage { page: " << errorpage.page;
+	if (errorpage.use_cgi_response == true) {
+		out << ", use_cgi_response: " << errorpage.use_cgi_response;
+		return (out);
+	} else if (errorpage.overwrite_response == true) {
+		out << ", overwrite_response: " << errorpage.overwrite_response <<
+			", response_code: " << errorpage.response_code;
+	}
+	return (out);
+}
+
+std::ostream & operator<<(std::ostream & out, const config::errors & errors) {
+	out << "errors { default: " << errors.get_default() <<
+		", pages: " << errors.get_errorpages_string() << " }";
+	return (out);
+}
+
+/* CONFIG :: GENERAL **********************************************************/
+
+void config::add_root(std::string & root, const std::vector<Token> & tokens) {
+	try {
+		check_parameter_count(1, 1, tokens.size());
+
+		if (tokens[0].type != Token::path)
+			throw (std::runtime_error("expected path parameter provided"));
+
+		root = tokens[0].str;
+	} catch (std::exception & e) {
+		throw (std::runtime_error(std::string("[root] ") + e.what()));
+	}
+}
+
+void config::add_server_name(std::vector<std::string> & names, const std::vector<Token> & tokens) {
+	try {
+		check_parameter_count(1, -1, tokens.size());
+
+		for (std::vector<Token>::const_iterator it = tokens.begin();
+		it != tokens.end(); it++) {
+			if (it->type != Token::string)
+				throw (std::runtime_error("non string parameter provided"));
+			names.push_back(it->str);
+		}
+	} catch (std::exception & e) {
+		throw (std::runtime_error(std::string("[server_name] ") + e.what()));
+	}
+}
+
+/* LOCATION *******************************************************************/
+
+Location::Location() {
+	path = "";
+	is_prefix = true;
+	root = "html";
+}
+
+Location::Location(const Location & other) {
+	*this = other;
+}
+
+Location::Location(const BodyDirective & directive) {
+	from_directive(directive);
+}
+
+Location::Location(const Server & server) {
+	path = "";
+	is_prefix = true;
+	from_server(server);
+}
+
+Location::~Location() {
+	delete_locations();
+}
+
+void Location::delete_locations() {
+	for (std::vector<const Location *>::iterator it = locations.begin();
+		it != locations.end(); it++) {
+		delete *it;
+	}
+}
+
+Location & Location::operator=(const Location & other) {
+	if (this == &other)
+		return (*this);
+	path = other.path;
+	is_prefix = other.is_prefix;
+	root = other.root;
+	body = other.body;
+	mime = other.mime;
+	errorpages = other.errorpages;
+	copy_deep_container(locations, other.locations);
+	return (*this);
+}
+
+void Location::from_directive(const BodyDirective & directive) {
+	struct {
+		bool	root;
+		bool	body_buffer_size;
+		bool	body_timeout;
+		bool	body_max;
+		bool	default_type;
+		bool	error_page;
+	}	was_set;
+	was_set.root = false;
+	was_set.body_buffer_size = false;
+	was_set.body_timeout = false;
+	was_set.body_max = false;
+	was_set.default_type = false;
+	was_set.error_page = false;
+
+	/* Here to be in scope during try for proper deletin in case of a throw */
+	Location *	loc = NULL;
+
+	/* Try block to catch errors inside of the directives. */
+	try {
+		std::vector<Token>::const_iterator paramit = directive.parameters.begin();
+		if (paramit->type == Token::string && paramit->str == "\\") {
+			is_prefix = false;
+			++paramit;
+		}
+		if (paramit->type == Token::path || paramit->type == Token::string) {
+			if (is_prefix)
+				path += paramit->str;
+			else
+				path = paramit->str;
+			++paramit;
+		}
+		if (paramit != directive.parameters.end())
+			throw (std::runtime_error("too many parameters for directive"));
+
+		for (std::vector<SimpleDirective>::const_iterator it = directive.simple_directives.begin();
+		it != directive.simple_directives.end(); it++) {
+			if (it->name == "root") {
+				if (was_set.root)
+					throw (std::runtime_error("multiple root directives"));
+				config::add_root(root, it->parameters);
+				was_set.root = true;
+			} else if (it->name == "client_body_buffer_size") {
+				if (was_set.body_buffer_size)
+					throw (std::runtime_error("multiple client_body_buffer_size directives"));
+				config::add_client_body_buffer_size(body, it->parameters);
+				was_set.body_buffer_size = true;
+			} else if (it->name == "client_body_timeout") {
+				if (was_set.body_timeout)
+					throw (std::runtime_error("multiple client_body_timeout directives"));
+				config::add_client_body_timeout(body, it->parameters);
+				was_set.body_timeout = true;
+			} else if (it->name == "client_max_body_size") {
+				if (was_set.body_max)
+					throw (std::runtime_error("multiple client_max_body_size directives"));
+				config::add_client_max_body_size(body, it->parameters);
+				was_set.body_max = true;
+			} else if (it->name == "default_type") {
+				if (was_set.default_type)
+					throw (std::runtime_error("multiple default_type directives"));
+				config::add_default_type(mime, it->parameters);
+				was_set.default_type = true;
+			} else if (it->name == "error_page") {
+				if (!was_set.error_page)
+					errorpages.clear();
+				config::add_error_page(errorpages, it->parameters);
+				was_set.error_page = true;
+			} else {
+				throw (std::runtime_error(std::string("invalid directive: ") + it->name));
+			}
+		}
+
+		/* simple stack to sttore all future locations and only create them after
+		 * all other directives are porcessed */
+		std::vector<const BodyDirective *>	location_direc;
+
+		for (std::vector<BodyDirective>::const_iterator it = directive.body_directives.begin();
+				it != directive.body_directives.end(); it++) {
+			if (it->name == "location") {
+				location_direc.push_back(&(*it));
+			} else if (it->name == "types") {
+				add_types(mime, *it);
+			} else {
+				throw (std::runtime_error(std::string("invalid directive: ") + it->name));
+			}
+		}
+
+		/* setting up the locations */
+		for (std::vector<const BodyDirective *>::const_iterator it = location_direc.begin();
+		it != location_direc.end(); it++) {
+			loc = new Location(*this);
+			loc->from_directive(**it);
+			locations.push_back(loc);
+			loc = NULL;
+		}
+	} catch (std::exception & e) {
+		delete loc;
+		delete_locations();
+		throw (std::runtime_error(std::string("[Location] ") + e.what()));
+	}
+}
+
+void Location::from_server(const Server & server) {
+	root = server.get_root();
+	body = server.get_body();
+	output = server.get_output();
+	mime = server.get_mime();
+	errorpages = server.get_errorpages();
+}
+
+const Location & Location::get_location(const std::string & uri) const {
+	const Location *	longest_prefix = NULL;
+
+	for (std::vector<const Location *>::const_iterator it = locations.begin();
+			it != locations.end(); it++) {
+		try {
+			if ((*it)->is_prefix && uri.compare(0, (*it)->get_path().size(), (*it)->get_path()) == 0 &&
+					(longest_prefix == NULL || (*it)->get_path().size() > longest_prefix->get_path().size())) {
+				longest_prefix = *it;
+			} else if (uri.compare(uri.size() - (*it)->get_path().size(), (*it)->get_path().size(), (*it)->get_path()) == 0) {
+				return (*(*it));
+			}
+		} catch (std::exception & e) { }
+	}
+	if (longest_prefix == NULL)
+		return (*this);
+	return (longest_prefix->get_location(uri));
+}
+
+#include <iostream>
+
+std::ostream & operator<<(std::ostream & out, const Location & loc) {
+	out << "Location { path: " << loc.get_path() <<
+		", root: " << loc.get_root() <<
+		", body { " << loc.get_body() <<
+		", output { " << loc.get_output() <<
+		", mime { " << loc.get_mime() <<
+		", error_page { " << loc.get_errorpages() <<
+		" } }";
+	return (out);
+}
+
+/* SERVER *********************************************************************/
+
+Server::Server() {
+	root = "html";
+}
+
+Server::Server(const Server & other) {
+	*this = other;
+}
+
+Server::Server(const BodyDirective & directive) {
+	from_directive(directive);
+}
+
+Server::Server(const Http & http) {
+	from_http(http);
+}
+
+Server::~Server() {
+	delete_locations();
+}
+
+void Server::delete_locations() {
+	for (std::vector<const Location *>::iterator it = locations.begin();
+		it != locations.end(); it++) {
+		delete *it;
+	}
+}
+
+Server & Server::operator=(const Server & other) {
+	if (this == & other)
+		return (*this);
+	root = other.root;
+	names = other.names;
+	listen = other.listen;
+	header = other.header;
+	body = other.body;
+	output = other.output;
+	mime = other.mime;
+	errorpages = other.errorpages;
+	copy_deep_container(locations, other.locations);
+	return (*this);
+}
+
+void Server::from_directive(const BodyDirective & directive) {
+	struct {
+		bool	root;
+		bool	header_buffer_size;
+		bool	header_timeout;
+		bool	large_header_buffers;
+		bool	body_buffer_size;
+		bool	body_timeout;
+		bool	body_max;
+		bool	default_type;
+		bool	error_page;
+	}	was_set;
+	was_set.root = false;
+	was_set.header_buffer_size = false;
+	was_set.header_timeout = false;
+	was_set.large_header_buffers = false;
+	was_set.body_buffer_size = false;
+	was_set.body_timeout = false;
+	was_set.body_max = false;
+	was_set.default_type = false;
+	was_set.error_page = false;
+
+	/* Here to be in scope during try for proper deletin in case of a throw */
+	Location *	loc = NULL;
+
+	/* Try block to catch errors inside of the directives. */
+	try {
+		for (std::vector<SimpleDirective>::const_iterator it = directive.simple_directives.begin();
+		it != directive.simple_directives.end(); it++) {
+			if (it->name == "root") {
+				if (was_set.root)
+					throw (std::runtime_error("multiple root directives"));
+				config::add_root(root, it->parameters);
+				was_set.root = true;
+			} else if (it->name == "client_header_buffer_size") {
+				if (was_set.header_buffer_size)
+					throw (std::runtime_error("multiple client_header_buffer_size directives"));
+				was_set.header_buffer_size = true;
+				config::add_client_header_buffer_size(header, it->parameters);
+			} else if (it->name == "client_header_timeout") {
+				if (was_set.header_timeout)
+					throw (std::runtime_error("multiple client_header_timeput directives"));
+				config::add_client_header_timeout(header, it->parameters);
+				was_set.header_timeout = true;
+			} else if (it->name == "large_client_header_buffers") {
+				if (was_set.large_header_buffers)
+					throw (std::runtime_error("multiple large_client_header_buffers directives"));
+				config::add_large_client_header_buffers(header, it->parameters);
+				was_set.large_header_buffers = true;
+			} else if (it->name == "client_body_buffer_size") {
+				if (was_set.body_buffer_size)
+					throw (std::runtime_error("multiple client_body_buffer_size directives"));
+				config::add_client_body_buffer_size(body, it->parameters);
+				was_set.body_buffer_size = true;
+			} else if (it->name == "client_body_timeout") {
+				if (was_set.body_timeout)
+					throw (std::runtime_error("multiple client_body_timeout directives"));
+				config::add_client_body_timeout(body, it->parameters);
+				was_set.body_timeout = true;
+			} else if (it->name == "client_max_body_size") {
+				if (was_set.body_max)
+					throw (std::runtime_error("multiple client_max_body_size directives"));
+				config::add_client_max_body_size(body, it->parameters);
+				was_set.body_max = true;
+			} else if (it->name == "default_type") {
+				if (was_set.default_type)
+					throw (std::runtime_error("multiple default_type directives"));
+				config::add_default_type(mime, it->parameters);
+				was_set.default_type = true;
+			} else if (it->name == "error_page") {
+				if (!was_set.error_page)
+					errorpages.clear();
+				config::add_error_page(errorpages, it->parameters);
+				was_set.error_page = true;
+			} else if (it->name == "listen") {
+				config::add_listen(listen, it->parameters);
+			} else if (it->name == "server_name") {
+				config::add_server_name(names, it->parameters);
+			} else {
+				throw (std::runtime_error(std::string("invalid directive: ") + it->name));
+			}
+		}
+
+		if (listen.size() == 0)
+			listen.push_back(config::listen());
+
+		/* simple stack to sttore all future locations and only create them after
+		 * all other directives are porcessed */
+		std::vector<const BodyDirective *>	location_direc;
+
+		for (std::vector<BodyDirective>::const_iterator it = directive.body_directives.begin();
+				it != directive.body_directives.end(); it++) {
+			if (it->name == "location") {
+				location_direc.push_back(&(*it));
+			} else if (it->name == "types") {
+				add_types(mime, *it);
+			} else {
+				throw (std::runtime_error(std::string("invalid directive: ") + it->name));
+			}
+		}
+
+		/* setting up the locations */
+		/* ensuring that there will always be a valid lcoation with just '/' as
+		 * a path for the Server to find */
+		loc = new Location(*this);
+		loc->set_path("/");
+		locations.push_back(loc);
+		loc = NULL;
+		for (std::vector<const BodyDirective *>::const_iterator it = location_direc.begin();
+		it != location_direc.end(); it++) {
+			loc = new Location(*this);
+			loc->from_directive(**it);
+			locations.push_back(loc);
+			loc = NULL;
+		}
+	} catch (std::exception & e) {
+		delete loc;
+		delete_locations();
+		throw (std::runtime_error(std::string("[Server] ") + e.what()));
+	}
+}
+
+void Server::from_http(const Http & http) {
+	root = http.get_root();
+	header = http.get_header();
+	body = http.get_body();
+	output = http.get_output();
+	mime = http.get_mime();
+	errorpages = http.get_errorpages();
+}
+
+const Location & Server::get_location(const std::string & uri) const {
+	const Location *	longest_prefix = NULL;
+
+	for (std::vector<const Location *>::const_iterator it = locations.begin();
+			it != locations.end(); it++) {
+		try {
+			if ((*it)->is_prefix && uri.compare(0, (*it)->get_path().size(), (*it)->get_path()) == 0 &&
+					(longest_prefix == NULL || (*it)->get_path().size() > longest_prefix->get_path().size())) {
+				longest_prefix = *it;
+			} else if (uri.compare(uri.size() - (*it)->get_path().size(), (*it)->get_path().size(), (*it)->get_path()) == 0) {
+				return (*(*it));
+			}
+		} catch (std::exception &e ) { }
+	}
+	if (longest_prefix == NULL)
+		return (*locations[0]);
+	return (longest_prefix->get_location(uri));
+}
+
+std::ostream & operator<<(std::ostream & out, const Server & server) {
+	out << "Server { listen { ";
+	for (std::vector<config::listen>::const_iterator it = server.get_listen().begin();
+		it != server.get_listen().end(); it++) {
+		if (it != server.get_listen().begin())
+			out << ", ";
+		out << *it;
+	}
+	out << " }, server_name { ";
+	for (std::vector<std::string>::const_iterator it = server.get_names().begin();
+		it != server.get_names().end(); it++) {
+		if (it != server.get_names().begin())
+			out << ", ";
+		out << *it;
+	}
+	out << " }, root: " << server.get_root() <<
+		", header { " << server.get_header() <<
+		" }, body { " << server.get_body() <<
+		" }, output { " << server.get_output() <<
+		" }, mime { " << server.get_mime() <<
+		" }, error_page { " << server.get_errorpages() <<
+		" } }";
+	return (out);
+}
+
+/* PORT ***********************************************************************/
+
+Port::Port() {
+	listen = config::listen();
+	dserver = NULL;
+	default_set = false;
+}
+
+Port::Port(const Port & other) {
+	*this = other;
+}
+
+Port::Port(const config::listen & other) {
+	listen = config::listen(other);
+	dserver = NULL;
+	default_set = false;
+}
+
+Port::~Port() { }
+
+Port & Port::operator=(const Port & other) {
+	if (this == &other)
+		return (*this);
+	listen = other.listen;
+	dserver = other.dserver;
+	default_set = other.default_set;
+	servername_map = other.servername_map;
+	return (*this);
+}
+
+void Port::add_server(const Server & server) {
+	std::vector<config::listen>::const_iterator it;
+	for (it = server.get_listen().begin();
+		it != server.get_listen().end(); it++) {
+		if (*it == listen)
+			break ;
+		else if (it->port == listen.port && it->addr == listen.addr)
+			throw (std::runtime_error("trying to register the same address:port pair with different backlog values"));
+	}
+	if (it == server.get_listen().end())
+		throw (std::runtime_error("**INTERNAL** server not associated wit this port"));
+
+	if (it->is_default) {
+		if (dserver == NULL || default_set == false) {
+			default_set = true;
+			dserver = &server;
+		} else {
+			throw (std::runtime_error("trying to set multiple default servers for the same address:port pair"));
+		}
+	}
+
+	if (servername_map.size() == 0)
+		dserver = &server;
+
+	for (std::vector<std::string>::const_iterator nameit = server.get_names().begin();
+		nameit != server.get_names().end(); nameit++) {
+		if (servername_map.find(*nameit) != servername_map.end())
+			throw (std::runtime_error("trying to create to servers with the same name on the same address:port pair"));
+		servername_map.insert(std::make_pair(*nameit, &server));
+	}
+}
+
+const Server & Port::get_server_by_name(const std::string & name) const {
+	std::map<std::string, const Server *>::const_iterator server = servername_map.find(name);
+	if (server == servername_map.end())
+		return (*dserver);
+	return (*(server->second));
+}
+
+/* HTTP ***********************************************************************/
+
+Http::Http() {
+	
+}
+
+Http::Http(const Http & other) {
+	*this = other;
+}
+
+Http::Http(const BodyDirective & directive) {
+	from_directive(directive);
+}
+
+Http::~Http() {
+	delete_servers();
+}
+
+Http & Http::operator=(const Http & other) {
+	if (this == &other)
+		return (*this);
+	root = other.root;
+	header = other.header;
+	body = other.body;
+	mime = other.mime;
+	errorpages = other.errorpages;
+	ports = other.ports;
+	copy_deep_container(servers, other.servers);
+	return (*this);
+}
+
+void Http::delete_servers() {
+	for (std::vector<const Server *>::iterator it = servers.begin();
+			it != servers.end(); it++) {
+		delete *it;
+	}
+}
+
+void Http::from_directive(const BodyDirective & directive) {
+	struct {
+		bool	root;
+		bool	header_buffer_size;
+		bool	header_timeout;
+		bool	large_header_buffers;
+		bool	body_buffer_size;
+		bool	body_timeout;
+		bool	body_max;
+		bool	default_type;
+	}	was_set;
+	was_set.root = false;
+	was_set.header_buffer_size = false;
+	was_set.header_timeout = false;
+	was_set.large_header_buffers = false;
+	was_set.body_buffer_size = false;
+	was_set.body_timeout = false;
+	was_set.body_max = false;
+	was_set.default_type = false;
+
+	/* Here to be in scope during the catch statement for deleting in case of a throw */
+	Server *	server = NULL;
+
+	/* Try block to catch errors inside of the directives. */
+	try {
+		for (std::vector<SimpleDirective>::const_iterator it = directive.simple_directives.begin();
+			it != directive.simple_directives.end(); it++) {
+			if (it->name == "root") {
+				if (was_set.root)
+					throw (std::runtime_error("multiple root directives"));
+				config::add_root(root, it->parameters);
+				was_set.root = true;
+			} else if (it->name == "client_header_buffer_size") {
+				if (was_set.header_buffer_size)
+					throw (std::runtime_error("multiple client_header_buffer_size directives"));
+				config::add_client_header_buffer_size(header, it->parameters);
+				was_set.header_buffer_size = true;
+			} else if (it->name == "client_header_timeout") {
+				if (was_set.header_timeout)
+					throw (std::runtime_error("multiple client_header_timeput directives"));
+				config::add_client_header_timeout(header, it->parameters);
+				was_set.header_timeout = true;
+			} else if (it->name == "large_client_header_buffers") {
+				if (was_set.large_header_buffers)
+					throw (std::runtime_error("multiple large_client_header_buffers directives"));
+				config::add_large_client_header_buffers(header, it->parameters);
+				was_set.large_header_buffers = true;
+			} else if (it->name == "client_body_buffer_size") {
+				if (was_set.body_buffer_size)
+					throw (std::runtime_error("multiple client_body_buffer_size directives"));
+				config::add_client_body_buffer_size(body, it->parameters);
+				was_set.body_buffer_size = true;
+			} else if (it->name == "client_body_timeout") {
+				if (was_set.body_timeout)
+					throw (std::runtime_error("multiple client_body_timeout directives"));
+				config::add_client_body_timeout(body, it->parameters);
+				was_set.body_timeout = true;
+			} else if (it->name == "client_max_body_size") {
+				if (was_set.body_max)
+					throw (std::runtime_error("multiple client_max_body_size directives"));
+				config::add_client_max_body_size(body, it->parameters);
+				was_set.body_max = true;
+			} else if (it->name == "default_type") {
+				if (was_set.default_type)
+					throw (std::runtime_error("multiple default_type directives"));
+				config::add_default_type(mime, it->parameters);
+				was_set.default_type = true;
+			} else if (it->name == "error_page") {
+				config::add_error_page(errorpages, it->parameters);
+			} else {
+				throw (std::runtime_error(std::string("invalid directive: ") + it->name));
+			}
+		}
+
+		/* simple stack to store all future servers and only create them after
+		 * all other directives are processed */
+		std::vector<const BodyDirective *>	server_direc;
+
+		for (std::vector<BodyDirective>::const_iterator it = directive.body_directives.begin();
+			it != directive.body_directives.end(); it++) {
+			if (it->name == "server") {
+				server_direc.push_back(&(*it));
+			} else if (it->name == "types") {
+				add_types(mime, *it);
+			} else {
+				throw (std::runtime_error(std::string("invalid directive: ") + it->name));
+			}
+		}
+		
+		/* setting up the server */
+		if (server_direc.size() == 0)
+			servers.push_back(new Server(*this));
+		else {
+			for (std::vector<const BodyDirective *>::const_iterator it = server_direc.begin();
+					it != server_direc.end(); it++) {
+				server = new Server(*this);
+				server->from_directive(**it);
+				servers.push_back(server);
+				server = NULL;
+				/* using server.back() should cause future references to this
+				 * server to be focused on this instance making the code for
+				 * Ports safe since they will always reffer to the server in
+				 * their Http class */
+				const Server & server_ref = *(servers.back());
+				for (std::vector<config::listen>::const_iterator listenit = server_ref.get_listen().begin();
+					listenit != server_ref.get_listen().end(); listenit++) {
+					std::map<struct sockaddr_in, Port>::iterator portit = ports.find(listenit->get_sockaddr());
+					if (portit == ports.end()) {
+						Port port(*listenit);
+						port.add_server(server_ref);
+						ports.insert(std::make_pair(listenit->get_sockaddr(), port));
+					} else {
+						portit->second.add_server(server_ref);
+					}
+				}
+			}
+		}
+	} catch (std::exception & e) {
+		delete server;
+		delete_servers();
+		throw (std::runtime_error(std::string("[Http] ") + e.what()));
+	}
+}
+
+const Server & Http::get_server(const struct sockaddr_in & sockaddr, const std::string & name) const {
+	std::map<struct sockaddr_in, Port>::const_iterator port = ports.find(sockaddr);
+	if (port == ports.end())
+		throw (std::runtime_error("No corresponding port found"));
+	return (port->second.get_server_by_name(name));
+}
+
+std::ostream & operator<<(std::ostream & out, const Http & http) {
+	out << "Http { root: " << http.get_root() <<
+		", header { " << http.get_header() <<
+		" }, body { " << http.get_body() <<
+		" }, output { " << http.get_output() <<
+		" }, mime { " << http.get_mime() <<
+		" }, error_page { " << http.get_errorpages() <<
+		" } }";
+	return (out);
+}
+
+bool operator<(const struct sockaddr_in & lhs, const struct sockaddr_in & rhs) {
+	if (lhs.sin_family < rhs.sin_family)
+		return (true);
+	else if (lhs.sin_family != rhs.sin_family)
+		return (false);
+	if (lhs.sin_port < rhs.sin_port)
+		return (true);
+	else if (lhs.sin_port != rhs.sin_port)
+		return (false);
+	if (lhs.sin_addr.s_addr < rhs.sin_addr.s_addr)
+		return (true);
+	return (false);
+}
+
+/* UTILS **********************************************************************/
+
+/**	@brief Checks if size is outsideof the min and max. If so it prints the
+ * appropriate response inserting the string directive into the error message.
+ * If -1 is provided as a value for min or max the value will not be checked.
+*/
+void config::check_parameter_count(int min, int max, int size) {
+	if (min != -1 && size < min)
+		throw (std::runtime_error("too few parameter provided"));
+	if (max != -1 && size > max)
+		throw (std::runtime_error("too many parameter provided"));
+}
