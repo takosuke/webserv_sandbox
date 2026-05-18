@@ -39,6 +39,10 @@ void	EpollLoop::add(Connection *conn) {
 	_connections[conn->fd] = conn;
 }
 
+void	EpollLoop::del(Connection * conn) {
+	_deletion_queue.insert(conn);
+}
+
 void	EpollLoop::mod(Connection *conn, uint32_t events) {
 	epoll_event ev;
 	memset(&ev, 0, sizeof(ev));
@@ -48,13 +52,12 @@ void	EpollLoop::mod(Connection *conn, uint32_t events) {
 	epoll_ctl(_epoll_fd, EPOLL_CTL_MOD, conn->fd, &ev);
 }
 
-void	EpollLoop::del(Connection *conn) {
-	std::cout << "Client fd=" << conn->fd << " disconnected\n";
-	// TODO error check EPOLL_CTL_DEL
-	epoll_ctl(_epoll_fd, EPOLL_CTL_DEL, conn->fd, NULL);
-	_connections.erase(conn->fd);
-	close(conn->fd);
-	delete conn; // do we delete it here or wait for destructor
+void	EpollLoop::clear() {
+	for (std::set<Connection *>::iterator it = _deletion_queue.begin();
+		it != _deletion_queue.end(); it++) {
+		delete_conn(*it);
+	}
+	_deletion_queue.clear();
 }
 
 void	EpollLoop::run() {
@@ -80,5 +83,15 @@ void	EpollLoop::run() {
 			}
 			conn->handle(*this, _events[i].events);
 		}
+		clear();
 	}
+}
+
+void	EpollLoop::delete_conn(Connection *conn) {
+	std::cout << "Client fd=" << conn->fd << " disconnected\n";
+	// TODO error check EPOLL_CTL_DEL
+	epoll_ctl(_epoll_fd, EPOLL_CTL_DEL, conn->fd, NULL);
+	_connections.erase(conn->fd);
+	close(conn->fd);
+	delete conn; // do we delete it here or wait for destructor
 }
