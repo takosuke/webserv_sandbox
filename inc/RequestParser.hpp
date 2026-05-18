@@ -34,18 +34,26 @@ class	RequestParser {
 		// feed function should complain if more data than declared was sent
 		// (400 bad request)
 		// should feed etc return ints for error codes
-		void feed(const char *data, int len);
+		bool feed(const char *data, int len);
 		int parse_request_line();
 		bool parse_uri();
 		int parse_headers();
 		void parse_body();
 		void parse_content_length();
-		bool complete() const { return _complete;}
+
+		State	state() const { return (_state); }
+		bool	complete() const { return _complete;}
+	
 		const std::string &raw() const { return _buf;}
 		const Request& getRequest() const { return _req; }
+
 	private:
 		std::string _buf;
 		State _state;
 		bool _complete;
 		Request _req;
+
+		/** @brief sets `code` as `error` in _req and returns it.
+		 */
+		int	set_error(int code);
 };

@@ -2,6 +2,8 @@
 #include <netinet/in.h>
 #include <sys/epoll.h>
 #include <unistd.h>
+
+#include "Config.hpp"
 #include "ServerConnection.hpp"
 #include "ClientConnection.hpp"
 #include "EpollLoop.hpp"

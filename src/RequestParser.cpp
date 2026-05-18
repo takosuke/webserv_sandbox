@@ -65,23 +65,14 @@ static bool validateReqPath(const std::string& path) {
 	return true;
 }
 
-void RequestParser::feed(const char *data, int len) {
+/**	@brief Adds to `_buf` from `data`.
+ *
+ * 	@return Returns true if the sequence "\r\n" is found in the buffer,
+ * 	otherwise returns false.
+ */
+bool RequestParser::feed(const char *data, int len) {
 	_buf.append(data, len);
-	if (_state == REQUEST_LINE)
-		_req.error = parse_request_line();
-	if (_state == HEADERS)
-		_req.error = parse_headers();
-	if (_state == BODY)
-	{
-		parse_content_length();
-		parse_body();
-	}
-	if (_state == COMPLETE || _req.error)
-	{
-		LOG_DEBUG("REQUEST") << "Request:" << _req << std::endl;
-		_req.printRequest();
-		return;
-	}
+	return (_buf.find("\r\n") != std::string::npos);
 }
 
 int RequestParser::parse_request_line() {
@@ -92,37 +83,34 @@ int RequestParser::parse_request_line() {
 	// check URI char validity (no raw control, no null, percent encoding
 	// something - every % followed by 2 hex digits)
 	// path traversal - check paths are /../ --> router responsibility
-	size_t pos = _buf.find("\n");
-	// we check if the full CLRF is there
-	if (_buf[pos - 1] != '\r')
-		return 400;
+	size_t pos = _buf.find("\r\n");
 	if (pos != std::string::npos)
 	{
 		// checking that there's 3 tokens, with only one space between each
-		std::string request_line = _buf.substr(0, pos - 1);
+		std::string request_line = _buf.substr(0, pos);
 		size_t sp_first = request_line.find(' ');
 		size_t sp_second = request_line.find(' ', sp_first + 1);
 		if (sp_first == std::string::npos || sp_second == std::string::npos)
-			return 400;
+			return (set_error(400));
 		if (request_line.find(' ', sp_second + 1) != std::string::npos)
-			return 400;
+			return (set_error(400));
 		std::string method = request_line.substr(0, sp_first);
 		if (!isValidToken(method))
-			return 400;
+			return (set_error(400));
 		_req.method = _req.stringToMethod(method);
 		if (_req.method == UNKNOWN)
-			return 501;
+			return (set_error(501));
 		_req.uri = request_line.substr(sp_first + 1, sp_second - sp_first - 1);
 		_req.version = request_line.substr(sp_second + 1);
 		if (validateVersion(_req.version))
-			return (validateVersion(_req.version));
+			return (set_error(validateVersion(_req.version)));
 		if (_req.uri.empty() || _req.version.empty())
-			return 400;
+			return (set_error(400));
 
 		if (!parse_uri())
-			return 400;
+			return (set_error(400));
 		_state = HEADERS;
-		_buf.erase(0, pos + 1);
+		_buf.erase(0, pos + 2);
 	}
 	return 0;
 }
@@ -137,7 +125,7 @@ bool RequestParser::parse_uri() {
 	// query string sent as is to CGI handler who is supposed to do the percent
 	// decoding etc
 	if (pos != std::string::npos) {
-		_req.query = _req.uri.substr(pos + 1);
+		_req.query = _req.uri.substr(pos + 2);
 	}
 	return true;
 
@@ -145,9 +133,7 @@ bool RequestParser::parse_uri() {
 
 int RequestParser::parse_headers() {
 	// need to loop as long as pos returns something
-	size_t pos = _buf.find("\n");
-	if (_buf[pos - 1] != '\r')
-		return 400;
+	size_t pos = _buf.find("\r\n");
 	while (pos != std::string::npos) {
 		std::string headers_line = _buf.substr(0, pos);
 		std::cout << "headers_line:" << headers_line << std::endl;
@@ -196,3 +182,7 @@ void RequestParser::parse_body() {
 	}
 }
 
+int RequestParser::set_error(int code) {
+	_req.error = code;
+	return (code);
+}

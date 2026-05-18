@@ -15,6 +15,6 @@ class Connection {
 		int	fd;
 	//:w
 	//ServerBlock *config;
-		Http *http;
+		Http *	http;
 	protected:
 };

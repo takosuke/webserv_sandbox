@@ -9,9 +9,14 @@
 
 class ClientConnection : public Connection {
 	public:
+		const Server *		server;
+		const Location *	location;
+
 		// TODO constructors, destructors etc
-		ClientConnection() {}
+		ClientConnection() : server(NULL), location(NULL) {}
+
 		void handle(EpollLoop &loop, uint32_t events);
+
 		struct sockaddr_in listening_addr;
 
 	private:

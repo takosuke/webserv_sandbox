@@ -13,8 +13,8 @@ enum HttpMethod {
 struct Request {
 	// TODO beginning underscores for consistency?
 	HttpMethod	method;
-	std::string	uri;		// raw: "/site/images/42.gif?val=43"
-	std::string	path;		// decoded: "/site/images/42.gif"
+	std::string	uri;		// raw: "http://site/images/42.gif?val=43"
+	std::string	path;		// decoded: "images/42.gif"
 	std::string	query;		// querystring "val=43" or nothing
 	std::string	version;	// "HTTP/1.0"
 	std::map<std::string, std::string> headers; // lowercased ke=ys
