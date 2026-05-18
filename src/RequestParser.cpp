@@ -195,7 +195,7 @@ int RequestParser::parse_headers() {
 	size_t pos = _buf.find("\r\n");
 	while (pos != std::string::npos) {
 		std::string headers_line = _buf.substr(0, pos);
-		std::cout << "headers_line:" << headers_line << std::endl;
+		std::cout << "headers_line:" << headers_line << "pos: " << pos << std::endl;
 		if (headers_line.empty())
 		{
 			_buf.erase(0, pos + 2);
@@ -241,7 +241,7 @@ void RequestParser::parse_hostname() {
 			_req.port = -1;
 		} else {
 			_req.hostname = _req.host.substr(0, colon);
-			std::string portstring = _req.hostname.substr(colon + 1);
+			std::string portstring = _req.host.substr(colon + 1);
 			if (_req.hostname.empty() || portstring.empty()) {
 				_req.error = 400;
 				return ;
