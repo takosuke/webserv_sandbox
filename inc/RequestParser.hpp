@@ -29,6 +29,9 @@ enum State {
 class	RequestParser {
 	public:
 		RequestParser() : _state(REQUEST_LINE), _complete(false), _req(Request()){}
+		RequestParser(Http * config, struct sockaddr_in addr)
+			: _state(REQUEST_LINE), _complete(false), _req(Request()),
+			_http(config), _addr(addr) { };
 
 		// feed function should complain if more data than declared was sent
 		// (400 bad request)
@@ -42,11 +45,24 @@ class	RequestParser {
 		void parse_hostname();
 		int parse_portstring(std::string portstring);
 		bool complete() const { return _complete;}
+
+		void	set_http(const Http * http) { _http = http; };
+		void	set_addr(const struct sockaddr_in addr) { _addr = addr; };
+
+	
 		const std::string &raw() const { return _buf;}
 		const Request& getRequest() const { return _req; }
+
 	private:
 		std::string _buf;
 		State _state;
 		bool _complete;
 		Request _req;
+
+		const Http *		_http;
+		struct sockaddr_in 	_addr;
+
+		/** @brief sets `code` as `error` in _req and returns it.
+		 */
+		int	set_error(int code);
 };
