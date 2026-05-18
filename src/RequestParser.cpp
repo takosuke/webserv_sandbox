@@ -34,7 +34,8 @@ static bool isURITokenChar(unsigned char c) {
 
 static bool isValidHex(char a, char b) {
 	//TODO 
-	return std::isxdigit((unsigned char)a) && std::isxdigit((unsigned char)b);
+	return std::isxdigit(static_cast<unsigned char>(a)) 
+	&& std::isxdigit(static_cast<unsigned char>(b));
 }
 
 static bool isDigitString(const std::string& s) {
@@ -57,7 +58,6 @@ static bool isValidURLEncoding(const std::string& url) {
 	}
 	return true;
 }
-
 
 static int validateVersion(const std::string& version) {
 	// TODO accept HTTP/1.000 and HTTP/1.1000?
@@ -151,7 +151,7 @@ int RequestParser::parse_request_line() {
 			return (set_error(501));
 		_req.uri = request_line.substr(sp_first + 1, sp_second - sp_first - 1);
 		// TODO wrap returns in set_error
-		if (_req.uri.empty() || _req.version.empty() || !isValidURLEncoding(_req.uri))
+		if (_req.uri.empty() || !isValidURLEncoding(_req.uri))
 			return (set_error(400));
 		if (!parse_uri())
 			return (set_error(400));
