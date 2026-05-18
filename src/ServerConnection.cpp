@@ -17,10 +17,7 @@ void	ServerConnection::handle(EpollLoop &loop, uint32_t events) {
 	int client_fd = accept(fd, (sockaddr*)&client_addr, &client_len);
 	if (client_fd < 0) return; // TODO handle error?
 	set_nonblocking(client_fd);
-	ClientConnection *client_conn = new ClientConnection();
-	client_conn->fd = client_fd;
-	client_conn->http = http;
-	client_conn->listening_addr = addr;
+	ClientConnection *client_conn = new ClientConnection(client_fd, http, addr);
 
 	loop.add(client_conn);
 }

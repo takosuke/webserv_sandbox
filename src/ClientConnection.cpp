@@ -31,34 +31,11 @@ void	ClientConnection::handle(EpollLoop &loop, uint32_t events) {
 		if (bytes == 0) {
 			loop.del(this);
 
-		} else if (_parser.feed(buffer, bytes)) {
-			/* NOTE Put the switch between REQUEST_LINE, HEADERS, and BODY
-			 * inside ClientConnection since we need to determine the `Server`
-			 * and `Location` after reading the Headers to get specific settings
-			 * like max body size etc.
-			 */
-			if (_parser.state() == REQUEST_LINE)
-				_parser.parse_request_line();
-			if (_parser.state() == HEADERS)
-				_parser.parse_headers();
-			if (_parser.state() == BODY) {
-				if (server == NULL) {
-					server = &(http->get_server(listening_addr, _parser.getRequest().host));
-					location = &(server->get_location(_parser.getRequest().path));
-				}
-				_parser.parse_content_length();
-				_parser.parse_body();
-			}
-
+		} else {
+			_parser.feed(buffer, bytes);
 			if (_parser.getRequest().error)
 				std::cout << "parser error" << std::endl; // route to error page
 			if (_parser.complete()) {
-				// // Response res(_parser.request);
-				// // make route
-				// // hand off to request handler
-				// // eventually enqueue_response()
-				// buffer[bytes] = '\0';
-				// std::string response = "HTTP/1.0 200 OK\r\nContent-Length: 5\r\n\r\nidiot";
 				_response.construct_status_line(HTTP_VERSION_STR, 200);
 				_response.entity = std::string("Hello, World");
 				_response.add_content_length();

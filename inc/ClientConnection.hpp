@@ -9,11 +9,11 @@
 
 class ClientConnection : public Connection {
 	public:
-		const Server *		server;
-		const Location *	location;
-
 		// TODO constructors, destructors etc
-		ClientConnection() : server(NULL), location(NULL) {}
+		ClientConnection() {}
+		ClientConnection(int fildes, Http * config, struct sockaddr_in addr) 
+			: Connection(fildes, config), listening_addr(addr),
+			_parser(RequestParser(config, addr)) { };
 
 		void handle(EpollLoop &loop, uint32_t events);
 

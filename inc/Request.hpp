@@ -1,4 +1,7 @@
 #pragma once
+
+#include "Config.hpp"
+
 #include <string>
 #include <iostream>
 #include <map>
@@ -22,6 +25,10 @@ struct Request {
 	size_t		content_length;
 
 	std::string	host;		// extracted from headers because used frequently -
+
+	const Server *		server;
+	const Location *	location;
+
 	// can maybe go
 	bool		valid;		// if parsing error, false
 	int			error;		// 400, 414, parsing errors

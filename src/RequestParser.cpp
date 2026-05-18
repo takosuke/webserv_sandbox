@@ -66,13 +66,23 @@ static bool validateReqPath(const std::string& path) {
 }
 
 /**	@brief Adds to `_buf` from `data`.
- *
- * 	@return Returns true if the sequence "\r\n" is found in the buffer,
- * 	otherwise returns false.
  */
-bool RequestParser::feed(const char *data, int len) {
+void RequestParser::feed(const char *data, int len) {
 	_buf.append(data, len);
-	return (_buf.find("\r\n") != std::string::npos);
+	if (_buf.find("\r\n") == std::string::npos)
+		return ;
+	if (state() == REQUEST_LINE && parse_request_line() != 0)
+		return ;
+	if (state() == HEADERS)
+		parse_headers();
+	if (state() == BODY) {
+		if (_req.server == NULL && _http != NULL) {
+			_req.server = &(_http->get_server(_addr, getRequest().host));
+			_req.location = &(_req.server->get_location(getRequest().path));
+		}
+		parse_content_length();
+		parse_body();
+	}
 }
 
 int RequestParser::parse_request_line() {
