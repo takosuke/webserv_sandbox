@@ -48,13 +48,13 @@ static bool isDigitString(const std::string& s) {
 }
 
 static bool isValidURLEncoding(std::string url) {
+
 	size_t pos = url.find('%');
 	while (pos != std::string::npos) {
 		if (pos + 2 >= url.size())
 			return false;
 		if (!isValidHex(url[pos + 1], url[pos + 2]))
 			return false;
-		std::cout << url.substr(0, pos + 1) << std::endl;
 		url.erase(0, pos + 1);
 		pos = url.find('%');
 	}
@@ -187,7 +187,7 @@ bool RequestParser::parse_uri() {
 	// query string sent as is to CGI handler who is supposed to do the percent
 	// decoding etc
 	if (pos != std::string::npos) {
-		_req.query = _req.uri.substr(pos + 2);
+		_req.query = _req.uri.substr(pos + 1);
 	}
 	return true;
 }
@@ -197,7 +197,6 @@ int RequestParser::parse_headers() {
 	size_t pos = _buf.find("\r\n");
 	while (pos != std::string::npos) {
 		std::string headers_line = _buf.substr(0, pos);
-		std::cout << "headers_line:" << headers_line << "pos: " << pos << std::endl;
 		if (headers_line.empty())
 		{
 			_buf.erase(0, pos + 2);
