@@ -1,9 +1,10 @@
 #pragma once
 
-#include "Request.hpp"
-
 #include <map>
 #include <vector>
+#include <string>
+
+#include <stdint.h>
 
 /* STATUS LINE ****************************************************************/
 
@@ -30,7 +31,7 @@
 
 /* RESPONSE *******************************************************************/
 
-struct Response {
+class Response {
 protected:
 	static std::map<int, std::string>	reason_phrase_map;
 	static void			init_reason_phrase_map();
@@ -41,9 +42,10 @@ protected:
 
 	std::string		status_line;
 	std::string		headers;
-	std::string		entity;
 
 public:
+	std::string		entity;
+
 	Response() : _writebuf(&status_line), _writepos(0), status_line(), headers(), entity() {};
 	Response(const Response & other) { *this = other; };
 	~Response() {};
@@ -61,9 +63,11 @@ public:
 
 	void	construct_status_line(const std::string & version, int status_code);
 	void	add_header_field(const std::string & name, const std::string & value);
-
+	void	add_content_length();
 
 	int		write_count(int fd, size_t count);
+
+	void	print(std::ostream & out) const;
 };
 
-std::ostream & operator<<(std::ostream & out, const Response & r);
+std::ostream & operator<<(std::ostream & out, const Response & res);

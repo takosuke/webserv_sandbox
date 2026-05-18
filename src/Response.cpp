@@ -72,6 +72,13 @@ void Response::add_header_field(const std::string & name, const std::string & va
 	headers.append("\r\n\r\n");
 }
 
+void Response::add_content_length() {
+	std::ostringstream stream;
+
+	stream << entity.size();
+	add_header_field("Content-Length", stream.str());
+}
+
 /**
  *	@brief
  *	Writes `count` bytes of the response to `fd`.
@@ -100,4 +107,14 @@ int	Response::write_count(int fd, size_t count) {
 		_writepos = 0;
 	}
 	return (1);
+}
+
+void Response::print(std::ostream & out) const {
+	out << status_line << headers << entity;
+}
+
+std::ostream & operator<<(std::ostream & out, const Response & res) {
+	out << "=== Full Response ===" << std::endl;
+	res.print(out);
+	return (out);
 }
