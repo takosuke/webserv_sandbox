@@ -4,6 +4,12 @@
 #include "Logger.hpp"
 #include "Request.hpp"
 
+// TODO
+// allow request line of 2 tokens (http 0.9)
+// pass server name and port to Request object
+// max uri length
+// resolve .. and . paths
+
 static bool isTokenChar(unsigned char c) {
 	static const std::string separators = "()<>@,;:\\\"/[]?={} \t";
 
@@ -29,6 +35,15 @@ static bool isURITokenChar(unsigned char c) {
 static bool isValidHex(char a, char b) {
 	//TODO 
 	return std::isxdigit((unsigned char)a) && std::isxdigit((unsigned char)b);
+}
+
+static bool isDigitString(const std::string& s) {
+	if (s.empty()) return false;
+	for (size_t i = 0; i < s.size(); ++i) {
+		if (!std::isdigit(static_cast<unsigned char>(s[i])))
+			return false;
+	}
+	return true;
 }
 
 static int validateVersion(const std::string& version) {
@@ -74,6 +89,7 @@ void RequestParser::feed(const char *data, int len) {
 	if (_state == BODY)
 	{
 		parse_content_length();
+		parse_hostname();
 		parse_body();
 	}
 	if (_state == COMPLETE || _req.error)
@@ -140,7 +156,6 @@ bool RequestParser::parse_uri() {
 		_req.query = _req.uri.substr(pos + 1);
 	}
 	return true;
-
 }
 
 int RequestParser::parse_headers() {
@@ -183,6 +198,48 @@ void RequestParser::parse_content_length() {
 
 }
 
+void RequestParser::parse_hostname() {
+	std::map<std::string, std::string>::iterator it = _req.headers.find("host");
+	if (it != _req.headers.end()) {
+		std::istringstream iss(it->second);
+		iss >> _req.host;
+	}
+	if (!_req.host.empty()) {
+		std::string::size_type colon = _req.host.rfind(':');
+		if (colon == std::string::npos) {
+			_req.hostname = _req.host; 
+			_req.port = -1;
+		} else {
+			_req.hostname = _req.host.substr(0, colon);
+			std::string portstring = _req.hostname.substr(colon + 1);
+			if (_req.hostname.empty() || portstring.empty()) {
+				_req.error = 400;
+				return ;
+			}
+			int port = parse_portstring(portstring);
+			if (port == -1) {
+				_req.error = 400;
+				return ;
+			}
+			_req.port = port;
+		}
+	}
+}
+
+int RequestParser::parse_portstring(std::string portstring) {
+	if (!isDigitString(portstring))
+		return -1;
+	
+	if (portstring.size() > 5)
+		return -1;
+
+	int port = std::atoi(portstring.c_str());
+	if (port < 1 || port > 65535)
+		return -1;
+
+	return port;
+}
+
 void RequestParser::parse_body() {
 	if (_req.content_length == 0)
 	{
@@ -195,4 +252,3 @@ void RequestParser::parse_body() {
 		_complete = true;
 	}
 }
-

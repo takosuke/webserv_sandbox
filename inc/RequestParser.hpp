@@ -4,7 +4,6 @@
 #include <sstream>
 #include "Request.hpp"
 
-//DUMMY PARSER
 // make an enum of states - request line, headers, body, complete, error
 // enum of parse results - complete, incomplete, error
 // feed until we have a line
@@ -40,6 +39,8 @@ class	RequestParser {
 		int parse_headers();
 		void parse_body();
 		void parse_content_length();
+		void parse_hostname();
+		int parse_portstring(std::string portstring);
 		bool complete() const { return _complete;}
 		const std::string &raw() const { return _buf;}
 		const Request& getRequest() const { return _req; }

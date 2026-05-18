@@ -15,7 +15,7 @@ void	set_nonblocking(int fd) {
 		throw std::runtime_error(std::string("fcntl F_SETFL failed: ") + strerror(errno));
 }
 
-int	make_server_socket(const config::listen &l) {
+int		make_server_socket(const config::listen &l) {
     int fd = socket(AF_INET, SOCK_STREAM | SOCK_NONBLOCK, 0);
     if (fd < 0)
         throw std::runtime_error(std::string("socket() failed: ") + strerror(errno));
