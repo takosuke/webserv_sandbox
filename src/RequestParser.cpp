@@ -47,13 +47,15 @@ static bool isDigitString(const std::string& s) {
 	return true;
 }
 
-static bool isValidURLEncoding(const std::string& url) {
+static bool isValidURLEncoding(std::string url) {
 	size_t pos = url.find('%');
 	while (pos != std::string::npos) {
 		if (pos + 2 >= url.size())
 			return false;
 		if (!isValidHex(url[pos + 1], url[pos + 2]))
 			return false;
+		std::cout << url.substr(0, pos + 1) << std::endl;
+		url.erase(0, pos + 1);
 		pos = url.find('%');
 	}
 	return true;
