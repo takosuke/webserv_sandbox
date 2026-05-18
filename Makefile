@@ -19,6 +19,8 @@ SRCS	+= Config.cpp
 
 SRCS	+= ServerConnection.cpp
 SRCS	+= ClientConnection.cpp
+SRCS	+= EntityConnection.cpp
+
 SRCS	+= EpollLoop.cpp
 SRCS	+= ServerBlock.cpp
 SRCS	+= RequestParser.cpp

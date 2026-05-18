@@ -30,9 +30,6 @@
 
 /* RESPONSE *******************************************************************/
 
-#define BYTES_PER_READ_CYCLE 1024
-#define BYTES_PER_WRITE_CYCLE 1024
-
 struct Response {
 protected:
 	static std::map<int, std::string>	reason_phrase_map;
