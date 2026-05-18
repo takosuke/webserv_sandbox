@@ -72,7 +72,7 @@ void	EpollLoop::clear() {
 }
 
 void	EpollLoop::run() {
-	sig_int = true;
+	sig_int = false;
 	signal(SIGINT, int_handler);
 	while (sig_int == false) {
 		int ready = epoll_wait(_epoll_fd, _events, MAX_EVENTS, -1);
