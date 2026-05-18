@@ -46,7 +46,21 @@ static bool isDigitString(const std::string& s) {
 	return true;
 }
 
+static bool isValidURLEncoding(const std::string& url) {
+	size_t pos = url.find('%');
+	while (pos != std::string::npos) {
+		if (pos + 2 >= url.size())
+			return false;
+		if (!isValidHex(url[pos + 1], url[pos + 2]))
+			return false;
+		pos = url.find('%');
+	}
+	return true;
+}
+
+
 static int validateVersion(const std::string& version) {
+	// TODO accept HTTP/1.000 and HTTP/1.1000?
 	// should we allow extra 0s after?it's officially valid according to RFC
 	// 2145
 	if (version.size() > 8)
@@ -95,6 +109,7 @@ void RequestParser::feed(const char *data, int len) {
 	if (_state == COMPLETE || _req.error)
 	{
 		LOG_DEBUG("REQUEST") << "Request:" << _req << std::endl;
+		// TODO remove this debugging
 		_req.printRequest();
 		return;
 	}
@@ -131,12 +146,13 @@ int RequestParser::parse_request_line() {
 		if (_req.method == UNKNOWN)
 			return 501;
 		_req.uri = request_line.substr(sp_first + 1, sp_second - sp_first - 1);
-		if (_req.uri.empty() || _req.version.empty())
+		if (_req.uri.empty() || _req.version.empty() || !isValidURLEncoding(_req.uri))
 			return 400;
-
 		if (!parse_uri())
 			return 400;
 		// TODO this feels brittle, check that this won't fuck up
+		// if the request line only has 2 tokens and they are a valid method and
+		// a valid URI, then it's HTTP/0.9 and the request is complete
 		if (sp_second == std::string::npos) {
 			_req.version = "HTTP/0.9";
 			_state = COMPLETE;
@@ -144,6 +160,7 @@ int RequestParser::parse_request_line() {
 		}
 		else {
 			_req.version = request_line.substr(sp_second + 1);
+			// returns 0 if valid
 			if (validateVersion(_req.version))
 				return (validateVersion(_req.version));
 		}
