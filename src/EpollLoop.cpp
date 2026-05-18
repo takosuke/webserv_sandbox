@@ -11,6 +11,17 @@
 #include <unistd.h>
 #include <cstring>
 #include <cerrno>
+#include <csignal>
+
+#include "Logger.hpp"
+
+static bool	sig_int	= false;
+
+void	int_handler(int sig) {
+	sig_int = true;
+	LOG_DEBUG("INFO") << "SIGINT (" << sig <<") recieved. Shutting down" << std::endl;
+}
+
 
 EpollLoop::EpollLoop() {
 	_epoll_fd = epoll_create1(0);
@@ -61,11 +72,13 @@ void	EpollLoop::clear() {
 }
 
 void	EpollLoop::run() {
-	while (true) {
+	sig_int = true;
+	signal(SIGINT, int_handler);
+	while (sig_int == false) {
 		int ready = epoll_wait(_epoll_fd, _events, MAX_EVENTS, -1);
 		// TODO EINTR not handled
 		// if (ready < 0 && errno == EINTR) continue;
-		if (ready < 0) {
+		if (ready < 0 && sig_int == false) {
 			std::cerr << "epoll_wait() failed" << std::endl; // TODO throw exception
 			// here
 			break;
