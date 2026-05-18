@@ -118,8 +118,10 @@ int RequestParser::parse_request_line() {
 		std::string request_line = _buf.substr(0, pos - 1);
 		size_t sp_first = request_line.find(' ');
 		size_t sp_second = request_line.find(' ', sp_first + 1);
-		if (sp_first == std::string::npos || sp_second == std::string::npos)
+//		if (sp_first == std::string::npos || sp_second == std::string::npos)
+		if (sp_first == std::string::npos)
 			return 400;
+		// does this return npos for http/0.9
 		if (request_line.find(' ', sp_second + 1) != std::string::npos)
 			return 400;
 		std::string method = request_line.substr(0, sp_first);
@@ -129,14 +131,22 @@ int RequestParser::parse_request_line() {
 		if (_req.method == UNKNOWN)
 			return 501;
 		_req.uri = request_line.substr(sp_first + 1, sp_second - sp_first - 1);
-		_req.version = request_line.substr(sp_second + 1);
-		if (validateVersion(_req.version))
-			return (validateVersion(_req.version));
 		if (_req.uri.empty() || _req.version.empty())
 			return 400;
 
 		if (!parse_uri())
 			return 400;
+		// TODO this feels brittle, check that this won't fuck up
+		if (sp_second == std::string::npos) {
+			_req.version = "HTTP/0.9";
+			_state = COMPLETE;
+			return 0;
+		}
+		else {
+			_req.version = request_line.substr(sp_second + 1);
+			if (validateVersion(_req.version))
+				return (validateVersion(_req.version));
+		}
 		_state = HEADERS;
 		_buf.erase(0, pos + 1);
 	}
