@@ -9,7 +9,7 @@
 #include "EpollLoop.hpp"
 #include "utils.hpp"
 
-void	ServerConnection::handle(EpollLoop &loop, uint32_t events) {
+void	ServerConnection::handle(uint32_t events) {
 
 	(void)events;
 	sockaddr_in client_addr;
@@ -19,5 +19,5 @@ void	ServerConnection::handle(EpollLoop &loop, uint32_t events) {
 	set_nonblocking(client_fd);
 	ClientConnection *client_conn = new ClientConnection(client_fd, http, addr);
 
-	loop.add(client_conn);
+	EpollLoop::get_instance().add(client_conn);
 }

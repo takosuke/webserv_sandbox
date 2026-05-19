@@ -22,6 +22,11 @@ void	int_handler(int sig) {
 	LOG_DEBUG("INFO") << "SIGINT (" << sig <<") recieved. Shutting down" << std::endl;
 }
 
+EpollLoop & EpollLoop::get_instance() {
+	static EpollLoop instance;
+	return instance;
+}
+
 
 EpollLoop::EpollLoop() {
 	_epoll_fd = epoll_create1(0);
@@ -75,7 +80,7 @@ void	EpollLoop::run() {
 	sig_int = false;
 	signal(SIGINT, int_handler);
 	while (sig_int == false) {
-		int ready = epoll_wait(_epoll_fd, _events, MAX_EVENTS, -1);
+		int ready = epoll_wait(_epoll_fd, _events, MAX_EVENTS, 5);
 		// TODO EINTR not handled
 		// if (ready < 0 && errno == EINTR) continue;
 		if (ready < 0 && sig_int == false) {
@@ -94,8 +99,9 @@ void	EpollLoop::run() {
 				del(conn);
 				continue;
 			}
-			conn->handle(*this, _events[i].events);
+			conn->handle(_events[i].events);
 		}
+		FileLoop::get_instance().run();
 		clear();
 	}
 }

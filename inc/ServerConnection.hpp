@@ -5,6 +5,6 @@
 class ServerConnection : public Connection {
 		// TODO constructors, destructors etc
 	public:
-		void handle(EpollLoop &loop, uint32_t events);
+		void handle(uint32_t events);
 		struct sockaddr_in addr;
 };
