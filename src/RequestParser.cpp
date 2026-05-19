@@ -192,6 +192,7 @@ int RequestParser::parse_request_line() {
 
 bool RequestParser::parse_uri() {
 	size_t pos = _req.uri.find("?");
+	// TODO make this return an error rather than an empty string?
 	_req.path = normalizeReqPath(_req.uri.substr(0, pos));
 	if (!(validateReqPath(_req.path)) || _req.path == "") // TODO I don't like
 		return false;
