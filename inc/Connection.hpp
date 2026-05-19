@@ -12,7 +12,7 @@ class Connection {
 		Connection() : fd(0), http(NULL) {}
 		Connection(int fildes, Http * config)
 			: fd(fildes), http(config) { };
-		virtual void handle(EpollLoop &loop, uint32_t events) = 0;
+		virtual void handle(uint32_t events) = 0;
 		virtual ~Connection() {}
 		int	fd;
 	//:w

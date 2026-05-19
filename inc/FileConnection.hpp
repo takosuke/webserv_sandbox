@@ -1,8 +1,5 @@
 #pragma once
 
-#include "Connection.hpp"
-#include "EpollLoop.hpp"
-
 #include <sstream>
 
 #include <stdint.h>
@@ -10,7 +7,9 @@
 #define BYTES_PER_READ_CYCLE 1024
 #define BYTES_PER_WRITE_CYCLE 1024
 
-class EntityConnection : public Connection {
+class ClientConnection;
+
+class FileConnection {
 public:
 	/* used to give the callee information if the operation was performed
 	 * successfully.
@@ -21,25 +20,32 @@ public:
 	 */ 
 	int		state;
 
-	EntityConnection() : state(0), _buffer(NULL), _callback(NULL), _callback_events(0) {};
-	EntityConnection(Connection * callback, uint32_t events, std::string & buffer)
-		: state(0), _callback(callback), _callback_events(events), _callback_stream(buffer) { };
-	virtual ~EntityConnection();
+	FileConnection(ClientConnection * callback, uint32_t events, std::string & buffer)
+		: state(0), _buffer(NULL), _stream(buffer),
+		_callback(callback), _callback_events(events), _callback_buffer(buffer) { };
+	virtual ~FileConnection();
 
 	void	set_fd(int fildes);
 	int		set_buffer_size(size_t buffer_size);
-	void	set_callback(Connection * callback, uint32_t events, std::string & buffer);
+	void	set_callback(ClientConnection * callback, uint32_t events, std::string & buffer);
+
+	virtual void	handle() = 0;
 
 protected:
-	void			handle_callback(EpollLoop & loop);
+	void			handle_callback();
 
-	char *			_buffer;
-	size_t			_buffer_size;
+	int				_fd;
 
-	Connection *		_callback;
+	char *				_buffer;
+	size_t				_buffer_size;
+	std::stringstream	_stream;
+
+	ClientConnection *	_callback;
 	uint32_t			_callback_events;
-	std::stringstream	_callback_stream;
+	std::string &		_callback_buffer;
 };
+
+#include "ClientConnection.hpp"
 
 /**	@biref Class that is meant to handle subsequent connections to files, CGI
  * 	or proxies. It needs to be provided a proper fd to the file or socket it is
@@ -63,23 +69,20 @@ protected:
  * 	in the same EpollLoop return list, but to make sure the deletion of these
  * 	classes should happen from outside this loop.
  */
-class ReadEntityConnection : public EntityConnection {
+class ReadFileConnection : public FileConnection {
 public:
-	ReadEntityConnection() {};
-	ReadEntityConnection(Connection * callback, uint32_t events, std::string & buffer) 
-		: EntityConnection(callback, events, buffer) {};
-	~ReadEntityConnection();
+	ReadFileConnection(ClientConnection * callback, uint32_t events, std::string & buffer) 
+		: FileConnection(callback, events, buffer) { };
+	~ReadFileConnection() { };
 
-	void handle(EpollLoop & loop, uint32_t events);
-
+	void handle();
 };
 
-class WriteEntityConnection : public EntityConnection {
+class WriteFileConnection : public FileConnection {
 public:
-	WriteEntityConnection() : EntityConnection() {};
-	WriteEntityConnection(Connection * callback, uint32_t events, std::string & buffer)
-		: EntityConnection(callback, events, buffer) {};
-	~WriteEntityConnection() {};
+	WriteFileConnection(ClientConnection * callback, uint32_t events, std::string & buffer)
+		: FileConnection(callback, events, buffer) { };
+	~WriteFileConnection() { };
 
-	void	handle(EpollLoop & loop, uint32_t events);
+	void	handle();
 };

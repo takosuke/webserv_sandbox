@@ -19,9 +19,11 @@ SRCS	+= Config.cpp
 
 SRCS	+= ServerConnection.cpp
 SRCS	+= ClientConnection.cpp
-SRCS	+= EntityConnection.cpp
+SRCS	+= FileConnection.cpp
 
 SRCS	+= EpollLoop.cpp
+SRCS	+= FileLoop.cpp
+
 SRCS	+= ServerBlock.cpp
 SRCS	+= RequestParser.cpp
 SRCS	+= Request.cpp
@@ -46,7 +48,8 @@ MKDIR	:= mkdir -p
 CXXFLAGS	?=
 CXXFLAGS	+= -Wall -Werror -Wextra
 CXXFLAGS	+= -std=c++98 -MMD -MP
-CPPFLAGS	:= -I $(IDIR)
+CPPFLAGS	:=
+CPPFLAGS	+= -I $(IDIR)
 
 ifdef DEBUG
 	CXXFLAGS	+= -g3
@@ -60,7 +63,7 @@ endif
 all: $(NAME)
 
 $(NAME): $(ODIR) $(OBJS)
-	$(CXX) -o $(NAME) $(OBJS)
+	$(CXX) $(LDFLAGS) -o $(NAME) $(OBJS)
 
 $(ODIR):
 	$(MKDIR) $(ODIR)

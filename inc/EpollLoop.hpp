@@ -3,6 +3,8 @@
 #include <set>
 #include <sys/epoll.h>
 
+#include "FileLoop.hpp"
+
 class Connection;
 
 #define MAX_EVENTS 64
@@ -10,8 +12,8 @@ class Connection;
 class EpollLoop
 {
 	public:
-		EpollLoop();
-		~EpollLoop();
+		static EpollLoop &	get_instance();
+
 		void add(Connection *conn);
 		void mod(Connection *conn, uint32_t events);
 		void del(Connection *conn);
@@ -19,6 +21,12 @@ class EpollLoop
 		void run();
 
 	private:
+		EpollLoop();
+		EpollLoop(const EpollLoop &);
+		~EpollLoop();
+
+		EpollLoop & operator=(const EpollLoop &);
+
 		void	delete_conn(Connection * conn);
 
 		int	_epoll_fd;

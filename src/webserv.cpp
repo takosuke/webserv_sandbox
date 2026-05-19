@@ -36,8 +36,6 @@ int main(int ac, char *av[]) {
 
     // Create the epoll instance
 	try {
-		EpollLoop loop;
-
 		const std::map<struct sockaddr_in, Port> &ports = http.get_ports();
 
 //		for (std::vector<ServerBlock*>::iterator it = server_blocks.begin();
@@ -53,10 +51,10 @@ int main(int ac, char *av[]) {
 			server_conn->addr = l.get_sockaddr();
 			std::cout << "Listening on port " << l.port << "...\n";
 
-			loop.add(server_conn);
+			EpollLoop::get_instance().add(server_conn);
 		}
 
-		loop.run();
+		EpollLoop::get_instance().run();
 	} catch (const std::exception &e) {
 		std::cerr << e.what() << std::endl;
 		return 1;

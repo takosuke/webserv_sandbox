@@ -241,7 +241,7 @@ void RequestParser::parse_hostname() {
 			_req.port = -1;
 		} else {
 			_req.hostname = _req.host.substr(0, colon);
-			std::string portstring = _req.hostname.substr(colon + 1);
+			std::string portstring = _req.host.substr(colon + 1);
 			if (_req.hostname.empty() || portstring.empty()) {
 				_req.error = 400;
 				return ;
