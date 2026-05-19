@@ -102,6 +102,5 @@ void	ClientConnection::handle_get() {
 void	ClientConnection::construct_response(int code) {
 	_response.construct_status_line(HTTP_VERSION_STR, code);
 	_response.add_content_length();
-	std::cout << _response << std::endl;
 	_resstream.response(_response);
 }

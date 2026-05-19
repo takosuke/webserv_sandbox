@@ -115,9 +115,9 @@ void RequestParser::feed(const char *data, int len) {
 	}
 	if (_state == COMPLETE || _req.error)
 	{
-		LOG_DEBUG("REQUEST") << "Request:" << _req << std::endl;
+		// LOG_DEBUG("REQUEST") << "Request:" << _req << std::endl;
 		// TODO remove this debugging
-		_req.printRequest();
+		// _req.printRequest();
 		return;
 	}
 }
@@ -195,7 +195,7 @@ int RequestParser::parse_headers() {
 	size_t pos = _buf.find("\r\n");
 	while (pos != std::string::npos) {
 		std::string headers_line = _buf.substr(0, pos);
-		std::cout << "headers_line:" << headers_line << std::endl;
+		// std::cout << "headers_line:" << headers_line << std::endl;
 		if (headers_line.empty())
 		{
 			_buf.erase(0, pos + 2);
