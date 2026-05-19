@@ -79,36 +79,6 @@ void Response::add_content_length() {
 	add_header_field("Content-Length", stream.str());
 }
 
-/**
- *	@brief
- *	Writes `count` bytes of the response to `fd`.
- *
- * 	@return
- * 	> 0 on succesfull write, < 0 on error, 0 if the end of the response
- * 	was reached.
- */
-int	Response::write_count(int fd, size_t count) {
-	const char	*data = _writebuf->c_str() + _writepos;
-	size_t		remaining = std::min(count, _writebuf->size() - _writepos);
-
-	int sent = write(fd, data, remaining);
-	if (sent < 0)
-		return (-1);
-
-	count -= sent;
-	_writepos += sent;
-	while (_writepos == _writebuf->size()) {
-		if (reinterpret_cast<uintptr_t>(_writebuf) == reinterpret_cast<uintptr_t>(&status_line))
-			_writebuf = &headers;
-		else if (reinterpret_cast<uintptr_t>(_writebuf) == reinterpret_cast<uintptr_t>(&headers))
-			_writebuf = &entity;
-		else
-			return (0);
-		_writepos = 0;
-	}
-	return (1);
-}
-
 void Response::print(std::ostream & out) const {
 	out << status_line << headers << entity;
 }
@@ -117,4 +87,69 @@ std::ostream & operator<<(std::ostream & out, const Response & res) {
 	out << "=== Full Response ===" << std::endl;
 	res.print(out);
 	return (out);
+}
+
+/* RESPONSE STREAM ************************************************************/
+
+ResponseStream::ResponseStream()
+	: _response(NULL), _buf(NULL), _pos(0) { }
+
+ResponseStream::ResponseStream(const ResponseStream & other) {
+	*this = other;
+}
+
+ResponseStream::ResponseStream(const Response & response)
+	: _response(&response), _buf(&response.status_line), _pos(0) { }
+
+ResponseStream::~ResponseStream() { };
+
+ResponseStream & ResponseStream::operator=(const ResponseStream & other) {
+	if (this == &other)
+		return (*this);
+	_response = other._response;
+	_buf = other._buf;
+	_pos = other._pos;
+	return (*this);
+}
+
+void	ResponseStream::response(const Response & res) {
+	_response = &res;
+	_buf = &(res.status_line);
+	_pos = 0;
+}
+
+/**
+ *	@brief
+ *	Writes `count` bytes of the response to `fd`.
+ *
+ * 	@return
+ * 	> 0 on succesfull write, < 0 on error, 0 if the end of the response
+ * 	was reached.
+ */
+int	ResponseStream::write_to(int fd, size_t count) {
+	size_t	total_sent = 0;
+
+	while (total_sent <= count) {
+		const char	*data = _buf->c_str() + _pos;
+		ssize_t	remaining = std::min(count, _buf->size() - _pos);
+		ssize_t	sent = write(fd, data, remaining);
+		if (sent < 0)
+			return (sent);
+
+		count -= sent;
+		total_sent += sent;
+		_pos += sent;
+		while (_pos >= _buf->size()) {
+			if (reinterpret_cast<uintptr_t>(_buf) == reinterpret_cast<uintptr_t>(&(_response->status_line)))
+				_buf = &(_response->headers);
+			else if (reinterpret_cast<uintptr_t>(_buf) == reinterpret_cast<uintptr_t>(&(_response->headers)))
+				_buf = &(_response->entity);
+			else
+				return (total_sent);
+			_pos = 0;
+		}
+		if (sent < remaining)
+			break ;
+	}
+	return (total_sent);
 }

@@ -29,7 +29,8 @@ class ClientConnection : public Connection {
 		struct sockaddr_in listening_addr;
 
 	private:
-		Response		_response;
+		Response			_response;
+		ResponseStream		_resstream;
 		int					_file_fd;
 		FileConnection *	_file_connection;
 

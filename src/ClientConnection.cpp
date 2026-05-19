@@ -72,7 +72,7 @@ void	ClientConnection::handle(uint32_t events) {
 		// 	}
 		// }
 		
-		if (_response.write_count(fd, 1024) <= 0) {
+		if (_resstream.write_to(fd, 1024) <= 0) {
 			EpollLoop::get_instance().del(this);
 		}
 	}
@@ -103,4 +103,5 @@ void	ClientConnection::construct_response(int code) {
 	_response.construct_status_line(HTTP_VERSION_STR, code);
 	_response.add_content_length();
 	std::cout << _response << std::endl;
+	_resstream.response(_response);
 }
