@@ -29,6 +29,7 @@ SRCS	+= RequestParser.cpp
 SRCS	+= Request.cpp
 
 SRCS	+= Response.cpp
+SRCS	+= ResponseCache.cpp
 
 SRCS	+= utils.cpp
 
