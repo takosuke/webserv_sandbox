@@ -207,6 +207,7 @@ bool RequestParser::parse_uri() {
 int RequestParser::parse_headers() {
 	size_t pos = _buf.find("\r\n");
 	while (pos != std::string::npos) {
+		// TODO max number of headers/max header size?
 		std::string headers_line = _buf.substr(0, pos);
 		if (headers_line.empty())
 		{
@@ -217,6 +218,7 @@ int RequestParser::parse_headers() {
 			return 0;
 		}
 		// make headers into lowercase for consistency and avoiding headaches
+		// FIXME header value trailing whitespace not trimmed
 		std::transform(headers_line.begin(), headers_line.end(), headers_line.begin(), ::tolower);
 		size_t colon = headers_line.find(":");
 		if (!colon)
@@ -226,6 +228,7 @@ int RequestParser::parse_headers() {
 		size_t start = val.find_first_not_of(" \t");
 		if (start != std::string::npos)
 			val = val.substr(start);
+		// FIXME duplicate headers are being silently dropped
 		_req.headers.insert(std::make_pair(key, val));
 		_buf.erase(0, pos + 2);
 		pos = _buf.find("\r\n");
