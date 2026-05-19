@@ -102,10 +102,6 @@ static std::string normalizeReqPath(const std::string& path) {
 }
 
 static bool validateReqPath(const std::string& path) {
-	// path validation logic
-	// check for: malformed %HH encodes, reject literal CTLs and nonascii
-	// resolve . and ..
-	// its up to router to check if path stays within root
 	if (path.empty()) return false;
 	for (size_t i = 0; i < path.size(); ++i)
 		if (!isURITokenChar(static_cast<unsigned char>(path[i])))
@@ -150,21 +146,12 @@ void RequestParser::feed(const char *data, int len) {
 }
 
 int RequestParser::parse_request_line() {
-	// TODO
-	// check that version is HTTP/1.0 or 1.1, otherwise 400, 505 if it's 2.0
-	// enforce a max URI size, check for it
-	// method should have more granular error checking?
-	// check URI char validity (no raw control, no null, percent encoding
-	// something - every % followed by 2 hex digits)
-	// path traversal - check paths are /../ --> router responsibility
 	size_t pos = _buf.find("\r\n");
 	if (pos != std::string::npos)
 	{
-		// checking that there's 3 tokens, with only one space between each
 		std::string request_line = _buf.substr(0, pos);
 		size_t sp_first = request_line.find(' ');
 		size_t sp_second = request_line.find(' ', sp_first + 1);
-//		if (sp_first == std::string::npos || sp_second == std::string::npos)
 		if (sp_first == std::string::npos)
 			return (set_error(400));
 		// does this return npos for http/0.9
@@ -177,7 +164,6 @@ int RequestParser::parse_request_line() {
 		if (_req.method == UNKNOWN)
 			return (set_error(501));
 		_req.uri = request_line.substr(sp_first + 1, sp_second - sp_first - 1);
-		// TODO wrap returns in set_error
 		if (_req.uri.empty() || !isValidURLEncoding(_req.uri))
 			return (set_error(400));
 		if (!parse_uri())
@@ -204,8 +190,6 @@ int RequestParser::parse_request_line() {
 
 bool RequestParser::parse_uri() {
 	size_t pos = _req.uri.find("?");
-	// TODO resolve dot segments
-	// Root escape check belongs to router?
 	_req.path = normalizeReqPath(_req.uri.substr(0, pos));
 	if (!(validateReqPath(_req.path)) || _req.path == "") // TODO I don't like
 		return false;
@@ -219,7 +203,6 @@ bool RequestParser::parse_uri() {
 }
 
 int RequestParser::parse_headers() {
-	// need to loop as long as pos returns something
 	size_t pos = _buf.find("\r\n");
 	while (pos != std::string::npos) {
 		std::string headers_line = _buf.substr(0, pos);
