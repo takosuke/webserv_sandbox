@@ -121,7 +121,7 @@ static bool validateReqPath(const std::string& path) {
  */
 void RequestParser::feed(const char *data, int len) {
 	_buf.append(data, len);
-	if (_buf.find("\r\n") == std::string::npos)
+	if (_buf.find("\r\n") == std::string::npos && _state != BODY)
 		return ;
 	if (_state == REQUEST_LINE && parse_request_line() != 0)
 		return ;
@@ -132,8 +132,6 @@ void RequestParser::feed(const char *data, int len) {
 			_req.server = &(_http->get_server(_addr, getRequest().host));
 			_req.location = &(_req.server->get_location(getRequest().path));
 		}
-		parse_content_length();
-		parse_hostname();
 		parse_body();
 	}
 	if (_state == COMPLETE || _req.error)
@@ -174,13 +172,17 @@ int RequestParser::parse_request_line() {
 		if (sp_second == std::string::npos) {
 			_req.version = "HTTP/0.9";
 			_state = COMPLETE;
+			_complete = true;
+			_buf.erase();
+
 			return 0;
 		}
 		else {
 			_req.version = request_line.substr(sp_second + 1);
 			// returns 0 if valid
-			if (validateVersion(_req.version))
-				return (validateVersion(_req.version));
+			int isNotValidHttpVersionErrno = validateVersion(_req.version);
+			if (isNotValidHttpVersionErrno)
+				return (set_error(isNotValidHttpVersionErrno));
 		}
 		_state = HEADERS;
 		_buf.erase(0, pos + 2);
@@ -210,11 +212,15 @@ int RequestParser::parse_headers() {
 		{
 			_buf.erase(0, pos + 2);
 			_state = BODY;
+			parse_content_length();
+			parse_hostname();
 			return 0;
 		}
 		// make headers into lowercase for consistency and avoiding headaches
 		std::transform(headers_line.begin(), headers_line.end(), headers_line.begin(), ::tolower);
 		size_t colon = headers_line.find(":");
+		if (!colon)
+			return (set_error(400));
 		std::string key = headers_line.substr(0, colon);
 		std::string val = headers_line.substr(colon + 1);
 		size_t start = val.find_first_not_of(" \t");
