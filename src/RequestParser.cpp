@@ -5,10 +5,9 @@
 #include "Request.hpp"
 
 // TODO
-// allow request line of 2 tokens (http 0.9)
-// pass server name and port to Request object
-// max uri length
-// resolve .. and . paths
+// max uri length?
+// better error resolution for normalizeRequestPath
+// general cleanup
 
 static bool isTokenChar(unsigned char c) {
 	static const std::string separators = "()<>@,;:\\\"/[]?={} \t";
@@ -33,7 +32,6 @@ static bool isURITokenChar(unsigned char c) {
 }
 
 static bool isValidHex(char a, char b) {
-	//TODO 
 	return std::isxdigit(static_cast<unsigned char>(a)) 
 	&& std::isxdigit(static_cast<unsigned char>(b));
 }
@@ -74,6 +72,33 @@ static int validateVersion(const std::string& version) {
 	else
 		return 400;
 
+}
+
+static std::string normalizeReqPath(const std::string& path) {
+	std::vector<std::string> segments;
+	std::istringstream ss(path);
+	std::string seg;
+
+	while (std::getline(ss, seg, '/')) {
+		if (seg == "." || seg.empty()) {
+			continue;
+		} else if (seg == "..") {
+			if (!segments.empty())
+				segments.pop_back();
+			else 
+				return ""; // TODO ugh better error checking
+		} else {
+			segments.push_back(seg);
+		}
+	}
+
+	std::string result = "/";
+	for (size_t i = 0; i < segments.size(); ++i) {
+		result += segments[i];
+		if (i + 1 < segments.size())
+			result += "/";
+	}
+	return result;
 }
 
 static bool validateReqPath(const std::string& path) {
@@ -181,9 +206,10 @@ bool RequestParser::parse_uri() {
 	size_t pos = _req.uri.find("?");
 	// TODO resolve dot segments
 	// Root escape check belongs to router?
-	_req.path = _req.uri.substr(0, pos);
-	if (!(validateReqPath(_req.path)))
+	_req.path = normalizeReqPath(_req.uri.substr(0, pos));
+	if (!(validateReqPath(_req.path)) || _req.path == "") // TODO I don't like
 		return false;
+
 	// query string sent as is to CGI handler who is supposed to do the percent
 	// decoding etc
 	if (pos != std::string::npos) {
