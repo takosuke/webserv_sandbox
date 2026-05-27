@@ -7,6 +7,7 @@
 #include <stdint.h>
 
 #include "Config.hpp"
+#include "Request.hpp"
 
 /* STATUS LINE ****************************************************************/
 
@@ -44,20 +45,12 @@ public:
 	std::string		headers;
 	std::string		entity;
 
-	Response() : status_line(), headers(), entity() {};
-	Response(Location * loc, std::string & file);
-	Response(Location * loc, int code);
+	Response()
+		: status_line(), headers("\r\n"), entity() {};
 	Response(const Response & other) { *this = other; };
-	~Response() {};
+	~Response() { };
 
-	Response & operator=(const Response & other) {
-		if (this == &other)
-			return (*this);
-		status_line = other.status_line;
-		headers = other.headers;
-		entity = other.entity;
-		return (*this);
-	};
+	Response & operator=(const Response & other);
 
 	void	construct_status_line(const std::string & version, int status_code);
 	void	add_header_field(const std::string & name, const std::string & value);
@@ -78,6 +71,8 @@ public:
 	ResponseStream & operator=(const ResponseStream & other);
 
 	void	response(const Response & res);
+
+	bool	eof();
 
 	int	write_to(int fd, size_t count);
 

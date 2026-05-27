@@ -188,10 +188,10 @@ namespace config {
 		void	add_type(const std::string & extension, const std::string & type);
 		void	set_default(const std::string & type);
 
-		std::string get_type(const std::string & extension) const;
-		std::string get_default() const;
+		const std::string &	get_type(const std::string & extension) const;
+		const std::string & get_default() const;
 
-		std::map<std::string, std::string> get_types() const;
+		const std::map<std::string, std::string> & get_types() const;
 
 		std::string get_type_ext_string() const;
 	};
@@ -238,10 +238,12 @@ namespace config {
 		void		set_default(const std::string & page, int response_code);
 		void		set_default(const std::string & page, bool ucgir);
 
-		config::errorpage	get_page(int error_code) const;
-		config::errorpage	get_default() const;
+		const config::errorpage &	get_page(int error_code) const;
+		const config::errorpage &	get_default() const;
 
-		std::string			get_errorpages_string() const;
+		std::string		get_errorpages_string() const;
+
+		void		cache_errorpages() const;
 	};
 
 	void add_error_page(config::errors & errors, const std::vector<Token> & tokens);
@@ -342,6 +344,8 @@ public:
 	const config::mime		& get_mime() const { return (mime); };
 	const config::errors	& get_errorpages() const { return (errorpages); };
 	const std::vector<const Location *>	& get_locations() const { return (locations); };
+
+	void cache_errorpages() const;
 };
 
 std::ostream & operator<<(std::ostream & out, const Location & loc);

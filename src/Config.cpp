@@ -491,7 +491,7 @@ void config::mime::set_default(const std::string & type) {
 	_default = type;
 }
 
-std::string config::mime::get_type(const std::string & extension) const {
+const std::string & config::mime::get_type(const std::string & extension) const {
 	std::map<std::string, std::string>::const_iterator it = types.find(extension);
 
 	if (it == types.end())
@@ -499,7 +499,7 @@ std::string config::mime::get_type(const std::string & extension) const {
 	return (it->second);
 }
 
-std::string config::mime::get_default() const{
+const std::string & config::mime::get_default() const{
 	return (_default);
 }
 
@@ -527,7 +527,7 @@ void config::add_types(config::mime & mime, const BodyDirective & directive) {
 	}
 }
 
-std::string  config::mime::get_type_ext_string() const {
+std::string config::mime::get_type_ext_string() const {
 	std::vector<std::pair<std::string, std::vector<std::string> > > collect_types;
 
 	for (std::map<std::string, std::string>::const_iterator it = types.begin();
@@ -629,7 +629,7 @@ void config::errors::set_default(const std::string & page, bool ucgir) {
 	_default = config::errorpage(ucgir, false, DEFAULT_ERROR_CODE, page);
 }
 
-config::errorpage config::errors::get_page(int error_code) const {
+const config::errorpage & config::errors::get_page(int error_code) const {
 	std::map<int, config::errorpage>::const_iterator it = pages.find(error_code);
 
 	if (it == pages.end())
@@ -637,7 +637,7 @@ config::errorpage config::errors::get_page(int error_code) const {
 	return (it->second);
 }
 
-config::errorpage config::errors::get_default() const {
+const config::errorpage & config::errors::get_default() const {
 	return (_default);
 }
 
@@ -1013,6 +1013,10 @@ const Location & Location::get_location(const std::string & uri) const {
 	if (longest_prefix == NULL)
 		return (*this);
 	return (longest_prefix->get_location(uri));
+}
+
+int Location::cache_errorpages() {
+	erropages.cache_errorpages();
 }
 
 #include <iostream>

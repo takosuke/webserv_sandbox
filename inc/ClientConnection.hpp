@@ -3,7 +3,6 @@
 #include "Connection.hpp"
 #include "RequestParser.hpp"
 #include "Response.hpp"
-//#include "Http.hpp"
 
 #include <netinet/in.h>
 #include <stdint.h>
@@ -14,12 +13,10 @@ class ClientConnection : public Connection {
 	public:
 		// TODO constructors, destructors etc
 		ClientConnection()
-			: Connection(), _file_fd(-1), _file_connection(NULL),
-			_parser(RequestParser()) { }
+			: Connection(), _parser(RequestParser()), _fileconnection(NULL) { }
 		ClientConnection(int fildes, Http * config, struct sockaddr_in addr) 
 			: Connection(fildes, config), listening_addr(addr),
-			_file_fd(-1), _file_connection(NULL),
-			_parser(RequestParser(config, addr)) { };
+			_parser(RequestParser(config, addr)), _fileconnection(NULL) { };
 		~ClientConnection();
 
 		void handle(uint32_t events);
@@ -29,14 +26,14 @@ class ClientConnection : public Connection {
 		struct sockaddr_in listening_addr;
 
 	private:
+		RequestParser		_parser;
+
+		FileConnection *	_fileconnection;
+
 		Response			_response;
 		ResponseStream		_resstream;
-		int					_file_fd;
-		FileConnection *	_file_connection;
 
-		RequestParser	_parser;
-
-		void enqueue_response();
+		void	enqueue_response();
 
 		void	handle_get();
 };

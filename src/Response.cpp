@@ -8,6 +8,8 @@
 #include <stdexcept>
 #include <sstream>
 
+/* RESPONSE *******************************************************************/
+
 std::map<int, std::string>	Response::reason_phrase_map = std::map<int, std::string>();
 
 /**	@brief Initializes the Reason Phrase map.
@@ -53,6 +55,15 @@ std::string Response::get_reason_phrase(int code) {
 	return ("Unknown Status Code");
 }
 
+Response & Response::operator=(const Response & other) {
+	if (this == &other)
+		return (*this);
+	status_line = other.status_line;
+	headers = other.headers;
+	entity = other.entity;
+	return (*this);
+}
+
 void Response::construct_status_line(const std::string & version, int status_code) {
 	std::ostringstream	in;
 
@@ -63,8 +74,7 @@ void Response::construct_status_line(const std::string & version, int status_cod
 }
 
 void Response::add_header_field(const std::string & name, const std::string & value) {
-	if (headers.size() != 0)
-		headers.erase(headers.size() - 1);
+	headers.erase(headers.size() - 2);
 	headers.reserve(headers.size() + name.size() + value.size() + 4);
 	headers.append(name);
 	headers.append(": ");
@@ -129,7 +139,7 @@ void	ResponseStream::response(const Response & res) {
 int	ResponseStream::write_to(int fd, size_t count) {
 	size_t	total_sent = 0;
 
-	while (total_sent <= count) {
+	while (_buf != NULL && total_sent <= count) {
 		const char	*data = _buf->c_str() + _pos;
 		ssize_t	remaining = std::min(count, _buf->size() - _pos);
 		ssize_t	sent = write(fd, data, remaining);
@@ -144,8 +154,10 @@ int	ResponseStream::write_to(int fd, size_t count) {
 				_buf = &(_response->headers);
 			else if (reinterpret_cast<uintptr_t>(_buf) == reinterpret_cast<uintptr_t>(&(_response->headers)))
 				_buf = &(_response->entity);
-			else
+			else {
+				_buf = NULL;
 				return (total_sent);
+			}
 			_pos = 0;
 		}
 		if (sent < remaining)

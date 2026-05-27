@@ -4,10 +4,33 @@
 
 #include <stdint.h>
 
+class ClientConnection;
+
+/* CLIENT CALLBACK ************************************************************/
+
+class ClientCallback {
+public:
+	ClientCallback()
+		: _client(NULL), _events(0) { };
+	ClientCallback(ClientConnection * client, uint32_t events)
+		: _client(client), _events(events) { };
+	ClientCallback(const ClientCallback & other);
+	~ClientCallback() { };
+
+	ClientCallback & operator=(const ClientCallback & other);
+
+	void	set_client(ClientConnection * client) { _client = client; };
+	void	set_events(uint32_t events) { _events = events; };
+
+	void	callback();
+
+private:
+	ClientConnection *	_client;
+	uint32_t			_events;
+};
+
 #define BYTES_PER_READ_CYCLE 1024
 #define BYTES_PER_WRITE_CYCLE 1024
-
-class ClientConnection;
 
 class FileConnection {
 public:
@@ -20,29 +43,31 @@ public:
 	 */ 
 	int		state;
 
-	FileConnection(ClientConnection * callback, uint32_t events, std::string & buffer)
-		: state(0), _buffer(NULL), _stream(buffer),
-		_callback(callback), _callback_events(events), _callback_buffer(buffer) { };
+	FileConnection(const ClientCallback & callback)
+		: state(0), _callback(callback), _fd(-1),
+		_tmp_buffer(NULL), _buffer() { };
 	virtual ~FileConnection();
 
-	void	set_fd(int fildes);
-	int		set_buffer_size(size_t buffer_size);
-	void	set_callback(ClientConnection * callback, uint32_t events, std::string & buffer);
+	int		set_operation_size(size_t buffer_size);
+	void	set_callback(ClientCallback & other) { _callback = other; };
+	void	set_fd(int fd) { _fd = fd; };
+
+	const std::string &	get_buffer() const { return (_buffer); };
+
+	virtual int		open_file(const std::string & file) = 0;
 
 	virtual void	handle() = 0;
 
 protected:
-	void			handle_callback();
+	FileConnection();
 
-	int				_fd;
+	ClientCallback		_callback;
 
-	char *				_buffer;
-	size_t				_buffer_size;
-	std::stringstream	_stream;
+	int					_fd;
 
-	ClientConnection *	_callback;
-	uint32_t			_callback_events;
-	std::string &		_callback_buffer;
+	char *			_tmp_buffer;
+	size_t			_tmp_buffer_size;
+	std::string		_buffer;
 };
 
 #include "ClientConnection.hpp"
@@ -71,18 +96,28 @@ protected:
  */
 class ReadFileConnection : public FileConnection {
 public:
-	ReadFileConnection(ClientConnection * callback, uint32_t events, std::string & buffer) 
-		: FileConnection(callback, events, buffer) { };
+	ReadFileConnection(const ClientCallback & callback) 
+		: FileConnection(callback) { };
 	~ReadFileConnection() { };
 
-	void handle();
+	int		open_file(const std::string & file);
+
+	void	handle();
+
+private:
+	ReadFileConnection();
 };
 
 class WriteFileConnection : public FileConnection {
 public:
-	WriteFileConnection(ClientConnection * callback, uint32_t events, std::string & buffer)
-		: FileConnection(callback, events, buffer) { };
+	WriteFileConnection(const ClientCallback & callback) 
+		: FileConnection(callback) { };
 	~WriteFileConnection() { };
 
+	int		open_file(const std::string & file);
+
 	void	handle();
+
+private:
+	WriteFileConnection();
 };

@@ -11,10 +11,10 @@
 #include "ClientConnection.hpp"
 #include "FileConnection.hpp"
 #include "EpollLoop.hpp"
+#include "ResponseCache.hpp"
 
 ClientConnection::~ClientConnection() {
-	close(_file_fd);
-	delete (_file_connection);
+
 }
 
 void	ClientConnection::enqueue_response() {
@@ -41,8 +41,13 @@ void	ClientConnection::handle(uint32_t events) {
 
 		} else {
 			_parser.feed(buffer, bytes);
-			if (_parser.getRequest().error)
+			if (_parser.getRequest().error) {
+				_resstream.response(*(ResponseCache::get_instance().get(
+					_parser.getRequest().location->get_errorpages().get_page(
+						_parser.getRequest().error).page)));
+				EpollLoop::get_instance().mod(this, EPOLLOUT | EPOLLERR | EPOLLHUP);
 				std::cout << "parser error" << std::endl; // route to error page
+			}
 			if (_parser.complete()) {
 				switch (_parser.getRequest().method) {
 					case GET: handle_get(); break ;
@@ -80,18 +85,23 @@ void	ClientConnection::handle(uint32_t events) {
 
 void	ClientConnection::handle_get() {
 	const Request &	req = _parser.getRequest();
-	_file_connection = new ReadFileConnection(this, EPOLLOUT | EPOLLERR | EPOLLHUP, _response.entity);
-
-	std::string	path = req.location->get_root() + req.path;
-
-	_file_fd = open(path.c_str(), O_RDONLY);
-	if (_file_fd < 0)
-		// TODO handle 404 error
-		return ;
-	_file_connection->set_fd(_file_fd);
-	_file_connection->set_buffer_size(BYTES_PER_READ_CYCLE);
-	EpollLoop::get_instance().mod(this, 0);
-	FileLoop::get_instance().add(_file_connection);
+	_fileconnection = new ReadFileConnection(ClientCallback(this, EPOLLOUT | EPOLLERR | EPOLLHUP));
+	if (_fileconnection == NULL) {
+		_resstream.response(*(ResponseCache::get_instance().get(
+			req.location->get_errorpages().get_page(500).page)));
+		EpollLoop::get_instance().mod(this, EPOLLOUT | EPOLLERR | EPOLLHUP);
+	} else {
+		_fileconnection->open_file(req.location->get_root() + req.path);
+		if (_fileconnection->state != 0) {
+			_resstream.response(*(ResponseCache::get_instance().get(
+				req.location->get_errorpages().get_page(_fileconnection->state).page)));
+			EpollLoop::get_instance().mod(this, EPOLLOUT | EPOLLERR | EPOLLHUP);
+			return ;
+		}
+		_fileconnection->set_operation_size(BYTES_PER_READ_CYCLE);
+		EpollLoop::get_instance().mod(this, 0);
+		FileLoop::get_instance().add(_fileconnection);
+	}
 }
 
 /** @brief Constructs the response based on the `code` recieved
@@ -101,6 +111,7 @@ void	ClientConnection::handle_get() {
  */ 
 void	ClientConnection::construct_response(int code) {
 	_response.construct_status_line(HTTP_VERSION_STR, code);
+	_response.entity = _fileconnection->get_buffer();
 	_response.add_content_length();
 	_resstream.response(_response);
 }
