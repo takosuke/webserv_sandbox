@@ -31,6 +31,8 @@ SRCS	+= Request.cpp
 SRCS	+= Response.cpp
 SRCS	+= ResponseCache.cpp
 
+SRCS	+= FileBodyCache.cpp
+
 SRCS	+= utils.cpp
 
 OBJS	:= $(SRCS:.cpp=.o)

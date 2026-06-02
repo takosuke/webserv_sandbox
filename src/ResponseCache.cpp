@@ -16,8 +16,10 @@ void ResponseCache::add(const std::string & file, Response * res) {
 
 void ResponseCache::del(const std::string & file) {
 	std::map<std::string, Response *>::iterator it = _responses.find(file);
-	if (it != _responses.end())
+	if (it != _responses.end()) {
 		delete (it->second);
+		_responses.erease(it);
+	}
 }
 
 Response * ResponseCache::get(const std::string & file) {

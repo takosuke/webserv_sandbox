@@ -41,12 +41,19 @@ private:
 	static std::string	get_reason_phrase(int code);
 
 public:
-	std::string		status_line;
-	std::string		headers;
-	std::string		entity;
+	const std::string		*status_line;
+	struct header {
+		std::string	*date;
+		std::string	*location;
+		std::string	*allow;
+		std::string	*content_length;
+
+		header() : date(NULL), location(NULL), allow(NULL), content_length(NULL) { };
+	}				header;
+	std::string		*entity;
 
 	Response()
-		: status_line(), headers("\r\n"), entity() {};
+		: status_line(NULL), header(), entity(NULL) {};
 	Response(const Response & other) { *this = other; };
 	~Response() { };
 
