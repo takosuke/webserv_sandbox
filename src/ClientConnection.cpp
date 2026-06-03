@@ -151,3 +151,36 @@ void	ClientConnection::handle_cgi() {
 	EpollLoop::get_instance().mod(this, 0);
 	EpollLoop::get_instance().add(cgi);
 }
+
+void	ClientConnection::complete_cgi(const std::string &output) {
+	size_t sep = output.find("\r\n\r\n");
+	if (sep == std::string::npos) {
+		return ; // TODO 500
+	}
+	char tmpname[] = "/tmp/cgi_XXXXXX"; // TODO random num
+	int tmpfd = mkstemp(tmpname);
+	if (tmpfd < 0) {
+		return ; // TODO 500
+	}
+	std::string body = output.substr(sep + 4);
+	write(tmpfd, body.c_str(), body.size());
+	close(tmpfd);
+
+	_response.add_status_line(HTTP_VERSION_STR, 200);
+
+	std::istringstream hstream(output.substr(0, sep));
+	std::string line;
+	while (std::getline(hstream, line)) {
+		if (!line.empty() && line[line.size() - 1] == '\r')
+			line.erase(line.size() - 1);
+		size_t colon = line.find(':');
+		if (colon == std::string::npos)
+			continue;
+		_response.add_header_field(line.substr(0, colon), line.substr(colon + 2));
+	}
+	_response.add_header_end();
+	_response.set_file(tmpname);
+	// TODO cleanup tmp file
+
+	EpollLoop::get_instance().mod(this, EPOLLOUT | EPOLLERR | EPOLLHUP);
+}

@@ -19,9 +19,10 @@ class ClientConnection : public Connection {
 			_parser(RequestParser(config, addr)) { };
 		~ClientConnection();
 
-		void handle(uint32_t events);
+		void	handle(uint32_t events);
 
-		void construct_response(int code);
+		void	complete_cgi(const std::string &output);
+		void	construct_response(int code);
 
 		struct sockaddr_in listening_addr;
 

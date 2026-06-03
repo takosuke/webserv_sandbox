@@ -19,6 +19,7 @@ SRCS	+= Config.cpp
 
 SRCS	+= ServerConnection.cpp
 SRCS	+= ClientConnection.cpp
+SRCS	+= CgiConnection.cpp
 
 SRCS	+= EpollLoop.cpp
 
