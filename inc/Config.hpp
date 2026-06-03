@@ -243,7 +243,7 @@ namespace config {
 		const config::errorpageinfo	&get_page(int error_code) const;
 		const config::errorpageinfo	&get_default() const;
 
-		std::string		get_errorpages_string() const;
+		void		stream_pages(std::ostream &out) const;
 	};
 
 	void add_error_page(config::errors & errors, const std::vector<Token> & tokens);
@@ -266,6 +266,7 @@ namespace config {
 	};
 
 	void add_cgi_pass(std::string & pass, const std::vector<Token> & tokens);
+	void add_cgi_param(config::cgi & cgi, const std::vector<Token> & tokens);
 }
 
 std::ostream & operator<<(std::ostream & out, const config::header & header);
@@ -277,7 +278,6 @@ std::ostream & operator<<(std::ostream & out, const config::mime & mime);
 std::ostream & operator<<(std::ostream & out, const config::errorpageinfo & errorpage);
 std::ostream & operator<<(std::ostream & out, const config::errors & errors);
 
-bool operator==(const config::errorpageinfo & ep1, const config::errorpageinfo & ep2);
 bool operator==(const config::listen & lhs, const config::listen & rhs);
 
 template <class T, template <class, class> class C>

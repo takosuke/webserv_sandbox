@@ -626,43 +626,13 @@ const config::errorpageinfo & config::errors::get_default() const {
 	return (_default);
 }
 
-std::string config::errors::get_errorpages_string() const {
-	std::vector<std::pair<config::errorpageinfo, std::vector<int> > >	collected_pages;
-
+void config::errors::stream_pages(std::ostream &out) const {
 	for (std::map<int, config::errorpageinfo>::const_iterator it = pages.begin();
-		it != pages.end(); it ++) {
-		std::vector<std::pair<config::errorpageinfo, std::vector<int> > >::iterator pageit;
-		for (pageit = collected_pages.begin();
-			pageit != collected_pages.end(); pageit++) {
-			if (pageit->first== it->second) {
-				pageit->second.push_back(it->first);
-				break ;
-			}
-		}
-		if (pageit == collected_pages.end()) {
-			std::pair<config::errorpageinfo, std::vector<int> > new_code = std::make_pair(it->second, std::vector<int>());
-			new_code.second.push_back(it->first);
-			collected_pages.push_back(new_code);
-		}
+		it != pages.end(); it++) {
+	  	if (it != pages.begin())
+			out << ", ";
+		out << it->second;
 	}
-
-	std::ostringstream ret;
-	ret << "error_pages_map { ";
-	for (std::vector<std::pair<config::errorpageinfo, std::vector<int> > >::const_iterator it = collected_pages.begin();
-		it != collected_pages.end(); it++) {
-		if (it != collected_pages.begin())
-			ret << ", ";
-		ret << it->first << ", error_codes { ";
-		for (std::vector<int>::const_iterator codeit = it->second.begin();
-			codeit != it->second.end(); codeit++) {
-			if (codeit != it->second.begin())
-				ret << ", ";
-			ret << *codeit;
-		}
-		ret << " }";
-	}
-	ret << " }";
-	return (ret.str());
 }
 
 config::errorpageinfo::errorpageinfo() : internal(true), response_code(0), pagename() { }
@@ -683,16 +653,6 @@ config::errorpageinfo & config::errorpageinfo::operator=(const config::errorpage
 	pagename = other.pagename;
 	return (*this);
 }
-
-// bool operator==(const config::errorpageinfo & ep1, const config::errorpageinfo & ep2) {
-// 	if (ep1.use_cgi_response != ep2.use_cgi_response ||
-// 		ep1.overwrite_response != ep2.overwrite_response ||
-// 		ep1.page != ep2.page)
-// 		return (false);
-// 	if (ep1.overwrite_response == true && ep1.response_code != ep2.response_code)
-// 		return (false);
-// 	return (true);
-// }
 
 bool starts_with_scheme(const std::string & uri) {
 	static std::string	schemestrs[14] = {
@@ -812,8 +772,60 @@ std::ostream & operator<<(std::ostream & out, const config::errorpageinfo & erro
 
 std::ostream & operator<<(std::ostream & out, const config::errors & errors) {
 	out << "errors { default: " << errors.get_default() <<
-		", pages: " << errors.get_errorpages_string() << " }";
+		", pages: ";
+	errors.stream_pages(out);
+	out << " }";
 	return (out);
+}
+
+/* CONFIG :: CGI **************************************************************/
+
+config::cgi::cgi() : pass() { };
+
+config::cgi::cgi(const config::cgi &other) { *this = other; };
+
+config::cgi::~cgi() { };
+
+config::cgi &config::cgi::operator=(const config::cgi &other) {
+	if (this == &other)
+		return (*this);
+	pass = other.pass;
+	params = other.params;
+	return (*this);
+}
+
+void config::add_cgi_pass(std::string &pass, const std::vector<Token> &tokens) {
+	try {
+		check_parameter_count(1, 1, tokens.size());
+
+		if (tokens.front().type != Token::path
+			|| tokens.front().type != Token::url
+			|| tokens.front().type != Token::string)
+			throw (std::runtime_error("expected path, url or string"));
+		pass = tokens.front().str;
+	} catch (std::exception &e) {
+		throw (std::runtime_error(std::string("[cgi_pass] ") + e.what()));
+	}
+}
+
+void config::add_cgi_param(config::cgi &cgi, const std::vector<Token> &tokens) {
+	try {
+		check_parameter_count(2, 2, tokens.size());
+
+		std::vector<Token>::const_iterator it = tokens.begin();
+
+		if (it->type != Token::string)
+			throw (std::runtime_error("expected string as parameter"));
+		std::string	param = it->str;
+
+		it++;
+		if(it->type != Token::string)
+			throw (std::runtime_error("expected string as value"));
+		cgi.params.push_back(std::make_pair(param, it->str));
+
+	} catch (std::exception &e) {
+		throw (std::runtime_error(std::string("[cig_param] ") + e.what()));
+	}
 }
 
 /* CONFIG :: GENERAL **********************************************************/

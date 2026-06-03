@@ -19,19 +19,14 @@ SRCS	+= Config.cpp
 
 SRCS	+= ServerConnection.cpp
 SRCS	+= ClientConnection.cpp
-SRCS	+= FileConnection.cpp
 
 SRCS	+= EpollLoop.cpp
-SRCS	+= FileLoop.cpp
 
 SRCS	+= ServerBlock.cpp
 SRCS	+= RequestParser.cpp
 SRCS	+= Request.cpp
 
 SRCS	+= Response.cpp
-SRCS	+= ResponseCache.cpp
-
-SRCS	+= FileBodyCache.cpp
 
 SRCS	+= utils.cpp
 
