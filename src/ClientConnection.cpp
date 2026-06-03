@@ -23,6 +23,10 @@ void	ClientConnection::enqueue_response() {
 }
 
 void	ClientConnection::handle(uint32_t events) {
+	if (events & (EPOLLERR | EPOLLHUP)) {
+		EpollLoop::get_instance().del(this);
+		return ;
+	}
 	if (events & EPOLLIN) {
 		// small buffer to test for multiple reads
 		// TODO make it a big number!

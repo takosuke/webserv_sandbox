@@ -95,10 +95,6 @@ void	EpollLoop::run() {
 		// before dereferencing
 		for (int i = 0; i < ready; i++) {
 			Connection *conn = (Connection*)_events[i].data.ptr;
-			if (_events[i].events & (EPOLLERR | EPOLLHUP)) {
-				del(conn);
-				continue;
-			}
 			conn->handle(_events[i].events);
 		}
 		clear();
