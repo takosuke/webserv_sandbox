@@ -1,4 +1,5 @@
 #include <cerrno>
+#include <cstdlib>
 #include <iostream>
 #include <sys/socket.h>
 #include <netinet/in.h>
@@ -9,6 +10,7 @@
 #include <stdexcept>
 
 #include "ClientConnection.hpp"
+#include "CgiConnection.hpp"
 #include "EpollLoop.hpp"
 
 ClientConnection::~ClientConnection() {
@@ -113,5 +115,35 @@ void	ClientConnection::handle_get() {
 }
 
 void	ClientConnection::handle_cgi() {
-	std::cout << "poop" << std::endl;
+
+	const Request		&req		= _parser.getRequest();
+	const std::string	&interp		= req.location->get_cgi().pass;
+	std::string			script		= req.location->get_root() + req.path;
+
+	int pipefd[2];
+	if (pipe(pipefd) < 0)
+		return ;
+
+	pid_t pid = fork();
+	if (pid < 0) {
+		close(pipefd[0]);
+		close(pipefd[1]);
+		return ;
+	}
+
+	if (pid == 0) {
+		close(pipefd[0]);
+		dup2(pipefd[1], STDOUT_FILENO);
+		close(pipefd[1]);
+		char *argv[] = { (char*)interp.c_str(), (char*)script.c_str(), NULL };
+		char *envp[] = { NULL };
+		execve(interp.c_str(), argv, envp);
+		exit(1);
+	}
+	close(pipefd[1]);
+	CgiConnection *cgi = new CgiConnection(this);
+	cgi->fd = pipefd[0];
+	cgi->_pid = pid;
+	EpollLoop::get_instance().mod(this, 0);
+	EpollLoop::get_instance().add(cgi);
 }
