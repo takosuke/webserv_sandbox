@@ -131,9 +131,15 @@ void Response::add_content_length(const std::string &filepath) {
 #include <ctime>
 
 void Response::add_date() {
-	time_t	timestamp;
+	char	buf[29];
 
-	time(&timestamp);
+	buf[28] = '\0';
+	time_t	localtimestamp = std::time(NULL);
+	// Date: <day-name>, <day> <month> <year> <hour>:<minute>:<second> GMT
+	// "DDD, dd mm yyyy hh:mm:ss GMT"
+	if (std::strftime(buf, 29, "%a, %d %b %y %H:%M%S GMT" , std::gmtime(&localtimestamp)))
+		throw (std::runtime_error("couldn't create 'Date' header string"));
+	add_header_field("Date", buf);
 }
 
 void Response::clear_buffer() {

@@ -597,16 +597,16 @@ config::errors & config::errors::operator=(const config::errors & other) {
 	if (this == &other)
 		return (*this);
 	_default = other._default;
-	pages = other.pages;
+	_pagemap = other._pagemap;
 	return (*this);
 }
 
 void config::errors::clear() {
-	pages.clear();
+	_pagemap.clear();
 }
 
 void config::errors::add_page(int error_code, const config::errorpageinfo &epi) {
-	pages[error_code] = epi;
+	_pagemap[error_code] = epi;
 }
 
 void config::errors::set_default(const config::errorpageinfo &epi) {
@@ -615,9 +615,9 @@ void config::errors::set_default(const config::errorpageinfo &epi) {
 
 /** TODO: check if it should really return the default page */
 const config::errorpageinfo & config::errors::get_page(int error_code) const {
-	std::map<int, config::errorpageinfo>::const_iterator it = pages.find(error_code);
+	std::map<int, config::errorpageinfo>::const_iterator it = _pagemap.find(error_code);
 
-	if (it == pages.end())
+	if (it == _pagemap.end())
 		return (_default);
 	return (it->second);
 }
@@ -627,11 +627,12 @@ const config::errorpageinfo & config::errors::get_default() const {
 }
 
 void config::errors::stream_pages(std::ostream &out) const {
-	for (std::map<int, config::errorpageinfo>::const_iterator it = pages.begin();
-		it != pages.end(); it++) {
-	  	if (it != pages.begin())
+	for (std::map<int, config::errorpageinfo>::const_iterator it = _pagemap.begin();
+		it != _pagemap.end(); it++) {
+	  	if (it != _pagemap.begin())
 			out << ", ";
-		out << it->second;
+		out << "{ code: " << it->first
+			<< ", " << it->second << " } ";
 	}
 }
 
@@ -673,8 +674,8 @@ bool starts_with_scheme(const std::string & uri) {
 	};
 	for (int i = 0; i < 14; i++) {
 		size_t	schemelen = schemestrs[i].size();
-		if (uri.compare(0, schemelen, schemestrs[i])
-			&& uri.compare(schemelen, schemelen + 3, "://")) {
+		if (uri.compare(0, schemelen, schemestrs[i]) == 0
+			&& uri.compare(schemelen, schemelen + 3, "://") == 0) {
 			return (true);
 		}
 	}
@@ -766,13 +767,13 @@ void config::add_error_page(config::errors & errors, const std::vector<Token> & 
 
 std::ostream & operator<<(std::ostream & out, const config::errorpageinfo & errorpage) {
 	out << "errorpage { response_code: " << errorpage.response_code
-		<< ", page: " << errorpage.pagename;
+		<< ", page: " << errorpage.pagename << " }";
 	return (out);
 }
 
 std::ostream & operator<<(std::ostream & out, const config::errors & errors) {
 	out << "errors { default: " << errors.get_default() <<
-		", pages: ";
+		" }, pages { ";
 	errors.stream_pages(out);
 	out << " }";
 	return (out);
@@ -799,8 +800,8 @@ void config::add_cgi_pass(std::string &pass, const std::vector<Token> &tokens) {
 		check_parameter_count(1, 1, tokens.size());
 
 		if (tokens.front().type != Token::path
-			|| tokens.front().type != Token::url
-			|| tokens.front().type != Token::string)
+			&& tokens.front().type != Token::url
+			&& tokens.front().type != Token::string)
 			throw (std::runtime_error("expected path, url or string"));
 		pass = tokens.front().str;
 	} catch (std::exception &e) {
@@ -824,8 +825,21 @@ void config::add_cgi_param(config::cgi &cgi, const std::vector<Token> &tokens) {
 		cgi.params.push_back(std::make_pair(param, it->str));
 
 	} catch (std::exception &e) {
-		throw (std::runtime_error(std::string("[cig_param] ") + e.what()));
+		throw (std::runtime_error(std::string("[cgi_param] ") + e.what()));
 	}
+}
+
+std::ostream & operator<<(std::ostream & out, const config::cgi & cgi) {
+	out << "cgi { pass: " << cgi.pass
+		<< ", params: { ";
+	for (std::vector<std::pair<std::string, std::string> >::const_iterator it = cgi.params.begin();
+		it != cgi.params.end(); it++) {
+		if (it != cgi.params.begin())
+			out << ", ";
+		out << "{ param: " << it->first << ", value: " << it->second << " }";
+	}
+	out << "}";
+	return (out);
 }
 
 /* CONFIG :: GENERAL **********************************************************/
@@ -912,6 +926,7 @@ void Location::from_directive(const BodyDirective & directive) {
 		bool	body_max;
 		bool	default_type;
 		bool	error_page;
+		bool	cgi_pass;
 	}	was_set;
 	was_set.root = false;
 	was_set.body_buffer_size = false;
@@ -919,6 +934,7 @@ void Location::from_directive(const BodyDirective & directive) {
 	was_set.body_max = false;
 	was_set.default_type = false;
 	was_set.error_page = false;
+	was_set.cgi_pass = false;
 
 	/* Here to be in scope during try for proper deletin in case of a throw */
 	Location *	loc = NULL;
@@ -972,6 +988,13 @@ void Location::from_directive(const BodyDirective & directive) {
 					errorpages.clear();
 				config::add_error_page(errorpages, it->parameters);
 				was_set.error_page = true;
+			} else if (it->name == "cgi_pass") {
+				if (was_set.cgi_pass)
+					throw (std::runtime_error("multiple cgi_pass directives"));
+				config::add_cgi_pass(cgi.pass, it->parameters);
+				was_set.cgi_pass = true;
+			} else if (it->name == "cgi_param") {
+				config::add_cgi_param(cgi, it->parameters);
 			} else {
 				throw (std::runtime_error(std::string("invalid directive: ") + it->name));
 			}
@@ -997,14 +1020,20 @@ void Location::from_directive(const BodyDirective & directive) {
 		it != location_direc.end(); it++) {
 			loc = new Location(*this);
 			loc->from_directive(**it);
+			for (std::vector<const Location *>::iterator locit = locations.begin();
+				locit != locations.end(); locit++) {
+				if ((*locit)->get_path() == loc->get_path())
+					throw (std::runtime_error("two locations with the same path listed"));
+			}
 			locations.push_back(loc);
 			loc = NULL;
 		}
 	} catch (std::exception & e) {
 		delete loc;
-		delete_locations();
 		throw (std::runtime_error(std::string("[Location] ") + e.what()));
 	}
+
+	std::cout << *this << std::endl << std::endl;
 }
 
 void Location::from_server(const Server & server) {
@@ -1039,11 +1068,12 @@ const Location & Location::get_location(const std::string & uri) const {
 std::ostream & operator<<(std::ostream & out, const Location & loc) {
 	out << "Location { path: " << loc.get_path() <<
 		", root: " << loc.get_root() <<
-		", body { " << loc.get_body() <<
-		", output { " << loc.get_output() <<
-		", mime { " << loc.get_mime() <<
-		", error_page { " << loc.get_errorpages() <<
-		" } }";
+		", " << loc.get_body() <<
+		", " << loc.get_output() <<
+		", " << loc.get_mime() <<
+		", " << loc.get_errorpages() <<
+		", " << loc.get_cgi() <<
+		" }";
 	return (out);
 }
 
@@ -1193,22 +1223,28 @@ void Server::from_directive(const BodyDirective & directive) {
 		}
 
 		/* setting up the locations */
-		/* ensuring that there will always be a valid lcoation with just '/' as
-		 * a path for the Server to find */
-		loc = new Location(*this);
-		loc->set_path("/");
-		locations.push_back(loc);
 		loc = NULL;
 		for (std::vector<const BodyDirective *>::const_iterator it = location_direc.begin();
 		it != location_direc.end(); it++) {
 			loc = new Location(*this);
 			loc->from_directive(**it);
+			for (std::vector<const Location *>::iterator locit = locations.begin();
+				locit != locations.end(); locit++) {
+				if ((*locit)->get_path() == loc->get_path())
+					throw (std::runtime_error("two locations with the same path listed"));
+			}
 			locations.push_back(loc);
 			loc = NULL;
 		}
+		if (locations.size() == 0) {
+			/* ensuring that there will always be a valid lcoation with just '/' as
+		 	* a path for the Server to find */
+			loc = new Location(*this);
+			loc->set_path("/");
+			locations.push_back(loc);
+		}
 	} catch (std::exception & e) {
 		delete loc;
-		delete_locations();
 		throw (std::runtime_error(std::string("[Server] ") + e.what()));
 	}
 }
@@ -1492,7 +1528,6 @@ void Http::from_directive(const BodyDirective & directive) {
 		}
 	} catch (std::exception & e) {
 		delete server;
-		delete_servers();
 		throw (std::runtime_error(std::string("[Http] ") + e.what()));
 	}
 }

@@ -214,6 +214,7 @@ namespace config {
 
 		errorpageinfo();
 		errorpageinfo(bool is_internal, int code, const std::string & p);
+		errorpageinfo(const errorpageinfo &other) { *this = other; };
 		~errorpageinfo();
 
 		errorpageinfo & operator=(const errorpageinfo & other);
@@ -225,7 +226,7 @@ namespace config {
 	struct errors {
 	private:
 		config::errorpageinfo					_default;
-		std::map<int, config::errorpageinfo>	pages;
+		std::map<int, config::errorpageinfo>	_pagemap;
 
 	public:
 		errors();
@@ -277,6 +278,7 @@ std::ostream & operator<<(std::ostream & out, const config::listen & listen);
 std::ostream & operator<<(std::ostream & out, const config::mime & mime);
 std::ostream & operator<<(std::ostream & out, const config::errorpageinfo & errorpage);
 std::ostream & operator<<(std::ostream & out, const config::errors & errors);
+std::ostream & operator<<(std::ostream & out, const config::cgi & cgi);
 
 bool operator==(const config::listen & lhs, const config::listen & rhs);
 
@@ -358,6 +360,7 @@ public:
 	const config::output	& get_output() const { return (output); };
 	const config::mime		& get_mime() const { return (mime); };
 	const config::errors	& get_errorpages() const { return (errorpages); };
+	const config::cgi		& get_cgi() const { return (cgi); };
 	const std::vector<const Location *>	& get_locations() const { return (locations); };
 
 	int cache_errorpages() const;
