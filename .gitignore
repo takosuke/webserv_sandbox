@@ -1,3 +1,9 @@
 webserv
 *.o
 *.d
+
+# Test framework
+.clj-kondo/
+.cpcache/
+.lsp/
+conjure-log-*
