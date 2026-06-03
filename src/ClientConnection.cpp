@@ -24,7 +24,7 @@ void	ClientConnection::handle(uint32_t events) {
 	if (events & EPOLLIN) {
 		// small buffer to test for multiple reads
 		// TODO make it a big number!
-		char buffer[24];
+		char buffer[1024];
 		int bytes = read(fd, buffer, sizeof(buffer) - 1);
 		if (bytes < 0) {
 			if (errno == EAGAIN || errno == EWOULDBLOCK)
@@ -53,11 +53,15 @@ void	ClientConnection::handle(uint32_t events) {
 				EpollLoop::get_instance().mod(this, EPOLLOUT | EPOLLERR | EPOLLHUP);
 			}
 			if (_parser.complete()) {
-				switch (_parser.getRequest().method) {
-					case GET: handle_get(); break ;
-					case POST: break ;
-					case DELETE: break ;
-					case UNKNOWN: break ;
+				if (!_parser.getRequest().location->get_cgi().pass.empty())
+					handle_cgi();
+				else {
+					switch (_parser.getRequest().method) {
+						case GET: handle_get(); break ;
+						case POST: break ;
+						case DELETE: break ;
+						case UNKNOWN: break ;
+					}
 				}
 			}
 		}
@@ -106,4 +110,8 @@ void	ClientConnection::handle_get() {
 	// 	EpollLoop::get_instance().mod(this, 0);
 	// 	FileLoop::get_instance().add(_fileconnection);
 	// }
+}
+
+void	ClientConnection::handle_cgi() {
+	std::cout << "poop" << std::endl;
 }

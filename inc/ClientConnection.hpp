@@ -34,4 +34,5 @@ class ClientConnection : public Connection {
 		void	enqueue_response();
 
 		void	handle_get();
+		void	handle_cgi();
 };
