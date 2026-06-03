@@ -1,1 +1,0 @@
-src:test:/home/marcampo/.m2/repository/hato/hato/1.0.0/hato-1.0.0.jar:/home/marcampo/.m2/repository/org/clojure/clojure/1.12.2/clojure-1.12.2.jar:/home/marcampo/.m2/repository/org/clojure/core.specs.alpha/0.4.74/core.specs.alpha-0.4.74.jar:/home/marcampo/.m2/repository/org/clojure/spec.alpha/0.5.238/spec.alpha-0.5.238.jar
