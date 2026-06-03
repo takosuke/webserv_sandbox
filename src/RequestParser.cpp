@@ -136,9 +136,9 @@ void RequestParser::feed(const char *data, int len) {
 	}
 	if (_state == COMPLETE || _req.error)
 	{
-		LOG_DEBUG("REQUEST") << "Request:" << _req << std::endl;
+		// LOG_DEBUG("REQUEST") << "Request:" << _req << std::endl;
 		// TODO remove this debugging
-		_req.printRequest();
+		// _req.printRequest();
 		return;
 	}
 }

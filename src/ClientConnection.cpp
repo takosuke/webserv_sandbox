@@ -9,12 +9,10 @@
 #include <stdexcept>
 
 #include "ClientConnection.hpp"
-#include "FileConnection.hpp"
 #include "EpollLoop.hpp"
 
 ClientConnection::~ClientConnection() {
-	close(_file_fd);
-	delete (_file_connection);
+
 }
 
 void	ClientConnection::enqueue_response() {
@@ -41,8 +39,19 @@ void	ClientConnection::handle(uint32_t events) {
 
 		} else {
 			_parser.feed(buffer, bytes);
-			if (_parser.getRequest().error)
+			if (_parser.getRequest().error) {
 				std::cout << "parser error" << std::endl; // route to error page
+				const config::errorpageinfo	&epi = _parser.getRequest().location->get_errorpages().get_page(_parser.getRequest().error);
+				// TODO: make request accessible. We need to be able to change
+				// the location of a response according to the path in `epi`
+				
+				// External URL
+				if (!epi.internal) {
+					_response.construct_3xx(epi.response_code, epi.pagename);
+				}
+				
+				EpollLoop::get_instance().mod(this, EPOLLOUT | EPOLLERR | EPOLLHUP);
+			}
 			if (_parser.complete()) {
 				switch (_parser.getRequest().method) {
 					case GET: handle_get(); break ;
@@ -72,35 +81,29 @@ void	ClientConnection::handle(uint32_t events) {
 		// 	}
 		// }
 		
-		if (_response.write_count(fd, 1024) <= 0) {
+		_response.write_to(fd);
+		if (_response.done() || _response.error())
 			EpollLoop::get_instance().del(this);
-		}
 	}
 }
 
 void	ClientConnection::handle_get() {
-	const Request &	req = _parser.getRequest();
-	_file_connection = new ReadFileConnection(this, EPOLLOUT | EPOLLERR | EPOLLHUP, _response.entity);
-
-	std::string	path = req.location->get_root() + req.path;
-
-	_file_fd = open(path.c_str(), O_RDONLY);
-	if (_file_fd < 0)
-		// TODO handle 404 error
-		return ;
-	_file_connection->set_fd(_file_fd);
-	_file_connection->set_buffer_size(BYTES_PER_READ_CYCLE);
-	EpollLoop::get_instance().mod(this, 0);
-	FileLoop::get_instance().add(_file_connection);
-}
-
-/** @brief Constructs the response based on the `code` recieved
- *
- *  Called from a sub connection or itself, whenever a response is ready to
- *  be created.
- */ 
-void	ClientConnection::construct_response(int code) {
-	_response.construct_status_line(HTTP_VERSION_STR, code);
-	_response.add_content_length();
-	std::cout << _response << std::endl;
+	// const Request &	req = _parser.getRequest();
+	// _fileconnection = new ReadFileConnection(ClientCallback(this, EPOLLOUT | EPOLLERR | EPOLLHUP));
+	// if (_fileconnection == NULL) {
+	// 	_resstream.response(*(ResponseCache::get_instance().get(
+	// 		req.location->get_errorpages().get_page(500).page)));
+	// 	EpollLoop::get_instance().mod(this, EPOLLOUT | EPOLLERR | EPOLLHUP);
+	// } else {
+	// 	_fileconnection->open_file(req.location->get_root() + req.path);
+	// 	if (_fileconnection->state != 0) {
+	// 		_resstream.response(*(ResponseCache::get_instance().get(
+	// 			req.location->get_errorpages().get_page(_fileconnection->state).page)));
+	// 		EpollLoop::get_instance().mod(this, EPOLLOUT | EPOLLERR | EPOLLHUP);
+	// 		return ;
+	// 	}
+	// 	_fileconnection->set_operation_size(BYTES_PER_READ_CYCLE);
+	// 	EpollLoop::get_instance().mod(this, 0);
+	// 	FileLoop::get_instance().add(_fileconnection);
+	// }
 }

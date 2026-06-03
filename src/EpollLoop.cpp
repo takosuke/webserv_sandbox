@@ -101,7 +101,6 @@ void	EpollLoop::run() {
 			}
 			conn->handle(_events[i].events);
 		}
-		FileLoop::get_instance().run();
 		clear();
 	}
 }
