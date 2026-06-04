@@ -150,6 +150,7 @@ void Response::clear_buffer() {
 void Response::buffer_headers() {
 	while (headers.size() > 0 && headers.front().size() <= capacity - size) {
 		std::strcpy(buffer + size, headers.front().c_str());
+		size += headers.front().size();
 		headers.erase(headers.begin());
 	}
 }
@@ -159,7 +160,7 @@ void Response::buffer_file() {
 		std::ios::pos_type	prev = stream.tellg();
 
 		stream.get(buffer + size, capacity - size);
-		pos += stream.tellg() - prev;
+		size += stream.tellg() - prev;
 	}
 }
 

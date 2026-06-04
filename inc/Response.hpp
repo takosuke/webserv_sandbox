@@ -95,5 +95,4 @@ public:
 	int		construct_3xx(int code, const std::string &location);
 
 	void	write_to(int fd);
-
 };
