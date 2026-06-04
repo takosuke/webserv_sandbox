@@ -1,7 +1,7 @@
 #include "Request.hpp"
 #include <iostream>
 
-std::string Request::methodToString(HttpMethod m) {
+std::string Request::methodToString(HttpMethod m) const {
 	switch (m) {
 		case GET:		return "GET";
 		case POST:		return "POST";

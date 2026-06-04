@@ -123,6 +123,27 @@ void	ClientConnection::handle_cgi() {
 	const Request		&req		= _parser.getRequest();
 	const std::string	&interp		= req.location->get_cgi().pass;
 	std::string			script		= req.location->get_root() + req.path;
+	// Scripts need at minimum REQUEST_METHOD, SCRIPT_FILENAME, QUERY_STRING, 
+	// SERVER_PROTOCOL, GATEWAY_INTERFACE, CONTENT_TYPE/CONTENT_LENGTH for
+	//  POST, plus any cgi_param pairs from the location config
+	std::vector<std::string> env_strings;
+	env_strings.push_back("GATEWAY_INTERFACE=CGI/1.1");
+	env_strings.push_back("SERVER_PROTOCOL=" + req.version);
+	env_strings.push_back("REQUEST_METHOD=" + req.methodToString(req.method));
+	env_strings.push_back("SCRIPT_FILENAME=" + req.location->get_root() + req.path);
+	env_strings.push_back("PATH_INFO=" + req.path);
+	env_strings.push_back("QUERY_STRING=" + req.query);
+	env_strings.push_back("SERVER_NAME=" + req.hostname);
+
+	const std::vector<std::pair<std::string, std::string> > &params =
+		req.location->get_cgi().params;
+	for (size_t i = 0; i < params.size(); ++i)
+		env_strings.push_back(params[i].first + "=" + params[i].second);
+	std::vector<char *> envp;
+	for (size_t i = 0; i < env_strings.size(); ++i)
+		envp.push_back(const_cast<char *>(env_strings[i].c_str()));
+	envp.push_back(NULL);
+
 
 	int pipefd[2];
 	if (pipe(pipefd) < 0)
@@ -140,8 +161,7 @@ void	ClientConnection::handle_cgi() {
 		dup2(pipefd[1], STDOUT_FILENO);
 		close(pipefd[1]);
 		char *argv[] = { (char*)interp.c_str(), (char*)script.c_str(), NULL };
-		char *envp[] = { NULL };
-		execve(interp.c_str(), argv, envp);
+		execve(interp.c_str(), argv, &envp[0]);
 		exit(1);
 	}
 	close(pipefd[1]);

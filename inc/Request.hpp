@@ -40,7 +40,7 @@ struct Request {
 		server(NULL), location(NULL),
 		valid(true), error(0){}
 
-	std::string methodToString(HttpMethod m);
+	std::string methodToString(HttpMethod m) const;
 	HttpMethod stringToMethod(const std::string& s);
 	void		printRequest();
 	friend std::ostream& operator<<(std::ostream& os, const Request& req) {
