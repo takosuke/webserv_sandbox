@@ -127,7 +127,7 @@ void Response::add_status_line(const std::string & version, int status_code) {
 	std::ostringstream	sstream;
 
 	sstream << version << " " << status_code << " " << get_reason_phrase(status_code) << "\r\n";
-	headers.push_front(sstream.str());
+	headers.push_back(sstream.str());
 }
 
 void Response::add_header_field(const std::string & name, const std::string & value) {
@@ -171,7 +171,7 @@ void Response::add_date() {
 	time_t	localtimestamp = std::time(NULL);
 	// Date: <day-name>, <day> <month> <year> <hour>:<minute>:<second> GMT
 	// "DDD, dd mm yyyy hh:mm:ss GMT"
-	if (std::strftime(buf, 29, "%a, %d %b %y %H:%M%S GMT" , std::gmtime(&localtimestamp)))
+	if (std::strftime(buf, 29, "%a, %d %b %Y %H:%M%S GMT" , std::gmtime(&localtimestamp)) == 0)
 		throw (std::runtime_error("couldn't create 'Date' header string"));
 	add_header_field("Date", buf);
 }

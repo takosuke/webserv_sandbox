@@ -96,7 +96,7 @@ public:
 	void	clear_buffer();
 	void	fill_buffer();
 
-	int		construct_3xx(int code, const std::string &location);
+	void	construct_3xx(int code, const std::string &location);
 
 	void	write_to(int fd);
 };

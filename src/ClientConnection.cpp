@@ -59,28 +59,11 @@ void	ClientConnection::handle(uint32_t events) {
 					case DELETE: break ;
 					case UNKNOWN: break ;
 				}
+				EpollLoop::get_instance().mod(this, EPOLLOUT | EPOLLERR | EPOLLHUP);
 			}
 		}
 	}
 	if (events & EPOLLOUT) {
-		// const char *data = _write_buf.c_str() + _write_offset;
-		// size_t remaining = _write_buf.size() - _write_offset;
-		//
-		// int sent = write(fd, data, remaining);
-		//
-		// if (sent < 0) {
-		// 	if (errno == EAGAIN || errno == EWOULDBLOCK)
-		// 		return ;
-		// 	EpollLoop::get_instance().del(this);
-		// } else {
-		// 	_write_offset += sent;
-		// 	if (_write_offset == _write_buf.size()) {
-		// 		_write_buf.clear();
-		// 		_write_offset = 0;
-		// 		EpollLoop::get_instance().mod(this, EPOLLIN | EPOLLERR | EPOLLHUP);
-		// 	}
-		// }
-		
 		_response.write_to(fd);
 		if (_response.done() || _response.error())
 			EpollLoop::get_instance().del(this);
@@ -88,22 +71,28 @@ void	ClientConnection::handle(uint32_t events) {
 }
 
 void	ClientConnection::handle_get() {
-	// const Request &	req = _parser.getRequest();
-	// _fileconnection = new ReadFileConnection(ClientCallback(this, EPOLLOUT | EPOLLERR | EPOLLHUP));
-	// if (_fileconnection == NULL) {
-	// 	_resstream.response(*(ResponseCache::get_instance().get(
-	// 		req.location->get_errorpages().get_page(500).page)));
-	// 	EpollLoop::get_instance().mod(this, EPOLLOUT | EPOLLERR | EPOLLHUP);
-	// } else {
-	// 	_fileconnection->open_file(req.location->get_root() + req.path);
-	// 	if (_fileconnection->state != 0) {
-	// 		_resstream.response(*(ResponseCache::get_instance().get(
-	// 			req.location->get_errorpages().get_page(_fileconnection->state).page)));
-	// 		EpollLoop::get_instance().mod(this, EPOLLOUT | EPOLLERR | EPOLLHUP);
-	// 		return ;
-	// 	}
-	// 	_fileconnection->set_operation_size(BYTES_PER_READ_CYCLE);
-	// 	EpollLoop::get_instance().mod(this, 0);
-	// 	FileLoop::get_instance().add(_fileconnection);
-	// }
+	const Request &	req = _parser.getRequest();
+	_response = Response(_buffer, 1024, req.location->get_root() + req.path);
+	if (_response.error()) {
+		_response.set_internal_error();
+		return ;
+	}
+	try {
+		_response.add_status_line(HTTP_VERSION_STR, 200);
+		_response.add_content_length();
+		_response.add_date();
+		{
+			std::stringstream	stream;
+			for (std::set<config::limit::method>::const_iterator it = req.location->get_limit().allowed.begin();
+			it != req.location->get_limit().allowed.end(); it++) {
+				if (it != req.location->get_limit().allowed.begin())
+					stream << ", ";
+				stream << config::limit::string_from_method(*it);
+			}
+			_response.add_header_field("Allow", stream.str());
+		}
+		_response.add_header_end();
+	} catch (std::exception &e) {
+		_response.set_internal_error();
+	}
 }

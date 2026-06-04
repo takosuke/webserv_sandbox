@@ -320,6 +320,7 @@ private:
 
 	std::string		root;
 
+	config::limit	limit;
 	config::body	body;
 	config::output	output;
 	config::mime	mime;
@@ -348,6 +349,7 @@ public:
 
 	void	set_path(const std::string & other) { path = other; };
 	void	set_root(const std::string & other) { root = other; };
+	void	set_limit(const config::limit & other) { limit = other; };
 	void	set_body(const config::body & other) { body = other;};
 	void	set_output(const config::output & other) { output = other; };
 	void	set_mime(const config::mime & other) { mime = other; };
@@ -356,6 +358,7 @@ public:
 
 	const std::string		& get_path() const { return (path); };
 	const std::string		& get_root() const { return (root); };
+	const config::limit		& get_limit() const { return (limit); };
 	const config::body		& get_body() const { return (body); };
 	const config::output	& get_output() const { return (output); };
 	const config::mime		& get_mime() const { return (mime); };
