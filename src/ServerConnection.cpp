@@ -11,7 +11,10 @@
 
 void	ServerConnection::handle(uint32_t events) {
 
-	(void)events;
+	if (events & (EPOLLERR | EPOLLHUP)) {
+		EpollLoop::get_instance().del(this);
+		return ;
+	}
 	sockaddr_in client_addr;
 	socklen_t	client_len = sizeof(client_addr);
 	int client_fd = accept(fd, (sockaddr*)&client_addr, &client_len);
