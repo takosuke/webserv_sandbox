@@ -188,10 +188,10 @@ namespace config {
 		void	add_type(const std::string & extension, const std::string & type);
 		void	set_default(const std::string & type);
 
-		std::string get_type(const std::string & extension) const;
-		std::string get_default() const;
+		const std::string &	get_type(const std::string & extension) const;
+		const std::string & get_default() const;
 
-		std::map<std::string, std::string> get_types() const;
+		const std::map<std::string, std::string> & get_types() const;
 
 		std::string get_type_ext_string() const;
 	};
@@ -199,18 +199,25 @@ namespace config {
 	void add_types(config::mime & mime, const BodyDirective & directive);
 	void add_default_type(config::mime & mime, const std::vector<Token> & tokens);
 
-	struct errorpage {
+	/** @brief Basic struct that holds information about a page associated to a
+	 *  given error code. Since the code should be supplied by the user it
+	 *  doesn't need to be saved here.
+	 *	
+	 *	@param response_code The code to be used in the response. If the code is
+	 *	`-1` the code given by the internal redirection should be used.
+	 */
+	struct errorpageinfo {
 	public:
-		bool		use_cgi_response;
-		bool		overwrite_response;
+		bool		internal;
 		int			response_code;
-		std::string	page;
+		std::string	pagename;
 
-		errorpage();
-		errorpage(bool cgi, bool overwrite, int code, const std::string & p);
-		~errorpage();
+		errorpageinfo();
+		errorpageinfo(bool is_internal, int code, const std::string & p);
+		errorpageinfo(const errorpageinfo &other) { *this = other; };
+		~errorpageinfo();
 
-		errorpage & operator=(const errorpage & other);
+		errorpageinfo & operator=(const errorpageinfo & other);
 	};
 
 #define DEFAULT_ERROR_PAGE "error_page.html"
@@ -218,8 +225,8 @@ namespace config {
 
 	struct errors {
 	private:
-		config::errorpage					_default;
-		std::map<int, config::errorpage>	pages;
+		config::errorpageinfo					_default;
+		std::map<int, config::errorpageinfo>	_pagemap;
 
 	public:
 		errors();
@@ -230,18 +237,14 @@ namespace config {
 
 		void		clear();
 
-		void		add_page(int error_code, const std::string & page);
-		void		add_page(int error_code, const std::string & page, int response_code);
-		void		add_page(int error_code, const std::string & page, bool use_cgi_response);
+		void		add_page(int error_code, const config::errorpageinfo &epi);
 	
-		void		set_default(const std::string & page);
-		void		set_default(const std::string & page, int response_code);
-		void		set_default(const std::string & page, bool ucgir);
+		void		set_default(const config::errorpageinfo &epi);
 
-		config::errorpage	get_page(int error_code) const;
-		config::errorpage	get_default() const;
+		const config::errorpageinfo	&get_page(int error_code) const;
+		const config::errorpageinfo	&get_default() const;
 
-		std::string			get_errorpages_string() const;
+		void		stream_pages(std::ostream &out) const;
 	};
 
 	void add_error_page(config::errors & errors, const std::vector<Token> & tokens);
@@ -250,6 +253,21 @@ namespace config {
 	void add_server_name(std::vector<std::string> & names, const std::vector<Token> & tokens);
 
 	void check_parameter_count(int min, int max, int size);
+
+	struct cgi {
+	public:
+		std::string								pass;
+		std::vector<std::pair<std::string, std::string> >	params;
+
+		cgi();
+		cgi(const cgi & other);
+		~cgi();
+
+		cgi & operator=(const cgi & other);
+	};
+
+	void add_cgi_pass(std::string & pass, const std::vector<Token> & tokens);
+	void add_cgi_param(config::cgi & cgi, const std::vector<Token> & tokens);
 }
 
 std::ostream & operator<<(std::ostream & out, const config::header & header);
@@ -258,10 +276,10 @@ std::ostream & operator<<(std::ostream & out, const config::output & output);
 std::ostream & operator<<(std::ostream & out, const config::limit & limit);
 std::ostream & operator<<(std::ostream & out, const config::listen & listen);
 std::ostream & operator<<(std::ostream & out, const config::mime & mime);
-std::ostream & operator<<(std::ostream & out, const config::errorpage & errorpage);
+std::ostream & operator<<(std::ostream & out, const config::errorpageinfo & errorpage);
 std::ostream & operator<<(std::ostream & out, const config::errors & errors);
+std::ostream & operator<<(std::ostream & out, const config::cgi & cgi);
 
-bool operator==(const config::errorpage & ep1, const config::errorpage & ep2);
 bool operator==(const config::listen & lhs, const config::listen & rhs);
 
 template <class T, template <class, class> class C>
@@ -302,10 +320,12 @@ private:
 
 	std::string		root;
 
+	config::limit	limit;
 	config::body	body;
 	config::output	output;
 	config::mime	mime;
 	config::errors	errorpages;
+	config::cgi		cgi;
 
 	std::vector<const Location *>	locations;
 
@@ -329,6 +349,7 @@ public:
 
 	void	set_path(const std::string & other) { path = other; };
 	void	set_root(const std::string & other) { root = other; };
+	void	set_limit(const config::limit & other) { limit = other; };
 	void	set_body(const config::body & other) { body = other;};
 	void	set_output(const config::output & other) { output = other; };
 	void	set_mime(const config::mime & other) { mime = other; };
@@ -337,11 +358,15 @@ public:
 
 	const std::string		& get_path() const { return (path); };
 	const std::string		& get_root() const { return (root); };
+	const config::limit		& get_limit() const { return (limit); };
 	const config::body		& get_body() const { return (body); };
 	const config::output	& get_output() const { return (output); };
 	const config::mime		& get_mime() const { return (mime); };
 	const config::errors	& get_errorpages() const { return (errorpages); };
+	const config::cgi		& get_cgi() const { return (cgi); };
 	const std::vector<const Location *>	& get_locations() const { return (locations); };
+
+	int cache_errorpages() const;
 };
 
 std::ostream & operator<<(std::ostream & out, const Location & loc);

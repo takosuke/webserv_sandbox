@@ -5,18 +5,22 @@
 #include <sys/epoll.h>
 #include <cstring>
 #include <unistd.h>
+#include <fcntl.h>
 #include <stdexcept>
+
 #include "ClientConnection.hpp"
 #include "EpollLoop.hpp"
 
-void	ClientConnection::enqueue_response(EpollLoop &loop, const std::string &response) {
-	_write_buf = response;
-	_write_offset = 0;
-	// tell epoll- wake me up when this fd is writable
-	loop.mod(this, EPOLLIN | EPOLLOUT | EPOLLERR | EPOLLHUP);
+ClientConnection::~ClientConnection() {
+
 }
 
-void	ClientConnection::handle(EpollLoop &loop, uint32_t events) {
+void	ClientConnection::enqueue_response() {
+	// tell epoll- wake me up when this fd is writable
+	EpollLoop::get_instance().mod(this, EPOLLOUT | EPOLLERR | EPOLLHUP);
+}
+
+void	ClientConnection::handle(uint32_t events) {
 	if (events & EPOLLIN) {
 		// small buffer to test for multiple reads
 		// TODO make it a big number!
@@ -25,46 +29,70 @@ void	ClientConnection::handle(EpollLoop &loop, uint32_t events) {
 		if (bytes < 0) {
 			if (errno == EAGAIN || errno == EWOULDBLOCK)
 				return ;
-			loop.del(this);
+			EpollLoop::get_instance().del(this);
 			// TODO throw will kill the server - should wrap conn->handle
 			// in try-catch
 			throw std::runtime_error(std::string("Read from client error: ") + strerror(errno));
 		}
 		if (bytes == 0) {
-			loop.del(this);
+			EpollLoop::get_instance().del(this);
+
 		} else {
 			_parser.feed(buffer, bytes);
-
-			if (_parser.getRequest().error)
+			if (_parser.getRequest().error) {
 				std::cout << "parser error" << std::endl; // route to error page
+				const config::errorpageinfo	&epi = _parser.getRequest().location->get_errorpages().get_page(_parser.getRequest().error);
+				// TODO: make request accessible. We need to be able to change
+				// the location of a response according to the path in `epi`
+				
+				// External URL
+				if (!epi.internal) {
+					_response.construct_3xx(epi.response_code, epi.pagename);
+				}
+				
+				EpollLoop::get_instance().mod(this, EPOLLOUT | EPOLLERR | EPOLLHUP);
+			}
 			if (_parser.complete()) {
-				buffer[bytes] = '\0';
-				// Response res(_parser.request);
-				// make route
-				// hand off to request handler
-				// eventually enqueue_response()
-				std::string response = "HTTP/1.0 200 OK\r\nContent-Length: 5\r\n\r\nidiot";
-				enqueue_response(loop, response);
+				switch (_parser.getRequest().method) {
+					case GET: handle_get(); break ;
+					case POST: break ;
+					case DELETE: break ;
+					case UNKNOWN: break ;
+				}
+				EpollLoop::get_instance().mod(this, EPOLLOUT | EPOLLERR | EPOLLHUP);
 			}
 		}
 	}
 	if (events & EPOLLOUT) {
-		const char *data = _write_buf.c_str() + _write_offset;
-		size_t remaining = _write_buf.size() - _write_offset;
+		_response.write_to(fd);
+		if (_response.done() || _response.error())
+			EpollLoop::get_instance().del(this);
+	}
+}
 
-		int sent = write(fd, data, remaining);
-
-		if (sent < 0) {
-			if (errno == EAGAIN || errno == EWOULDBLOCK)
-				return ;
-			loop.del(this);
-		} else {
-			_write_offset += sent;
-			if (_write_offset == _write_buf.size()) {
-				_write_buf.clear();
-				_write_offset = 0;
-				loop.mod(this, EPOLLIN | EPOLLERR | EPOLLHUP);
+void	ClientConnection::handle_get() {
+	const Request &	req = _parser.getRequest();
+	_response = Response(_buffer, 1024, req.location->get_root() + req.path);
+	if (_response.error()) {
+		_response.set_internal_error();
+		return ;
+	}
+	try {
+		_response.add_status_line(HTTP_VERSION_STR, 200);
+		_response.add_content_length();
+		_response.add_date();
+		{
+			std::stringstream	stream;
+			for (std::set<config::limit::method>::const_iterator it = req.location->get_limit().allowed.begin();
+			it != req.location->get_limit().allowed.end(); it++) {
+				if (it != req.location->get_limit().allowed.begin())
+					stream << ", ";
+				stream << config::limit::string_from_method(*it);
 			}
+			_response.add_header_field("Allow", stream.str());
 		}
+		_response.add_header_end();
+	} catch (std::exception &e) {
+		_response.set_internal_error();
 	}
 }

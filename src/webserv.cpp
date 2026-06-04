@@ -31,17 +31,12 @@ int main(int ac, char *av[]) {
 		std::cerr << "Failed to parse config" << std::endl;
 		return 1;
 	}
-	Http http(grouper.main.body_directives[0]);
-
 
     // Create the epoll instance
 	try {
-		EpollLoop loop;
-
+		Http http(grouper.main.body_directives[0]);
 		const std::map<struct sockaddr_in, Port> &ports = http.get_ports();
 
-//		for (std::vector<ServerBlock*>::iterator it = server_blocks.begin();
-//			it != server_blocks.end(); ++it)
 		for (std::map<struct sockaddr_in, Port>::const_iterator it = ports.begin();
 				it != ports.end(); ++it)
 		{
@@ -53,10 +48,10 @@ int main(int ac, char *av[]) {
 			server_conn->addr = l.get_sockaddr();
 			std::cout << "Listening on port " << l.port << "...\n";
 
-			loop.add(server_conn);
+			EpollLoop::get_instance().add(server_conn);
 		}
 
-		loop.run();
+		EpollLoop::get_instance().run();
 	} catch (const std::exception &e) {
 		std::cerr << e.what() << std::endl;
 		return 1;

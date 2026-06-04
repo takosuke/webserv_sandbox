@@ -12,17 +12,23 @@ ODIR	:= obj/
 
 SRCS	:=
 vpath %.cpp $(SDIR)
-SRCS	+= webserv.cpp
+MAIN	?= webserv.cpp
+SRCS	+= $(MAIN)
 
 SRCS	+= ConfigParser.cpp
 SRCS	+= Config.cpp
 
 SRCS	+= ServerConnection.cpp
 SRCS	+= ClientConnection.cpp
+
 SRCS	+= EpollLoop.cpp
+
 SRCS	+= ServerBlock.cpp
 SRCS	+= RequestParser.cpp
 SRCS	+= Request.cpp
+
+SRCS	+= Response.cpp
+
 SRCS	+= utils.cpp
 
 OBJS	:= $(SRCS:.cpp=.o)
@@ -41,7 +47,8 @@ MKDIR	:= mkdir -p
 CXXFLAGS	?=
 CXXFLAGS	+= -Wall -Werror -Wextra
 CXXFLAGS	+= -std=c++98 -MMD -MP
-CPPFLAGS	:= -I $(IDIR)
+CPPFLAGS	:=
+CPPFLAGS	+= -I $(IDIR)
 
 ifdef DEBUG
 	CXXFLAGS	+= -g3
@@ -55,7 +62,7 @@ endif
 all: $(NAME)
 
 $(NAME): $(ODIR) $(OBJS)
-	$(CXX) -o $(NAME) $(OBJS)
+	$(CXX) $(LDFLAGS) -o $(NAME) $(OBJS)
 
 $(ODIR):
 	$(MKDIR) $(ODIR)

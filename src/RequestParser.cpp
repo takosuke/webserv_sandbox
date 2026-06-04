@@ -4,6 +4,12 @@
 #include "Logger.hpp"
 #include "Request.hpp"
 
+// TODO
+// allow request line of 2 tokens (http 0.9)
+// pass server name and port to Request object
+// max uri length
+// resolve .. and . paths
+
 static bool isTokenChar(unsigned char c) {
 	static const std::string separators = "()<>@,;:\\\"/[]?={} \t";
 
@@ -28,10 +34,33 @@ static bool isURITokenChar(unsigned char c) {
 
 static bool isValidHex(char a, char b) {
 	//TODO 
-	return std::isxdigit((unsigned char)a) && std::isxdigit((unsigned char)b);
+	return std::isxdigit(static_cast<unsigned char>(a)) 
+	&& std::isxdigit(static_cast<unsigned char>(b));
+}
+
+static bool isDigitString(const std::string& s) {
+	if (s.empty()) return false;
+	for (size_t i = 0; i < s.size(); ++i) {
+		if (!std::isdigit(static_cast<unsigned char>(s[i])))
+			return false;
+	}
+	return true;
+}
+
+static bool isValidURLEncoding(const std::string& url) {
+	size_t pos = url.find('%');
+	while (pos != std::string::npos) {
+		if (pos + 2 >= url.size())
+			return false;
+		if (!isValidHex(url[pos + 1], url[pos + 2]))
+			return false;
+		pos = url.find('%');
+	}
+	return true;
 }
 
 static int validateVersion(const std::string& version) {
+	// TODO accept HTTP/1.000 and HTTP/1.1000?
 	// should we allow extra 0s after?it's officially valid according to RFC
 	// 2145
 	if (version.size() > 8)
@@ -65,21 +94,30 @@ static bool validateReqPath(const std::string& path) {
 	return true;
 }
 
+/**	@brief Adds to `_buf` from `data`.
+ */
 void RequestParser::feed(const char *data, int len) {
 	_buf.append(data, len);
-	if (_state == REQUEST_LINE)
-		_req.error = parse_request_line();
+	if (_buf.find("\r\n") == std::string::npos)
+		return ;
+	if (_state == REQUEST_LINE && parse_request_line() != 0)
+		return ;
 	if (_state == HEADERS)
-		_req.error = parse_headers();
-	if (_state == BODY)
-	{
+		parse_headers();
+	if (_state == BODY) {
+		if (_req.server == NULL && _http != NULL) {
+			_req.server = &(_http->get_server(_addr, getRequest().host));
+			_req.location = &(_req.server->get_location(getRequest().path));
+		}
 		parse_content_length();
+		parse_hostname();
 		parse_body();
 	}
 	if (_state == COMPLETE || _req.error)
 	{
-		LOG_DEBUG("REQUEST") << "Request:" << _req << std::endl;
-		_req.printRequest();
+		// LOG_DEBUG("REQUEST") << "Request:" << _req << std::endl;
+		// TODO remove this debugging
+		// _req.printRequest();
 		return;
 	}
 }
@@ -92,37 +130,47 @@ int RequestParser::parse_request_line() {
 	// check URI char validity (no raw control, no null, percent encoding
 	// something - every % followed by 2 hex digits)
 	// path traversal - check paths are /../ --> router responsibility
-	size_t pos = _buf.find("\n");
-	// we check if the full CLRF is there
-	if (_buf[pos - 1] != '\r')
-		return 400;
+	size_t pos = _buf.find("\r\n");
 	if (pos != std::string::npos)
 	{
 		// checking that there's 3 tokens, with only one space between each
-		std::string request_line = _buf.substr(0, pos - 1);
+		std::string request_line = _buf.substr(0, pos);
 		size_t sp_first = request_line.find(' ');
 		size_t sp_second = request_line.find(' ', sp_first + 1);
-		if (sp_first == std::string::npos || sp_second == std::string::npos)
-			return 400;
+//		if (sp_first == std::string::npos || sp_second == std::string::npos)
+		if (sp_first == std::string::npos)
+			return (set_error(400));
+		// does this return npos for http/0.9
 		if (request_line.find(' ', sp_second + 1) != std::string::npos)
-			return 400;
+			return (set_error(400));
 		std::string method = request_line.substr(0, sp_first);
 		if (!isValidToken(method))
-			return 400;
+			return (set_error(400));
 		_req.method = _req.stringToMethod(method);
 		if (_req.method == UNKNOWN)
-			return 501;
+			return (set_error(501));
 		_req.uri = request_line.substr(sp_first + 1, sp_second - sp_first - 1);
-		_req.version = request_line.substr(sp_second + 1);
-		if (validateVersion(_req.version))
-			return (validateVersion(_req.version));
-		if (_req.uri.empty() || _req.version.empty())
-			return 400;
-
+		// TODO wrap returns in set_error
+		if (_req.uri.empty() || !isValidURLEncoding(_req.uri))
+			return (set_error(400));
 		if (!parse_uri())
-			return 400;
+			return (set_error(400));
+		// TODO this feels brittle, check that this won't fuck up
+		// if the request line only has 2 tokens and they are a valid method and
+		// a valid URI, then it's HTTP/0.9 and the request is complete
+		if (sp_second == std::string::npos) {
+			_req.version = "HTTP/0.9";
+			_state = COMPLETE;
+			return 0;
+		}
+		else {
+			_req.version = request_line.substr(sp_second + 1);
+			// returns 0 if valid
+			if (validateVersion(_req.version))
+				return (validateVersion(_req.version));
+		}
 		_state = HEADERS;
-		_buf.erase(0, pos + 1);
+		_buf.erase(0, pos + 2);
 	}
 	return 0;
 }
@@ -137,20 +185,17 @@ bool RequestParser::parse_uri() {
 	// query string sent as is to CGI handler who is supposed to do the percent
 	// decoding etc
 	if (pos != std::string::npos) {
-		_req.query = _req.uri.substr(pos + 1);
+		_req.query = _req.uri.substr(pos + 2);
 	}
 	return true;
-
 }
 
 int RequestParser::parse_headers() {
 	// need to loop as long as pos returns something
-	size_t pos = _buf.find("\n");
-	if (_buf[pos - 1] != '\r')
-		return 400;
+	size_t pos = _buf.find("\r\n");
 	while (pos != std::string::npos) {
 		std::string headers_line = _buf.substr(0, pos);
-		std::cout << "headers_line:" << headers_line << std::endl;
+		// std::cout << "headers_line:" << headers_line << std::endl;
 		if (headers_line.empty())
 		{
 			_buf.erase(0, pos + 2);
@@ -183,6 +228,48 @@ void RequestParser::parse_content_length() {
 
 }
 
+void RequestParser::parse_hostname() {
+	std::map<std::string, std::string>::iterator it = _req.headers.find("host");
+	if (it != _req.headers.end()) {
+		std::istringstream iss(it->second);
+		iss >> _req.host;
+	}
+	if (!_req.host.empty()) {
+		std::string::size_type colon = _req.host.rfind(':');
+		if (colon == std::string::npos) {
+			_req.hostname = _req.host; 
+			_req.port = -1;
+		} else {
+			_req.hostname = _req.host.substr(0, colon);
+			std::string portstring = _req.host.substr(colon + 1);
+			if (_req.hostname.empty() || portstring.empty()) {
+				_req.error = 400;
+				return ;
+			}
+			int port = parse_portstring(portstring);
+			if (port == -1) {
+				_req.error = 400;
+				return ;
+			}
+			_req.port = port;
+		}
+	}
+}
+
+int RequestParser::parse_portstring(std::string portstring) {
+	if (!isDigitString(portstring))
+		return -1;
+	
+	if (portstring.size() > 5)
+		return -1;
+
+	int port = std::atoi(portstring.c_str());
+	if (port < 1 || port > 65535)
+		return -1;
+
+	return port;
+}
+
 void RequestParser::parse_body() {
 	if (_req.content_length == 0)
 	{
@@ -196,3 +283,7 @@ void RequestParser::parse_body() {
 	}
 }
 
+int RequestParser::set_error(int code) {
+	_req.error = code;
+	return (code);
+}
