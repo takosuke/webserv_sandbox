@@ -11,6 +11,8 @@
 
 /* RESPONSE *******************************************************************/
 
+std::string Response::error_buffer = std::string("HTTP/1.0 500 Internal Server Error\r\n\r\n");
+
 std::map<int, std::string>	Response::reason_phrase_map = std::map<int, std::string>();
 
 /**	@brief Initializes the Reason Phrase map.
@@ -70,6 +72,7 @@ Response::Response(char *buf, size_t buffer_size) {
 
 Response::Response(char *buf, size_t buffer_size, const std::string &filename) {
 	buffer = buf;
+	file = filename;
 	stream.open(filename.c_str());
 	_error = !stream.is_open();
 	pos = 0;
@@ -77,12 +80,28 @@ Response::Response(char *buf, size_t buffer_size, const std::string &filename) {
 	capacity = buffer_size;
 }
 
+Response & Response::operator=(const Response &other) {
+	if (this == &other)
+		return (*this);
+	buffer = other.buffer;
+	file = other.file;
+	_error = other._error;
+	if (file.size() != 0) {
+		stream.open(file.c_str());
+		_error = !stream.is_open();
+	}
+	pos = other.pos;
+	size = other.size;
+	capacity = other.capacity;
+	return (*this);
+}
+
 bool Response::done() const {
-	return (headers.size() == 0 && stream.eof() && pos >= size);
+	return (headers.size() == 0 && (!stream.is_open() || stream.eof()) && pos >= size);
 }
 
 bool Response::error() const {
-	return (_error != false || stream.fail());
+	return (_error != false || (stream.is_open() && stream.fail()));
 }
 
 /**	@brief Sets the streams fiel to `filename`
@@ -90,14 +109,25 @@ bool Response::error() const {
  * 	error() should be checked after to see if the operation worked.
  */
 void Response::set_file(const std::string &filename) {
+	file = filename;
 	stream.open(filename.c_str());
+}
+
+void Response::set_internal_error() {
+	_error = false;
+	stream.close();
+	headers.clear();
+	buffer = const_cast<char *>(error_buffer.c_str());
+	pos = 0;
+	size = error_buffer.size();
+	capacity = error_buffer.size();
 }
 
 void Response::add_status_line(const std::string & version, int status_code) {
 	std::ostringstream	sstream;
 
-	sstream << version << " " << status_code << get_reason_phrase(status_code) << "\r\n";
-	headers.push_back(sstream.str());
+	sstream << version << " " << status_code << " " << get_reason_phrase(status_code) << "\r\n";
+	headers.push_front(sstream.str());
 }
 
 void Response::add_header_field(const std::string & name, const std::string & value) {
@@ -116,15 +146,19 @@ void Response::add_header_end() {
  * 	@Return 1 on completion, 0 if there was not enough room in the buffer,
  * 	-1 if a critical error occured.
  */
-void Response::add_content_length(const std::string &filepath) {
+void Response::add_content_length() {
 	struct stat	statbuf;
+	size_t		filesize = 0;
 
-	if (stat(filepath.c_str(), &statbuf) != 0)
-		throw (std::runtime_error("stat error"));
+	if (file.size() != 0) {
+		if (stat(file.c_str(), &statbuf) != 0)
+			throw (std::runtime_error("stat error"));
+		filesize = statbuf.st_size;
+	}
 
 	std::ostringstream	stream;
 
-	stream << statbuf.st_size;
+	stream << filesize;
 	return (add_header_field("Content-Length", stream.str()));
 }
 
@@ -156,20 +190,18 @@ void Response::buffer_headers() {
 }
 
 void Response::buffer_file() {
-	if (stream.is_open() && !stream.fail() && !stream.eof()) {
-		std::ios::pos_type	prev = stream.tellg();
-
-		stream.get(buffer + size, capacity - size);
-		size += stream.tellg() - prev;
+	while (stream.is_open() && !stream.fail() && !stream.eof() && size + 1 < capacity) {
+		stream.get(buffer + size, capacity - size, '\0');
+		size += stream.gcount();
 	}
 }
 
-void	Response::fill_buffer() {
+void Response::fill_buffer() {
 	buffer_headers();
 	buffer_file();
 }
 
-int	Response::construct_3xx(int code, const std::string &location) {
+void Response::construct_3xx(int code, const std::string &location) {
 	clear_buffer();
 	try {
 		add_status_line(HTTP_VERSION_STR, code);
@@ -177,9 +209,8 @@ int	Response::construct_3xx(int code, const std::string &location) {
 		add_date();
 		add_header_end();
 	}	catch (std::exception &e) {
-		return (0);
+		set_internal_error();
 	}
-	return (1);
 }
 
 void Response::write_to(int fd) {

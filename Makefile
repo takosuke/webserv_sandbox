@@ -12,7 +12,8 @@ ODIR	:= obj/
 
 SRCS	:=
 vpath %.cpp $(SDIR)
-SRCS	+= webserv.cpp
+MAIN	?= webserv.cpp
+SRCS	+= $(MAIN)
 
 SRCS	+= ConfigParser.cpp
 SRCS	+= Config.cpp
