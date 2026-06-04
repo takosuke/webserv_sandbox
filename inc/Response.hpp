@@ -51,9 +51,9 @@ private:
 	std::fstream	stream;
 	std::string		file;
 	char			*buffer;
-	size_t			pos;
-	size_t			size;
-	size_t			capacity;
+	size_t			pos;		// Write position
+	size_t			size;		// Filled bytes in Buffer
+	size_t			capacity;	// Total size of the buffer
 
 	std::vector<std::string>	headers;
 
