@@ -59,17 +59,17 @@ void	ClientConnection::handle(uint32_t events) {
 				EpollLoop::get_instance().mod(this, EPOLLOUT | EPOLLERR | EPOLLHUP);
 			}
 			if (_parser.complete()) {
-				if (!_parser.getRequest().location->get_cgi().pass.empty())
+				if (!_parser.getRequest().location->get_cgi().pass.empty()) {
 					handle_cgi();
-				else {
+				} else {
 					switch (_parser.getRequest().method) {
 						case GET: handle_get(); break ;
 						case POST: break ;
 						case DELETE: break ;
 						case UNKNOWN: break ;
 					}
+					EpollLoop::get_instance().mod(this, EPOLLOUT | EPOLLERR | EPOLLHUP);
 				}
-				EpollLoop::get_instance().mod(this, EPOLLOUT | EPOLLERR | EPOLLHUP);
 			}
 		}
 	}
@@ -175,6 +175,7 @@ void	ClientConnection::complete_cgi(const std::string &output) {
 	write(tmpfd, body.c_str(), body.size());
 	close(tmpfd);
 
+	_response = Response(_buffer, sizeof(_buffer));
 	_response.add_status_line(HTTP_VERSION_STR, 200);
 
 	std::istringstream hstream(output.substr(0, sep));
