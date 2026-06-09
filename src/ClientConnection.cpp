@@ -60,10 +60,11 @@ void	ClientConnection::handle(uint32_t events) {
 				EpollLoop::get_instance().mod(this, EPOLLOUT | EPOLLERR | EPOLLHUP);
 			}
 			if (_parser.complete()) {
-				if (!_parser.getRequest().location->get_cgi().pass.empty()) {
+				const Request& req = _parser.getRequest();
+				if (!req.location->get_cgi().pass.empty()) {
 					handle_cgi();
 				} else {
-					switch (_parser.getRequest().method) {
+					switch (req.method) {
 						case GET: handle_get(); break ;
 						case POST: break ;
 						case DELETE: break ;
