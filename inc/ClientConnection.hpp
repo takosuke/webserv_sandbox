@@ -31,6 +31,7 @@ class ClientConnection : public Connection {
 
 		RequestParser		_parser;
 		Response			_response;
+		std::string			_cgi_tmpfile;
 
 		void	enqueue_response();
 

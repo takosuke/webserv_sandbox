@@ -15,7 +15,8 @@
 #include "Logger.hpp"
 
 ClientConnection::~ClientConnection() {
-
+	if (!_cgi_tmpfile.empty())
+		unlink(_cgi_tmpfile.c_str());
 }
 
 void	ClientConnection::enqueue_response() {
@@ -181,8 +182,9 @@ void	ClientConnection::complete_cgi(const std::string &output) {
 	if (sep == std::string::npos) {
 		return ; // TODO 500
 	}
-	char tmpname[] = "/tmp/cgi_XXXXXX"; // TODO random num
+	char tmpname[] = "/tmp/cgi_XXXXXX";
 	int tmpfd = mkstemp(tmpname);
+	_cgi_tmpfile = tmpname;
 	if (tmpfd < 0) {
 		return ; // TODO 500
 	}
