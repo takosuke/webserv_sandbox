@@ -167,7 +167,6 @@ void	ClientConnection::handle_cgi() {
 	close(stdin_fd[0]);
 	close(stdout_fd[1]);
 	if (req.method == POST && req.content_length) {
-		LOG_DEBUG("stdin") << req.body << std::endl;
 		write(stdin_fd[1], req.body.c_str(), req.content_length);
 	}
 	close(stdin_fd[1]);
@@ -181,7 +180,10 @@ void	ClientConnection::handle_cgi() {
 void	ClientConnection::complete_cgi(const std::string &output) {
 	size_t sep = output.find("\r\n\r\n");
 	if (sep == std::string::npos) {
-		return ; // TODO 500
+		_response = Response(_buffer, sizeof(_buffer));
+		_response.set_internal_error();
+		EpollLoop::get_instance().mod(this, EPOLLOUT | EPOLLERR | EPOLLHUP);
+		return ;
 	}
 	char tmpname[] = "/tmp/cgi_XXXXXX";
 	int tmpfd = mkstemp(tmpname);

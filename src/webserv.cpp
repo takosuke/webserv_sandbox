@@ -1,5 +1,6 @@
 #include <iostream>
 #include <cstdlib>
+#include <csignal>
 #include "ServerConnection.hpp"
 //#include "ServerBlock.hpp"
 #include "EpollLoop.hpp"
@@ -17,6 +18,7 @@ int main(int ac, char *av[]) {
 	//server_blocks.push_back(&block_1);
 	//server_blocks.push_back(&block_2);
 	// Arns config thing
+	signal(SIGPIPE, SIG_IGN);
 	const char *config_path = (ac > 1) ? av[1] : "webserv.conf";
 	const char* lvl = std::getenv("LOG_LEVEL");
 	if (lvl) {
