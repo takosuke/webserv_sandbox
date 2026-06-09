@@ -11,6 +11,7 @@
 
 #include "ClientConnection.hpp"
 #include "CgiConnection.hpp"
+#include "Config.hpp"
 #include "EpollLoop.hpp"
 #include "Logger.hpp"
 
@@ -193,18 +194,28 @@ void	ClientConnection::complete_cgi(const std::string &output) {
 	close(tmpfd);
 
 	_response = Response(_buffer, sizeof(_buffer));
-	_response.add_status_line(HTTP_VERSION_STR, 200);
+	int status_code = 200;
 
 	std::istringstream hstream(output.substr(0, sep));
 	std::string line;
+	std::vector<std::pair<std::string, std::string> > cgi_headers;
 	while (std::getline(hstream, line)) {
 		if (!line.empty() && line[line.size() - 1] == '\r')
 			line.erase(line.size() - 1);
 		size_t colon = line.find(':');
 		if (colon == std::string::npos)
 			continue;
-		_response.add_header_field(line.substr(0, colon), line.substr(colon + 2));
+		std::string name = line.substr(0, colon);
+		std::string value = line.substr(colon + 2);
+		if (name == "Status") {
+			status_code = atoi(value.c_str());
+			continue;
+		}
+		cgi_headers.push_back(std::make_pair(name, value));
 	}
+	_response.add_status_line(HTTP_VERSION_STR, status_code);
+	for (size_t i = 0; i < cgi_headers.size(); ++i)
+		_response.add_header_field(cgi_headers[i].first, cgi_headers[i].second);
 	_response.add_header_end();
 	_response.set_file(tmpname);
 	// TODO cleanup tmp file
