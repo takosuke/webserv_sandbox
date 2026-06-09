@@ -4,6 +4,12 @@
 #include <unistd.h>
 #include <sys/wait.h>
 
+CgiConnection::~CgiConnection() {
+	// Checking for zombie processes
+	if (_pid != -1)
+		waitpid(_pid, NULL, 0);
+}
+
 void CgiConnection::handle(uint32_t events) {
 	if (events & EPOLLIN) {
 		char buf[1024];
@@ -13,8 +19,8 @@ void CgiConnection::handle(uint32_t events) {
 			return ;
 		}
 	}
-	waitpid(_pid, NULL, 0);
+	// Non-blocking waitpid can potentially but rarely create zombie processes
+	waitpid(_pid, NULL, WNOHANG);
 	_callback->complete_cgi(_output);
 	EpollLoop::get_instance().del(this);
-
 }
