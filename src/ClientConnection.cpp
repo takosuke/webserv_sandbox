@@ -12,6 +12,7 @@
 #include "ClientConnection.hpp"
 #include "CgiConnection.hpp"
 #include "EpollLoop.hpp"
+#include "Logger.hpp"
 
 ClientConnection::~ClientConnection() {
 
@@ -134,28 +135,41 @@ void	ClientConnection::handle_cgi() {
 	envp.push_back(NULL);
 
 
-	int pipefd[2];
-	if (pipe(pipefd) < 0)
+	int stdout_fd[2];
+	int stdin_fd[2];
+	if (pipe(stdout_fd) < 0 || pipe(stdin_fd) < 0)
 		return ;
 
 	pid_t pid = fork();
 	if (pid < 0) {
-		close(pipefd[0]);
-		close(pipefd[1]);
+		close(stdout_fd[0]);
+		close(stdout_fd[1]);
+		close(stdin_fd[0]);
+		close(stdin_fd[1]);
 		return ;
 	}
+	
 
 	if (pid == 0) {
-		close(pipefd[0]);
-		dup2(pipefd[1], STDOUT_FILENO);
-		close(pipefd[1]);
+		dup2(stdin_fd[0], STDIN_FILENO);
+		close(stdin_fd[0]);
+		close(stdin_fd[1]);
+		dup2(stdout_fd[1], STDOUT_FILENO);
+		close(stdout_fd[0]);
+		close(stdout_fd[1]);
 		char *argv[] = { (char*)interp.c_str(), (char*)script.c_str(), NULL };
 		execve(interp.c_str(), argv, &envp[0]);
 		exit(1);
 	}
-	close(pipefd[1]);
+	close(stdin_fd[0]);
+	close(stdout_fd[1]);
+	if (req.method == POST && req.content_length) {
+		LOG_DEBUG("stdin") << req.body << std::endl;
+		write(stdin_fd[1], req.body.c_str(), req.content_length);
+	}
+	close(stdin_fd[1]);
 	CgiConnection *cgi = new CgiConnection(this);
-	cgi->fd = pipefd[0];
+	cgi->fd = stdout_fd[0];
 	cgi->_pid = pid;
 	EpollLoop::get_instance().mod(this, 0);
 	EpollLoop::get_instance().add(cgi);
