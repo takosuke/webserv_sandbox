@@ -81,4 +81,20 @@ fclean: clean
 
 re: fclean all
 
-.PHONY: all clean fclean re
+CLOJURE_BIN	:= $(HOME)/.local/bin/clojure
+
+install-clojure:
+	@if [ ! -f "$(CLOJURE_BIN)" ]; then \
+		echo "Installing Clojure CLI to ~/.local ..."; \
+		curl -sL https://github.com/clojure/brew-install/releases/latest/download/linux-install.sh -o /tmp/linux-install.sh; \
+		chmod +x /tmp/linux-install.sh; \
+		/tmp/linux-install.sh --prefix $(HOME)/.local; \
+		rm /tmp/linux-install.sh; \
+	else \
+		echo "Clojure already installed at $(CLOJURE_BIN)"; \
+	fi
+
+test: install-clojure
+	cd webserv-tests && PATH="$(HOME)/.local/bin:$(PATH)" clojure -P && PATH="$(HOME)/.local/bin:$(PATH)" clojure -M:test
+
+.PHONY: all clean fclean re install-clojure test
