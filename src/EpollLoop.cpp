@@ -80,9 +80,10 @@ void	EpollLoop::run() {
 	sig_int = false;
 	signal(SIGINT, int_handler);
 	while (sig_int == false) {
-		int ready = epoll_wait(_epoll_fd, _events, MAX_EVENTS, 5);
+		int ready = epoll_wait(_epoll_fd, _events, MAX_EVENTS, -1);
 		// TODO EINTR not handled
 		// if (ready < 0 && errno == EINTR) continue;
+		std::cout << "looping " << ready << std::endl;
 		if (ready < 0 && sig_int == false) {
 			std::cerr << "epoll_wait() failed" << std::endl; // TODO throw exception
 			// here
@@ -95,13 +96,8 @@ void	EpollLoop::run() {
 		// before dereferencing
 		for (int i = 0; i < ready; i++) {
 			Connection *conn = (Connection*)_events[i].data.ptr;
-			if (_events[i].events & (EPOLLERR | EPOLLHUP)) {
-				del(conn);
-				continue;
-			}
 			conn->handle(_events[i].events);
 		}
-		FileLoop::get_instance().run();
 		clear();
 	}
 }

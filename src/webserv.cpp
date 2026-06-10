@@ -1,5 +1,6 @@
 #include <iostream>
 #include <cstdlib>
+#include <csignal>
 #include "ServerConnection.hpp"
 //#include "ServerBlock.hpp"
 #include "EpollLoop.hpp"
@@ -17,6 +18,9 @@ int main(int ac, char *av[]) {
 	//server_blocks.push_back(&block_1);
 	//server_blocks.push_back(&block_2);
 	// Arns config thing
+	// Ignoring SIGPIPE so that POST calls to broken CGI scripts don't bring the
+	// server down
+	signal(SIGPIPE, SIG_IGN);
 	const char *config_path = (ac > 1) ? av[1] : "webserv.conf";
 	const char* lvl = std::getenv("LOG_LEVEL");
 	if (lvl) {
@@ -31,15 +35,13 @@ int main(int ac, char *av[]) {
 		std::cerr << "Failed to parse config" << std::endl;
 		return 1;
 	}
-	Http http(grouper.main.body_directives[0]);
-
 
     // Create the epoll instance
 	try {
+		Http http(grouper.main.body_directives[0]);
 		const std::map<struct sockaddr_in, Port> &ports = http.get_ports();
+		LOG_INFO("INFO") << "http:" << http << std::endl;
 
-//		for (std::vector<ServerBlock*>::iterator it = server_blocks.begin();
-//			it != server_blocks.end(); ++it)
 		for (std::map<struct sockaddr_in, Port>::const_iterator it = ports.begin();
 				it != ports.end(); ++it)
 		{

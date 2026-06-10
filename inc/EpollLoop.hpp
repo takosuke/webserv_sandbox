@@ -3,8 +3,6 @@
 #include <set>
 #include <sys/epoll.h>
 
-#include "FileLoop.hpp"
-
 class Connection;
 
 #define MAX_EVENTS 64

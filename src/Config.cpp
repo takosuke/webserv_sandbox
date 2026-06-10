@@ -491,7 +491,7 @@ void config::mime::set_default(const std::string & type) {
 	_default = type;
 }
 
-std::string config::mime::get_type(const std::string & extension) const {
+const std::string & config::mime::get_type(const std::string & extension) const {
 	std::map<std::string, std::string>::const_iterator it = types.find(extension);
 
 	if (it == types.end())
@@ -499,7 +499,7 @@ std::string config::mime::get_type(const std::string & extension) const {
 	return (it->second);
 }
 
-std::string config::mime::get_default() const{
+const std::string & config::mime::get_default() const{
 	return (_default);
 }
 
@@ -527,7 +527,7 @@ void config::add_types(config::mime & mime, const BodyDirective & directive) {
 	}
 }
 
-std::string  config::mime::get_type_ext_string() const {
+std::string config::mime::get_type_ext_string() const {
 	std::vector<std::pair<std::string, std::vector<std::string> > > collect_types;
 
 	for (std::map<std::string, std::string>::const_iterator it = types.begin();
@@ -584,7 +584,7 @@ std::ostream & operator<<(std::ostream & out, const config::mime & mime) {
 /* CONFIG :: ERRORS ***********************************************************/
 
 config::errors::errors() {
-	_default = errorpage(false, false, 404, DEFAULT_ERROR_PAGE);
+	_default = config::errorpageinfo(true, 404, DEFAULT_ERROR_PAGE);
 }
 
 config::errors::errors(const config::errors & other) {
@@ -597,118 +597,89 @@ config::errors & config::errors::operator=(const config::errors & other) {
 	if (this == &other)
 		return (*this);
 	_default = other._default;
-	pages = other.pages;
+	_pagemap = other._pagemap;
 	return (*this);
 }
 
 void config::errors::clear() {
-	pages.clear();
+	_pagemap.clear();
 }
 
-void config::errors::add_page(int error_code, const std::string & page) {
-	pages[error_code] = config::errorpage(false, false, error_code, page);
+void config::errors::add_page(int error_code, const config::errorpageinfo &epi) {
+	_pagemap[error_code] = epi;
 }
 
-void config::errors::add_page(int error_code, const std::string & page, int response_code) {
-	pages[error_code] = config::errorpage(false, true, response_code, page);
+void config::errors::set_default(const config::errorpageinfo &epi) {
+	_default = epi;
 }
 
-void config::errors::add_page(int error_code, const std::string & page, bool ucgir) {
-	pages[error_code] = config::errorpage(ucgir, false, error_code, page);
-}
+/** TODO: check if it should really return the default page */
+const config::errorpageinfo & config::errors::get_page(int error_code) const {
+	std::map<int, config::errorpageinfo>::const_iterator it = _pagemap.find(error_code);
 
-void config::errors::set_default(const std::string & page) {
-	_default = config::errorpage(false, true, DEFAULT_ERROR_CODE, page);
-}
-
-void config::errors::set_default(const std::string & page, int response) {
-	_default = config::errorpage(false, true, response, page);
-}
-
-void config::errors::set_default(const std::string & page, bool ucgir) {
-	_default = config::errorpage(ucgir, false, DEFAULT_ERROR_CODE, page);
-}
-
-config::errorpage config::errors::get_page(int error_code) const {
-	std::map<int, config::errorpage>::const_iterator it = pages.find(error_code);
-
-	if (it == pages.end())
+	if (it == _pagemap.end())
 		return (_default);
 	return (it->second);
 }
 
-config::errorpage config::errors::get_default() const {
+const config::errorpageinfo & config::errors::get_default() const {
 	return (_default);
 }
 
-std::string config::errors::get_errorpages_string() const {
-	std::vector<std::pair<config::errorpage, std::vector<int> > >	collected_pages;
-
-	for (std::map<int, config::errorpage>::const_iterator it = pages.begin();
-		it != pages.end(); it ++) {
-		std::vector<std::pair<config::errorpage, std::vector<int> > >::iterator pageit;
-		for (pageit = collected_pages.begin();
-			pageit != collected_pages.end(); pageit++) {
-			if (pageit->first== it->second) {
-				pageit->second.push_back(it->first);
-				break ;
-			}
-		}
-		if (pageit == collected_pages.end()) {
-			std::pair<config::errorpage, std::vector<int> > new_code = std::make_pair(it->second, std::vector<int>());
-			new_code.second.push_back(it->first);
-			collected_pages.push_back(new_code);
-		}
+void config::errors::stream_pages(std::ostream &out) const {
+	for (std::map<int, config::errorpageinfo>::const_iterator it = _pagemap.begin();
+		it != _pagemap.end(); it++) {
+	  	if (it != _pagemap.begin())
+			out << ", ";
+		out << "{ code: " << it->first
+			<< ", " << it->second << " } ";
 	}
-
-	std::ostringstream ret;
-	ret << "error_pages_map { ";
-	for (std::vector<std::pair<config::errorpage, std::vector<int> > >::const_iterator it = collected_pages.begin();
-		it != collected_pages.end(); it++) {
-		if (it != collected_pages.begin())
-			ret << ", ";
-		ret << it->first << ", error_codes { ";
-		for (std::vector<int>::const_iterator codeit = it->second.begin();
-			codeit != it->second.end(); codeit++) {
-			if (codeit != it->second.begin())
-				ret << ", ";
-			ret << *codeit;
-		}
-		ret << " }";
-	}
-	ret << " }";
-	return (ret.str());
 }
 
-config::errorpage::errorpage() : use_cgi_response(false), overwrite_response(false), response_code(0) { }
+config::errorpageinfo::errorpageinfo() : internal(true), response_code(0), pagename() { }
 
-config::errorpage::errorpage(bool cgi, bool overwrite, int code, const std::string & p) {
-	use_cgi_response = cgi;
-	overwrite_response = overwrite;
+config::errorpageinfo::errorpageinfo(bool is_internal, int code, const std::string & p) {
+	internal = is_internal;
 	response_code = code;
-	page = p;
+	pagename = p;
 }
 
-config::errorpage::~errorpage() { }
+config::errorpageinfo::~errorpageinfo() { }
 
-config::errorpage & config::errorpage::operator=(const config::errorpage & other) {
+config::errorpageinfo & config::errorpageinfo::operator=(const config::errorpageinfo & other) {
 	if (this == &other)
 		return (*this);
-	use_cgi_response = other.use_cgi_response;
-	overwrite_response = other.overwrite_response;
+	internal = other.internal;
 	response_code = other.response_code;
-	page = other.page;
+	pagename = other.pagename;
 	return (*this);
 }
 
-bool operator==(const config::errorpage & ep1, const config::errorpage & ep2) {
-	if (ep1.use_cgi_response != ep2.use_cgi_response ||
-		ep1.overwrite_response != ep2.overwrite_response ||
-		ep1.page != ep2.page)
-		return (false);
-	if (ep1.overwrite_response == true && ep1.response_code != ep2.response_code)
-		return (false);
-	return (true);
+bool starts_with_scheme(const std::string & uri) {
+	static std::string	schemestrs[14] = {
+		std::string("blob"),
+		std::string("data"),
+		std::string("file"),
+		std::string("ftp"),
+		std::string("http"),
+		std::string("https"),
+		std::string("javascript"),
+		std::string("mailto"),
+		std::string("ssh"),
+		std::string("tel"),
+		std::string("urn"),
+		std::string("view-source"),
+		std::string("ws"),
+		std::string("wss")
+	};
+	for (int i = 0; i < 14; i++) {
+		size_t	schemelen = schemestrs[i].size();
+		if (uri.compare(0, schemelen, schemestrs[i]) == 0
+			&& uri.compare(schemelen, schemelen + 3, "://") == 0) {
+			return (true);
+		}
+	}
+	return (false);
 }
 
 void config::add_error_page(config::errors & errors, const std::vector<Token> & tokens) {
@@ -729,16 +700,14 @@ void config::add_error_page(config::errors & errors, const std::vector<Token> & 
 		if (codes.size() == 0)
 			throw (std::runtime_error("no error codes provided"));
 
-		bool	overwrite_response = false;
-		int		response_code = DEFAULT_ERROR_CODE;
-		bool	use_cgi_response = false;
+		int		response_code = 0;
 		if (it != tokens.end() && it->type == Token::string && it->str == "=") {
-			use_cgi_response = true;
+			response_code = -1;
 			++it;
 		}
 
 		if (it != tokens.end() && it->type == Token::string && it->str[0] == '=') {
-			if (use_cgi_response == true)
+			if (response_code == -1)
 				throw (std::runtime_error("cgi and specific response in same directive"));
 
 			// WARNING
@@ -752,7 +721,6 @@ void config::add_error_page(config::errors & errors, const std::vector<Token> & 
 			} catch(std::exception & e) {
 				throw (std::runtime_error(std::string("exception caught trying to read response code specifier: ") + e.what()));;
 			}
-			overwrite_response = true;
 			++it;
 		}
 
@@ -762,25 +730,31 @@ void config::add_error_page(config::errors & errors, const std::vector<Token> & 
 			throw (std::runtime_error("expected path or string token"));
 
 		std::string path = it++->str;
+		if (path.size() == 0)
+			throw (std::runtime_error("no error page provided"));
 
 		if (it != tokens.end())
 			throw (std::runtime_error("too many parameters for error_page directive"));
+	
+		bool	internal = true;
+		if (starts_with_scheme(path)) {
+			internal = false;
+			if (response_code == 0)
+				response_code = 302;
+			else if (response_code < 300 || response_code >= 400)
+				throw (std::runtime_error("invalid response code overwrite for url. use 3xx class codes"));
+		}
 
 		try {
-			if (use_cgi_response) {
+			if (response_code == 0) {
 				for (std::vector<int>::const_iterator codeit = codes.begin();
 				codeit != codes.end(); codeit++) {
-					errors.add_page(*codeit, path, use_cgi_response);
-				}
-			} else if (overwrite_response) {
-				for (std::vector<int>::const_iterator codeit = codes.begin();
-				codeit != codes.end(); codeit++) {
-					errors.add_page(*codeit, path, response_code);
+					errors.add_page(*codeit, config::errorpageinfo(internal, *codeit, path));
 				}
 			} else {
 				for (std::vector<int>::const_iterator codeit = codes.begin();
 				codeit != codes.end(); codeit++) {
-					errors.add_page(*codeit, path);
+					errors.add_page(*codeit, config::errorpageinfo(internal, response_code, path));
 				}
 			}
 		} catch (std::exception & e) {
@@ -791,21 +765,80 @@ void config::add_error_page(config::errors & errors, const std::vector<Token> & 
 	}
 }
 
-std::ostream & operator<<(std::ostream & out, const config::errorpage & errorpage) {
-	out << "errorpage { page: " << errorpage.page;
-	if (errorpage.use_cgi_response == true) {
-		out << ", use_cgi_response: " << errorpage.use_cgi_response;
-		return (out);
-	} else if (errorpage.overwrite_response == true) {
-		out << ", overwrite_response: " << errorpage.overwrite_response <<
-			", response_code: " << errorpage.response_code;
-	}
+std::ostream & operator<<(std::ostream & out, const config::errorpageinfo & errorpage) {
+	out << "errorpage { response_code: " << errorpage.response_code
+		<< ", page: " << errorpage.pagename << " }";
 	return (out);
 }
 
 std::ostream & operator<<(std::ostream & out, const config::errors & errors) {
 	out << "errors { default: " << errors.get_default() <<
-		", pages: " << errors.get_errorpages_string() << " }";
+		" }, pages { ";
+	errors.stream_pages(out);
+	out << " }";
+	return (out);
+}
+
+/* CONFIG :: CGI **************************************************************/
+
+config::cgi::cgi() : pass() { };
+
+config::cgi::cgi(const config::cgi &other) { *this = other; };
+
+config::cgi::~cgi() { };
+
+config::cgi &config::cgi::operator=(const config::cgi &other) {
+	if (this == &other)
+		return (*this);
+	pass = other.pass;
+	params = other.params;
+	return (*this);
+}
+
+void config::add_cgi_pass(std::string &pass, const std::vector<Token> &tokens) {
+	try {
+		check_parameter_count(1, 1, tokens.size());
+
+		if (tokens.front().type != Token::path
+			&& tokens.front().type != Token::url
+			&& tokens.front().type != Token::string)
+			throw (std::runtime_error("expected path, url or string"));
+		pass = tokens.front().str;
+	} catch (std::exception &e) {
+		throw (std::runtime_error(std::string("[cgi_pass] ") + e.what()));
+	}
+}
+
+void config::add_cgi_param(config::cgi &cgi, const std::vector<Token> &tokens) {
+	try {
+		check_parameter_count(2, 2, tokens.size());
+
+		std::vector<Token>::const_iterator it = tokens.begin();
+
+		if (it->type != Token::string)
+			throw (std::runtime_error("expected string as parameter"));
+		std::string	param = it->str;
+
+		it++;
+		if(it->type != Token::string)
+			throw (std::runtime_error("expected string as value"));
+		cgi.params.push_back(std::make_pair(param, it->str));
+
+	} catch (std::exception &e) {
+		throw (std::runtime_error(std::string("[cgi_param] ") + e.what()));
+	}
+}
+
+std::ostream & operator<<(std::ostream & out, const config::cgi & cgi) {
+	out << "cgi { pass: " << cgi.pass
+		<< ", params: { ";
+	for (std::vector<std::pair<std::string, std::string> >::const_iterator it = cgi.params.begin();
+		it != cgi.params.end(); it++) {
+		if (it != cgi.params.begin())
+			out << ", ";
+		out << "{ param: " << it->first << ", value: " << it->second << " }";
+	}
+	out << "}";
 	return (out);
 }
 
@@ -875,6 +908,7 @@ void Location::delete_locations() {
 Location & Location::operator=(const Location & other) {
 	if (this == &other)
 		return (*this);
+	limit = other.limit;
 	path = other.path;
 	is_prefix = other.is_prefix;
 	root = other.root;
@@ -893,6 +927,7 @@ void Location::from_directive(const BodyDirective & directive) {
 		bool	body_max;
 		bool	default_type;
 		bool	error_page;
+		bool	cgi_pass;
 	}	was_set;
 	was_set.root = false;
 	was_set.body_buffer_size = false;
@@ -900,6 +935,7 @@ void Location::from_directive(const BodyDirective & directive) {
 	was_set.body_max = false;
 	was_set.default_type = false;
 	was_set.error_page = false;
+	was_set.cgi_pass = false;
 
 	/* Here to be in scope during try for proper deletin in case of a throw */
 	Location *	loc = NULL;
@@ -953,6 +989,15 @@ void Location::from_directive(const BodyDirective & directive) {
 					errorpages.clear();
 				config::add_error_page(errorpages, it->parameters);
 				was_set.error_page = true;
+			} else if (it->name == "cgi_pass") {
+				if (was_set.cgi_pass)
+					throw (std::runtime_error("multiple cgi_pass directives"));
+				config::add_cgi_pass(cgi.pass, it->parameters);
+				was_set.cgi_pass = true;
+			} else if (it->name == "cgi_param") {
+				config::add_cgi_param(cgi, it->parameters);
+			} else if (it->name == "limit_excpet") {
+				config::add_limit_except(limit, it->parameters);
 			} else {
 				throw (std::runtime_error(std::string("invalid directive: ") + it->name));
 			}
@@ -978,12 +1023,16 @@ void Location::from_directive(const BodyDirective & directive) {
 		it != location_direc.end(); it++) {
 			loc = new Location(*this);
 			loc->from_directive(**it);
+			for (std::vector<const Location *>::iterator locit = locations.begin();
+				locit != locations.end(); locit++) {
+				if ((*locit)->get_path() == loc->get_path())
+					throw (std::runtime_error("two locations with the same path listed"));
+			}
 			locations.push_back(loc);
 			loc = NULL;
 		}
 	} catch (std::exception & e) {
 		delete loc;
-		delete_locations();
 		throw (std::runtime_error(std::string("[Location] ") + e.what()));
 	}
 }
@@ -1020,11 +1069,12 @@ const Location & Location::get_location(const std::string & uri) const {
 std::ostream & operator<<(std::ostream & out, const Location & loc) {
 	out << "Location { path: " << loc.get_path() <<
 		", root: " << loc.get_root() <<
-		", body { " << loc.get_body() <<
-		", output { " << loc.get_output() <<
-		", mime { " << loc.get_mime() <<
-		", error_page { " << loc.get_errorpages() <<
-		" } }";
+		", " << loc.get_body() <<
+		", " << loc.get_output() <<
+		", " << loc.get_mime() <<
+		", " << loc.get_errorpages() <<
+		", " << loc.get_cgi() <<
+		" }";
 	return (out);
 }
 
@@ -1174,22 +1224,28 @@ void Server::from_directive(const BodyDirective & directive) {
 		}
 
 		/* setting up the locations */
-		/* ensuring that there will always be a valid lcoation with just '/' as
-		 * a path for the Server to find */
-		loc = new Location(*this);
-		loc->set_path("/");
-		locations.push_back(loc);
 		loc = NULL;
 		for (std::vector<const BodyDirective *>::const_iterator it = location_direc.begin();
 		it != location_direc.end(); it++) {
 			loc = new Location(*this);
 			loc->from_directive(**it);
+			for (std::vector<const Location *>::iterator locit = locations.begin();
+				locit != locations.end(); locit++) {
+				if ((*locit)->get_path() == loc->get_path())
+					throw (std::runtime_error("two locations with the same path listed"));
+			}
 			locations.push_back(loc);
 			loc = NULL;
 		}
+		if (locations.size() == 0) {
+			/* ensuring that there will always be a valid lcoation with just '/' as
+		 	* a path for the Server to find */
+			loc = new Location(*this);
+			loc->set_path("/");
+			locations.push_back(loc);
+		}
 	} catch (std::exception & e) {
 		delete loc;
-		delete_locations();
 		throw (std::runtime_error(std::string("[Server] ") + e.what()));
 	}
 }
@@ -1473,7 +1529,6 @@ void Http::from_directive(const BodyDirective & directive) {
 		}
 	} catch (std::exception & e) {
 		delete server;
-		delete_servers();
 		throw (std::runtime_error(std::string("[Http] ") + e.what()));
 	}
 }

@@ -35,10 +35,12 @@ struct Request {
 	bool		valid;		// if parsing error, false
 	int			error;		// 400, 414, parsing errors
 
-	// TODO destructors etc
-	Request() : method(UNKNOWN), content_length(0), server(NULL), location(NULL), valid(0), error(0) {}
+	Request()
+		: method(UNKNOWN), content_length(0),
+		server(NULL), location(NULL),
+		valid(true), error(0){}
 
-	std::string methodToString(HttpMethod m);
+	std::string methodToString(HttpMethod m) const;
 	HttpMethod stringToMethod(const std::string& s);
 	void		printRequest();
 	friend std::ostream& operator<<(std::ostream& os, const Request& req) {

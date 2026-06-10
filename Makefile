@@ -12,17 +12,17 @@ ODIR	:= obj/
 
 SRCS	:=
 vpath %.cpp $(SDIR)
-SRCS	+= webserv.cpp
+MAIN	?= webserv.cpp
+SRCS	+= $(MAIN)
 
 SRCS	+= ConfigParser.cpp
 SRCS	+= Config.cpp
 
 SRCS	+= ServerConnection.cpp
 SRCS	+= ClientConnection.cpp
-SRCS	+= FileConnection.cpp
+SRCS	+= CgiConnection.cpp
 
 SRCS	+= EpollLoop.cpp
-SRCS	+= FileLoop.cpp
 
 SRCS	+= ServerBlock.cpp
 SRCS	+= RequestParser.cpp
@@ -53,7 +53,7 @@ CPPFLAGS	+= -I $(IDIR)
 
 ifdef DEBUG
 	CXXFLAGS	+= -g3
-	CXXFLAGS	+= -fno-limit-debug-info
+#	CXXFLAGS	+= -fno-limit-debug-info // gcc doesn't use this flag only clang
 else
 	CXXFLAGS	+= -O3
 endif
