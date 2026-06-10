@@ -82,6 +82,7 @@ fclean: clean
 re: fclean all
 
 CLOJURE_BIN	:= $(HOME)/.local/bin/clojure
+WWWROOT		:= $(CURDIR)/www
 
 install-clojure:
 	@if [ ! -f "$(CLOJURE_BIN)" ]; then \
@@ -94,7 +95,13 @@ install-clojure:
 		echo "Clojure already installed at $(CLOJURE_BIN)"; \
 	fi
 
-test: install-clojure
+prepare-confs:
+	mkdir -p conf/generated
+	for f in conf/*.conf; do \
+		sed 's|__WWWROOT__|$(WWWROOT)|g' $$f > conf/generated/$$(basename $$f); \
+	done
+
+test: install-clojure prepare-confs
 	cd webserv-tests && PATH="$(HOME)/.local/bin:$(PATH)" clojure -P && PATH="$(HOME)/.local/bin:$(PATH)" clojure -M:test
 
-.PHONY: all clean fclean re install-clojure test
+.PHONY: all clean fclean re install-clojure prepare-confs test
