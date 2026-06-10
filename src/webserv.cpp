@@ -18,6 +18,8 @@ int main(int ac, char *av[]) {
 	//server_blocks.push_back(&block_1);
 	//server_blocks.push_back(&block_2);
 	// Arns config thing
+	// Ignoring SIGPIPE so that POST calls to broken CGI scripts don't bring the
+	// server down
 	signal(SIGPIPE, SIG_IGN);
 	const char *config_path = (ac > 1) ? av[1] : "webserv.conf";
 	const char* lvl = std::getenv("LOG_LEVEL");
