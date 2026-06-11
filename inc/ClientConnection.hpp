@@ -17,7 +17,6 @@ class ClientConnection : public Connection {
 		void	handle(uint32_t events);
 
 		void	complete_cgi(const std::string &output);
-		void	construct_response(int code);
 
 		struct sockaddr_in listening_addr;
 
@@ -31,6 +30,5 @@ class ClientConnection : public Connection {
 
 		void	enqueue_response();
 
-		void	handle_get();
 		void	handle_cgi();
 };

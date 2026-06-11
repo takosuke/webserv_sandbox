@@ -36,18 +36,11 @@ void	ClientConnection::handle(uint32_t events) {
 				_response.construct(_parser.getRequest());
 			}
 			EpollLoop::get_instance().mod(this, EPOLLOUT | EPOLLERR | EPOLLHUP);
-		}
-		if (_parser.complete()) {
+		} else if (_parser.complete()) {
 			if (!_parser.getRequest().location->get_cgi().pass.empty())
 				handle_cgi();
-			else {
-				switch (_parser.getRequest().method) {
-					case GET: handle_get(); break ;
-					case POST: break ;
-					case DELETE: break ;
-					case UNKNOWN: break ;
-				}
-			}
+			else
+				_response.construct(_parser.getRequest());
 			EpollLoop::get_instance().mod(this, EPOLLOUT | EPOLLERR | EPOLLHUP);
 		}
 	}
@@ -55,24 +48,6 @@ void	ClientConnection::handle(uint32_t events) {
 		_response.write_to(fd);
 		if (_response.done() || _response.error())
 			EpollLoop::get_instance().del(this);
-	}
-}
-
-void	ClientConnection::handle_get() {
-	const Request &	req = _parser.getRequest();
-	_response = Response(&_buffer, req.location->get_root() + req.path);
-	if (_response.error()) {
-		_response.set_internal_error();
-		return ;
-	}
-	try {
-		_response.add_status_line(HTTP_VERSION_STR, 200);
-		_response.add_content_length();
-		_response.add_date();
-		_response.add_allowed(req.location);
-		_response.add_header_end();
-	} catch (std::exception &e) {
-		_response.set_internal_error();
 	}
 }
 
