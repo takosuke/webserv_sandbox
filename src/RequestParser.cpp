@@ -272,14 +272,17 @@ int RequestParser::parse_headers() {
 			while (_redirects < REDIRECT_LIMIT) {
 				if (!is_method_allowed()) {
 					_req.error = 405; // Method not Allowed
-					if (error_redirect() == false)
+					if (error_redirect() == false) {
 						return (_req.error);
+					}
 				} else if (_req.method == GET && !is_file_existing()) {
 					_req.error = 404; // Not Found
-					if (error_redirect() == false)
+					if (error_redirect() == false) {
 						return (_req.error);
-				} else
+					}
+				} else {
 					break ;
+				}
 			}
 			if (_redirects == REDIRECT_LIMIT) {
 				LOG_WARN("REDIRECTION") << "internal redirection limit exceeded. Last redirection towards: " << _req.path << std::endl;
