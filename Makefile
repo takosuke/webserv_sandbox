@@ -25,10 +25,11 @@ SRCS	+= CgiConnection.cpp
 SRCS	+= EpollLoop.cpp
 
 SRCS	+= ServerBlock.cpp
+
 SRCS	+= RequestParser.cpp
 SRCS	+= Request.cpp
-
 SRCS	+= Response.cpp
+SRCS	+= ScratchBuffer.cpp
 
 SRCS	+= utils.cpp
 
@@ -53,7 +54,7 @@ CPPFLAGS	+= -I $(IDIR)
 
 ifdef DEBUG
 	CXXFLAGS	+= -g3
-#	CXXFLAGS	+= -fno-limit-debug-info // gcc doesn't use this flag only clang
+	CXXFLAGS	+= -fno-limit-debug-info # gcc doesn't use this flag only clang (works with our setup though)
 else
 	CXXFLAGS	+= -O3
 endif

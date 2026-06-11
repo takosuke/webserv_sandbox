@@ -10,6 +10,13 @@
 #include <map>
 #include <iostream>
 
+enum HttpMethod {
+	GET,
+	POST,
+	DELETE,
+	UNKNOWN
+};
+
 /* DIRECTIVE STRUCTS **********************************************************/
 
 namespace config {
@@ -86,14 +93,8 @@ namespace config {
 	/** Struct to hold information about allowed HTTP methods */
 	struct limit {
 	public:
-		/** Enum of all HTTP methods. */
-		enum method {
-			GET, HEAD, POST, PUT, DELETE, MKCOL, COPY, MOVE, OPTIONS, PROPFIND,
-			PROPPATCH, LOCK, UNLOCK, PATCH, INVALID
-		};
-
 		/** Set of all allowed methods. */
-		std::set<limit::method> allowed;
+		std::set<HttpMethod> allowed;
 	
 		limit();
 		limit(const limit & other);
@@ -106,15 +107,15 @@ namespace config {
 		 * and passes the method to the is_allowed(method) function. */
 		bool	is_allowed(const std::string & met) const;
 		/** Checks if a method is registered as allowed. */
-		bool	is_allowed(const method & met) const;
+		bool	is_allowed(const HttpMethod & met) const;
 
 		/** Returns a method that matches the given string.
 		 * If no matching method was found returns INVALID */
-		static method	method_from_string(const std::string & str);
+		static HttpMethod	method_from_string(const std::string & str);
 
 		/** Returns a string that matches the given method.
 		 * If no matching method was found returns INVALID */
-		static std::string string_from_method(const config::limit::method & method);
+		static std::string string_from_method(const HttpMethod & method);
 
 		/** Sets the set of allowed methods based on the tokens in a
 		 * limit_except directive.
@@ -241,6 +242,7 @@ namespace config {
 	
 		void		set_default(const config::errorpageinfo &epi);
 
+		bool		has_page(int error_code) const;
 		const config::errorpageinfo	&get_page(int error_code) const;
 		const config::errorpageinfo	&get_default() const;
 
@@ -453,11 +455,11 @@ public:
 	const Server &	get_server_by_name(const std::string & name) const;
 
 	void	set_listen(const config::listen & other) { listen = other; };
-	void	set_dserver(const Server * other) { dserver = other; };
+	void	set_dserver(const Server * other) { dserver = const_cast<Server *>(other); };
 	void	set_servername_map(const std::map<std::string, const Server *> & other) {servername_map = other; };
 
 	const config::listen			& get_listen() const { return (listen); };
-	const Server					* get_dserver() const { return (dserver); };
+	const Server					& get_dserver() const { return (*dserver); };
 	const std::map<std::string, const Server *>	& get_servername_map() const { return (servername_map); };
 };
 
@@ -488,6 +490,7 @@ public:
 
 	void	from_directive(const BodyDirective & directive);
 
+	const Server &	get_default_server(const struct sockaddr_in & sockaddr) const;
 	const Server &	get_server(const struct sockaddr_in & sockaddr, const std::string & name) const;
 
 	void	set_root(const std::string & other) { root = other; };

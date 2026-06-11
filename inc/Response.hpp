@@ -8,6 +8,7 @@
 
 #include "Config.hpp"
 #include "Request.hpp"
+#include "ScratchBuffer.hpp"
 
 /* STATUS LINE ****************************************************************/
 
@@ -48,14 +49,12 @@ private:
 	static int					init_reason_phrase_map();
 	static const std::string	&get_reason_phrase(int code);
 
-	std::fstream	stream;
-	std::string		file;
-	char			*buffer;
-	size_t			pos;		// Write position
-	size_t			size;		// Filled bytes in Buffer
-	size_t			capacity;	// Total size of the buffer
+	std::fstream	_stream;
+	std::string		_file;
 
-	std::vector<std::string>	headers;
+	ScratchBuffer	*_buffer;
+
+	std::vector<std::string>	_headers;
 
 	bool			_error;
 
@@ -66,8 +65,8 @@ public:
 
 	Response() { };
 	Response(const Response & other) { *this = other; };
-	Response(char *buf, size_t buffer_size);
-	Response(char *buf, size_t buffer_size, const std::string & filename);
+	Response(ScratchBuffer *buf);
+	Response(ScratchBuffer *buf, const std::string & filename);
 	~Response() { };
 
 	Response & operator=(const Response & other);
@@ -75,7 +74,7 @@ public:
 	bool	done() const;
 	bool	error() const;
 
-	void	set_buffer(char *buf) { buffer = buf; };
+	void	set_buffer(ScratchBuffer *buf) { _buffer = buf; };
 	void	set_file(const std::string &filename);
 
 	void	set_internal_error();
@@ -87,6 +86,7 @@ public:
 	 */ 
 	void	add_status_line(const std::string & version, int status_code);
 	void	add_header_field(const std::string & name, const std::string & value);
+	void	add_allowed(const Location *loc);
 	void	add_content_length();
 	void	add_date();
 	void	add_header_end();
@@ -96,7 +96,7 @@ public:
 	void	clear_buffer();
 	void	fill_buffer();
 
-	void	construct_3xx(int code, const std::string &location);
+	void	construct(const Request &req);
 
 	void	write_to(int fd);
 };

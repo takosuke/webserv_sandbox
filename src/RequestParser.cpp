@@ -119,20 +119,21 @@ static bool validateReqPath(const std::string& path) {
 
 /**	@brief Adds to `_buf` from `data`.
  */
-void RequestParser::feed(const char *data, int len) {
-	_buf.append(data, len);
-	if (_buf.find("\r\n") == std::string::npos && _state != BODY)
-		return ;
-	if (_state == REQUEST_LINE && parse_request_line() != 0)
-		return ;
-	if (_state == HEADERS)
-		parse_headers();
-	if (_state == BODY) {
-		if (_req.server == NULL && _http != NULL) {
-			_req.server = &(_http->get_server(_addr, getRequest().host));
-			_req.location = &(_req.server->get_location(getRequest().path));
+void RequestParser::feed(int fd) {
+	if (_buffer->fill_capacity() == 0 && _buffer->feed_capacity())
+		_buffer->clear();
+	if (_buffer->fill(fd) < 0)
+		_req.error = 500;
+	else {
+		if (_buffer->find("\r\n") == std::string::npos && _state != BODY)
+			return ;
+		if (_state == REQUEST_LINE && parse_request_line() != 0)
+			return ;
+		if (_state == HEADERS)
+			parse_headers();
+		if (_state == BODY) {
+			parse_body();
 		}
-		parse_body();
 	}
 	if (_state == COMPLETE || _req.error)
 	{
@@ -144,10 +145,11 @@ void RequestParser::feed(const char *data, int len) {
 }
 
 int RequestParser::parse_request_line() {
-	size_t pos = _buf.find("\r\n");
-	if (pos != std::string::npos)
+	size_t pos = _buffer->find("\r\n");
+	if (pos != ScratchBuffer::npos)
 	{
-		std::string request_line = _buf.substr(0, pos);
+		std::string request_line = std::string(_buffer->data, pos);
+		LOG_DEBUG("Request") << "incoming request: " << request_line << std::endl;
 		size_t sp_first = request_line.find(' ');
 		size_t sp_second = request_line.find(' ', sp_first + 1);
 		if (sp_first == std::string::npos)
@@ -173,7 +175,7 @@ int RequestParser::parse_request_line() {
 			_req.version = "HTTP/0.9";
 			_state = COMPLETE;
 			_complete = true;
-			_buf.erase();
+			_buffer->clear();
 
 			return 0;
 		}
@@ -185,9 +187,49 @@ int RequestParser::parse_request_line() {
 				return (set_error(isNotValidHttpVersionErrno));
 		}
 		_state = HEADERS;
-		_buf.erase(0, pos + 2);
+		_buffer->erase(0, pos + 2);
 	}
 	return 0;
+}
+
+/**	@brief Performs a redirection.
+ *  @return If the redirection is internal returns `true`, if it is external
+ *  return `false`. If we don't have an errorpage saved returns 'false' and
+ *  sets the path inside the request to "".
+ */
+bool RequestParser::error_redirect() {
+	_req.method = GET;
+	if (!_req.location->get_errorpages().has_page(_req.error)) {
+		_req.path = "";
+		return (false);
+	}
+	const config::errorpageinfo	&epi = _req.location->get_errorpages().get_page(_req.error);
+	_req.path = epi.pagename;
+	if (epi.response_code != 0)
+		_req.error = epi.response_code;
+	if (epi.internal)
+		internal_redirect(_req.location->get_root() + _req.path);
+	return (epi.internal);
+}
+
+void RequestParser::internal_redirect(const std::string &path) {
+	// Basically all internal redirects are transfoming a request to GET
+	++_redirects;
+	_req.method = GET;
+	_req.location = &(_req.server->get_location(path));
+}
+
+bool RequestParser::is_method_allowed() {
+	return (_req.location->get_limit().is_allowed(_req.method));
+}
+
+#include <sys/stat.h>
+
+bool RequestParser::is_file_existing() {
+	std::string	path = _req.location->get_root() + _req.path;
+	struct stat	statbuf;
+
+	return (stat(path.c_str(), &statbuf) == 0);
 }
 
 bool RequestParser::parse_uri() {
@@ -206,16 +248,43 @@ bool RequestParser::parse_uri() {
 }
 
 int RequestParser::parse_headers() {
-	size_t pos = _buf.find("\r\n");
-	while (pos != std::string::npos) {
+	size_t pos = _buffer->find("\r\n");
+	while (pos != ScratchBuffer::npos) {
 		// TODO max number of headers/max header size?
-		std::string headers_line = _buf.substr(0, pos);
+		std::string headers_line = std::string(_buffer->data + _buffer->writepos, pos);
 		if (headers_line.empty())
 		{
-			_buf.erase(0, pos + 2);
+			_buffer->erase(0, pos + 2);
 			_state = BODY;
 			parse_content_length();
 			parse_hostname();
+			_req.server = &(_http->get_server(_addr, _req.host));
+			_req.location = &(_req.server->get_location(_req.path));
+			try {
+				_buffer->set_capacity(_req.location->get_body().buffer_size);
+			} catch (std::exception & e) {
+				_req.error = 500;
+				if (error_redirect() == false)
+					return (_req.error);
+			}
+			// TODO: Logic for CGI responses, what do we need to check (file
+			// existence, script existence, etc)
+			while (_redirects < REDIRECT_LIMIT) {
+				if (!is_method_allowed()) {
+					_req.error = 405; // Method not Allowed
+					if (error_redirect() == false)
+						return (_req.error);
+				} else if (_req.method == GET && !is_file_existing()) {
+					_req.error = 404; // Not Found
+					if (error_redirect() == false)
+						return (_req.error);
+				} else
+					break ;
+			}
+			if (_redirects == REDIRECT_LIMIT) {
+				LOG_WARN("REDIRECTION") << "internal redirection limit exceeded. Last redirection towards: " << _req.path << std::endl;
+				return (set_error(500));
+			}
 			return 0;
 		}
 		// make headers into lowercase for consistency and avoiding headaches
@@ -231,8 +300,8 @@ int RequestParser::parse_headers() {
 			val = val.substr(start);
 		// FIXME duplicate headers are being silently dropped
 		_req.headers.insert(std::make_pair(key, val));
-		_buf.erase(0, pos + 2);
-		pos = _buf.find("\r\n");
+		_buffer->erase(0, pos + 2);
+		pos = _buffer->find("\r\n");
 	}
 	return 0;
 }
@@ -296,11 +365,26 @@ void RequestParser::parse_body() {
 		_state = COMPLETE;
 		_complete = true;
 	}
-	else if (_buf.size() >= _req.content_length) {
-		_req.body = _buf.substr(0, _req.content_length);
+	else if (_written_body_len < _req.content_length) {
+		size_t writeret = _buffer->feed(_stream);
+		if (writeret < 0) {
+			_req.error = 500;
+			return ;
+		}
+		_written_body_len += writeret;
+		if (writeret == 0)
 		_state = COMPLETE;
 		_complete = true;
 	}
+}
+
+void RequestParser::set_buffer(ScratchBuffer *buffer) {
+	_buffer = buffer;
+	_buffer->clear();
+}
+
+void RequestParser::clear_buffer() {
+	_buffer->clear();
 }
 
 int RequestParser::set_error(int code) {

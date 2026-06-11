@@ -200,19 +200,8 @@ std::ostream & operator<<(std::ostream & out, const config::output & output) {
 
 config::limit::limit() {
 	allowed.insert(GET);
-	allowed.insert(HEAD);
 	allowed.insert(POST);
-	allowed.insert(PUT);
 	allowed.insert(DELETE);
-	allowed.insert(MKCOL);
-	allowed.insert(COPY);
-	allowed.insert(MOVE);
-	allowed.insert(OPTIONS);
-	allowed.insert(PROPFIND);
-	allowed.insert(PROPPATCH);
-	allowed.insert(LOCK);
-	allowed.insert(UNLOCK);
-	allowed.insert(PATCH);
 }
 
 config::limit::limit(const config::limit & other) {
@@ -232,54 +221,50 @@ bool config::limit::is_allowed(const std::string & met) const {
 	return (is_allowed(method_from_string(met)));
 }
 
-bool config::limit::is_allowed(const config::limit::method & met) const {
-	std::set<config::limit::method>::const_iterator it = allowed.find(met);
+bool config::limit::is_allowed(const HttpMethod & met) const {
+	std::set<HttpMethod>::const_iterator it = allowed.find(met);
 
 	return (it != allowed.end());
 }
 
-const static std::string methodstrings[15] = {
-	"GET", "HEAD", "POST", "PUT", "DELETE", "MKCOL", "COPY", "MOVE",
-	"OPTIONS", "PROPFIND", "PROPPATCH", "LOCK", "UNLOCK", "PATCH", "INVALID"
+const static std::string methodstrings[4] = {
+	"GET", "POST", "DELETE", "UNKNOWN"
 };
-const static config::limit::method methodarr[15] = {
-	config::limit::GET, config::limit::HEAD,
-	config::limit::POST, config::limit::PUT,
-	config::limit::DELETE, config::limit::MKCOL,
-	config::limit::COPY, config::limit::MOVE,
-	config::limit::OPTIONS, config::limit::PROPFIND,
-	config::limit::PROPPATCH, config::limit::LOCK,
-	config::limit::UNLOCK, config::limit::PATCH
+const static HttpMethod methodarr[15] = {
+	GET,
+	POST,
+	DELETE,
+	UNKNOWN
 };
 
-config::limit::method config::limit::method_from_string(const std::string & str) {
-	for (int i = 0; i < 14; i++) {
+HttpMethod config::limit::method_from_string(const std::string & str) {
+	for (int i = 0; i < 3; i++) {
 		if (str == methodstrings[i])
 			return (methodarr[i]);
 	}
-	return (config::limit::INVALID);
+	return (UNKNOWN);
 }
 
-std::string config::limit::string_from_method(const config::limit::method & method) {
-	for (int i = 0; i < 15; i++) {
+std::string config::limit::string_from_method(const HttpMethod & method) {
+	for (int i = 0; i < 3; i++) {
 		if (method == methodarr[i])
 			return (methodstrings[i]);
 	}
-	return (methodstrings[15]);
+	return (methodstrings[3]);
 }
 
 void config::limit::set_allowed(const std::vector<Token> & tokens) {
 	if (tokens.size() == 0)
 		 throw (std::runtime_error("no parameteres provided for limit_except directive"));
 
-	allowed = std::set<config::limit::method>();
+	allowed = std::set<HttpMethod>();
 
 	for (std::vector<Token>::const_iterator it = tokens.begin();
 		it != tokens.end(); it++) {
 		if (it->type != Token::string)
 			throw (std::runtime_error("non string token provided as a parameter"));
-		method tmp = method_from_string(it->str);
-		if (tmp == INVALID)
+		HttpMethod tmp = method_from_string(it->str);
+		if (tmp == UNKNOWN)
 			throw (std::runtime_error("non method string provided as a parameter"));
 		allowed.insert(tmp);
 	}
@@ -299,7 +284,7 @@ std::ostream & operator<<(std::ostream & out, const config::limit & limit) {
 		out << "all }";
 		return (out);
 	}
-	for (std::set<config::limit::method>::const_iterator it = limit.allowed.begin();
+	for (std::set<HttpMethod>::const_iterator it = limit.allowed.begin();
 		it != limit.allowed.end(); it++) {
 		if (it != limit.allowed.begin())
 			out << ", ";
@@ -611,6 +596,12 @@ void config::errors::add_page(int error_code, const config::errorpageinfo &epi) 
 
 void config::errors::set_default(const config::errorpageinfo &epi) {
 	_default = epi;
+}
+
+bool config::errors::has_page(int error_code) const {
+	std::map<int, config::errorpageinfo>::const_iterator it = _pagemap.find(error_code);
+	
+	return (it != _pagemap.end());
 }
 
 /** TODO: check if it should really return the default page */
@@ -1225,10 +1216,13 @@ void Server::from_directive(const BodyDirective & directive) {
 
 		/* setting up the locations */
 		loc = NULL;
+		bool top_level_loc_exists = false;
 		for (std::vector<const BodyDirective *>::const_iterator it = location_direc.begin();
 		it != location_direc.end(); it++) {
 			loc = new Location(*this);
 			loc->from_directive(**it);
+			if (loc->get_path() == "/")
+				top_level_loc_exists = true;
 			for (std::vector<const Location *>::iterator locit = locations.begin();
 				locit != locations.end(); locit++) {
 				if ((*locit)->get_path() == loc->get_path())
@@ -1237,7 +1231,7 @@ void Server::from_directive(const BodyDirective & directive) {
 			locations.push_back(loc);
 			loc = NULL;
 		}
-		if (locations.size() == 0) {
+		if (top_level_loc_exists == false) {
 			/* ensuring that there will always be a valid lcoation with just '/' as
 		 	* a path for the Server to find */
 			loc = new Location(*this);
@@ -1533,6 +1527,13 @@ void Http::from_directive(const BodyDirective & directive) {
 	}
 }
 
+const Server & Http::get_default_server(const struct sockaddr_in & sockaddr) const {
+	std::map<struct sockaddr_in, Port>::const_iterator port = ports.find(sockaddr);
+	if (port == ports.end())
+		throw (std::runtime_error("No corresponding port found"));
+	return (port->second.get_dserver());
+}
+
 const Server & Http::get_server(const struct sockaddr_in & sockaddr, const std::string & name) const {
 	std::map<struct sockaddr_in, Port>::const_iterator port = ports.find(sockaddr);
 	if (port == ports.end())
@@ -1567,7 +1568,7 @@ bool operator<(const struct sockaddr_in & lhs, const struct sockaddr_in & rhs) {
 
 /* UTILS **********************************************************************/
 
-/**	@brief Checks if size is outsideof the min and max. If so it prints the
+/**	@brief Checks if size is outside of the min and max. If so it prints the
  * appropriate response inserting the string directive into the error message.
  * If -1 is provided as a value for min or max the value will not be checked.
 */

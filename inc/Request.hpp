@@ -6,13 +6,6 @@
 #include <iostream>
 #include <map>
 
-enum HttpMethod {
-	GET,
-	POST,
-	DELETE,
-	UNKNOWN
-};
-
 struct Request {
 	// TODO beginning underscores for consistency?
 	HttpMethod	method;
@@ -21,7 +14,6 @@ struct Request {
 	std::string	query;		// querystring "val=43" or nothing
 	std::string	version;	// "HTTP/1.0"
 	std::map<std::string, std::string> headers; // lowercased ke=ys
-	std::string	body;
 	size_t		content_length;
 
 	std::string	host;		// extracted from headers because used frequently -
@@ -38,7 +30,7 @@ struct Request {
 	Request()
 		: method(UNKNOWN), content_length(0),
 		server(NULL), location(NULL),
-		valid(true), error(0){}
+		valid(true), error(0) { };
 
 	std::string methodToString(HttpMethod m) const;
 	HttpMethod stringToMethod(const std::string& s);

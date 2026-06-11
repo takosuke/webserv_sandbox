@@ -26,8 +26,6 @@ void	Request::printRequest() {
 	std::cout << "Headers:" << std::endl;
 	for (std::map<std::string, std::string>::iterator it = headers.begin(); it != headers.end(); ++it)
 		std::cout << it->first << ":" << it->second << std::endl;
-	std::cout << "content-length:" << content_length << std::endl;
-	std::cout << "Body:" << std::endl;
-	std::cout << body << std::endl;
+	std::cout << "Content-length:" << content_length << std::endl;
 	std::cout << "=== End Request ===" << std::endl;
 }
