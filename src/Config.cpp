@@ -996,7 +996,7 @@ void Location::from_directive(const BodyDirective & directive) {
 				was_set.cgi_pass = true;
 			} else if (it->name == "cgi_param") {
 				config::add_cgi_param(cgi, it->parameters);
-			} else if (it->name == "limit_excpet") {
+			} else if (it->name == "limit_except") {
 				config::add_limit_except(limit, it->parameters);
 			} else {
 				throw (std::runtime_error(std::string("invalid directive: ") + it->name));

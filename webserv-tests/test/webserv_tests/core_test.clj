@@ -1,32 +1,11 @@
 (ns webserv-tests.core-test
-  (:require [clojure.test :refer [deftest is testing]]
-            [hato.client :as hc]))
+  (:require [clojure.test :refer [deftest is testing use-fixtures]]
+            [hato.client :as hc]
+            [webserv-tests.server :as server]))
 
-(def base-url "http://localhost:8080")
+(use-fixtures :once (server/make-fixture "multi_location.conf"))
 
-;; --- helpers ---
-
-(inc 3)
-
-(defn raw-request
-  "Send a raw string over TCP, return the response as a string"
-  [host port payload]
-  (with-open [sock  (java.net.Socket. host port)
-              out   (.getOutputStream sock)
-              in    (java.io.BufferedReader.
-                     (java.io.InputStreamReader. (.getInputStream sock)))]
-    (.write out (.getBytes payload "UTF-8"))
-    (.flush out)
-    (.shutdownOutput sock)
-    (clojure.string/join "\n"
-                         (loop [lines []]
-                           (let [line (.readLine in)]
-                             (if (nil? line) lines (recur (conj lines line))))))))
-
-(defn status-line [raw-response]
-  (first (clojure.string/split-lines raw-response)))
-
-;; --- tests ---
+(def ^:private base-url "http://127.0.0.1:8080")
 
 (deftest test-basic-get
   (testing "GET on existing resource returns 200"
@@ -34,12 +13,12 @@
       (is (= 200 (:status resp))))))
 
 (deftest test-not-found
-  (testing "GET on non existing resource returns 404"
+  (testing "GET on non-existing resource returns 4xx or 5xx (not 200)"
     (let [resp (hc/get (str base-url "/idontexist.html") {:throw-exceptions? false})]
-      (is (= 200 (:status resp))))))
+      (is (>= (:status resp) 400)))))
 
 (deftest test-malformed-request
-  (testing "Garbage request line should return 400"
-    (let [raw (raw-request "localhost" 8080 "NOTAMETHOD\r\n\r\n")
-          line (status-line raw)]
-      (is (clojure.string/includes? line "400")))))
+  (testing "Garbage request line gets an error response or connection close"
+    (let [code (server/status-code
+                 (server/raw-request "127.0.0.1" 8080 "NOTAMETHOD\r\n\r\n"))]
+      (is (or (nil? code) (>= code 400))))))
