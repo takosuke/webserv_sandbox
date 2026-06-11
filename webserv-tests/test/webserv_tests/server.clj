@@ -80,3 +80,32 @@
   (when-let [line (first (clojure.string/split-lines raw-response))]
     (when-let [[_ code] (re-find #"HTTP/\S+ (\d{3})" line)]
       (Integer/parseInt code))))
+
+(defn parse-response
+  "Parse a raw HTTP response string into {:status int :headers map :body string}.
+  Headers map has lower-cased keys. Returns nil if raw is empty."
+  [raw]
+  (when (seq raw)
+    (let [[head-part body-part] (clojure.string/split raw #"\n\n" 2)
+          head-lines (clojure.string/split-lines (or head-part ""))
+          [_ code _] (re-find #"HTTP/\S+ (\d{3}) ?(.*)" (or (first head-lines) ""))
+          headers (into {}
+                   (keep (fn [l]
+                           (when-let [[_ k v] (re-find #"^([^:]+):\s*(.*)" l)]
+                             [(clojure.string/lower-case (clojure.string/trim k)) (clojure.string/trim v)]))
+                         (rest head-lines)))]
+      {:status  (when code (Integer/parseInt code))
+       :headers headers
+       :body    (or body-part "")})))
+
+(defn http-get
+  "Send a minimal HTTP/1.1 GET and return a parsed response map."
+  [path]
+  (parse-response
+    (raw-request "127.0.0.1" 8080
+      (str "GET " path " HTTP/1.1\r\nHost: 127.0.0.1\r\nConnection: close\r\n\r\n"))))
+
+(defn http-request
+  "Send a raw HTTP request string and return a parsed response map."
+  [req]
+  (parse-response (raw-request "127.0.0.1" 8080 req)))
