@@ -101,7 +101,8 @@ prepare-confs:
 		sed 's|__WWWROOT__|$(WWWROOT)|g' $$f > conf/generated/$$(basename $$f); \
 	done
 
+.PHONY: test
 test: install-clojure prepare-confs
-	cd webserv-tests && PATH="$(HOME)/.local/bin:$(PATH)" clojure -P && PATH="$(HOME)/.local/bin:$(PATH)" clojure -M:test
+	cd webserv-tests && PATH="$(HOME)/.local/bin:$(PATH)" clojure -M:test
 
-.PHONY: all clean fclean re install-clojure prepare-confs test
+.PHONY: all clean fclean re install-clojure prepare-confs
