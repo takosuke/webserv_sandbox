@@ -211,6 +211,11 @@ bool Lexer::lex_file() {
 				return (true);
 		}
 
+		if (*lineit == '#') {
+			lineit = line.end();
+			continue;
+		}
+
 		Token token = lex();
 		if (token.type == Token::invalid) {
 			return (false);

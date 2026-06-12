@@ -15,7 +15,6 @@ class Connection {
 		virtual void handle(uint32_t events) = 0;
 		virtual ~Connection() {}
 		int	fd;
-	//:w
 	//ServerBlock *config;
 		Http *	http;
 	protected:

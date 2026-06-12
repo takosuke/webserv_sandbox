@@ -17,6 +17,14 @@ enum HttpMethod {
 	UNKNOWN
 };
 
+/** Returns a method that matches the given string.
+		 * If no matching method was found returns INVALID */
+HttpMethod	method_from_string(const std::string & str);
+
+/** Returns a string that matches the given method.
+		 * If no matching method was found returns INVALID */
+std::string string_from_method(const HttpMethod & method);
+
 /* DIRECTIVE STRUCTS **********************************************************/
 
 namespace config {
@@ -108,14 +116,6 @@ namespace config {
 		bool	is_allowed(const std::string & met) const;
 		/** Checks if a method is registered as allowed. */
 		bool	is_allowed(const HttpMethod & met) const;
-
-		/** Returns a method that matches the given string.
-		 * If no matching method was found returns INVALID */
-		static HttpMethod	method_from_string(const std::string & str);
-
-		/** Returns a string that matches the given method.
-		 * If no matching method was found returns INVALID */
-		static std::string string_from_method(const HttpMethod & method);
 
 		/** Sets the set of allowed methods based on the tokens in a
 		 * limit_except directive.

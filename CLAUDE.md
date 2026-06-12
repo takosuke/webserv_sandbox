@@ -34,7 +34,7 @@ Run the server:
 
 ### Event Loop
 
-`EpollLoop` is a singleton that owns all active network connections as `map<int, Connection*>` (fd → Connection). It calls `epoll_wait()` with a 5 ms timeout and dispatches each ready event to `connection->handle(events)`. After dispatching, it calls `FileLoop::get_instance().run()` to process any pending file I/O, then flushes its `_deletion_queue` (connections are queued for deletion during event handling rather than deleted immediately to avoid dangling pointers within the same batch).
+`EpollLoop` is a singleton that owns all active network connections as `map<int, Connection*>` (fd → Connection). It calls `epoll_wait()` with a 5 ms timeout, dispatches each ready event to `connection->handle(events)`, then flushes its `_deletion_queue` (connections are queued for deletion during event handling rather than deleted immediately to avoid dangling pointers within the same batch).
 
 SIGINT triggers a `sig_int` flag that stops the loop cleanly.
 
@@ -47,19 +47,23 @@ SIGINT triggers a `sig_int` flag that stops the loop cleanly.
 ```
 Connection (abstract, owns fd + Http* config)
 ├── ServerConnection  — listens; accept() → new ClientConnection → epoll.add()
-└── ClientConnection  — reads request bytes; drives file I/O; writes response bytes
+├── ClientConnection  — reads request bytes; builds and writes response
+└── CgiConnection     — reads CGI output from pipe; calls back into ClientConnection
 ```
 
-`ClientConnection` holds a `RequestParser`, a `Response`, and an optional `FileConnection*` for in-flight file reads. On a complete GET request it:
-1. Opens the file, constructs a `ReadFileConnection` pointing at `_response.entity` as the output buffer
-2. Suspends its own epoll events with `mod(this, 0)`
-3. Registers the `FileConnection` with `FileLoop`
-4. When the file finishes, `FileConnection::handle_callback()` re-arms the `ClientConnection` with `EPOLLOUT`
-5. `handle(EPOLLOUT)` drains the `Response` via `Response::write_count()`, then `del(this)`
+`ClientConnection` holds a `RequestParser`, a `Response`, and a fixed 1024-byte `_buffer`. On a complete request it checks whether the matched `Location` has a `cgi_pass`; if so it calls `handle_cgi()`, otherwise dispatches by HTTP method.
 
-### File I/O
+**GET flow:**
+1. Constructs `Response(_buffer, 1024, root + path)` — opens the file via `std::fstream` inside the constructor
+2. Builds headers, then mods itself to `EPOLLOUT`
+3. `handle(EPOLLOUT)` calls `_response.write_to(fd)`, which fills the buffer from `fstream` and drains it to the socket; repeats until `done()` or `error()`, then `del(this)`
 
-`FileLoop` is a synchronous singleton separate from epoll. On each epoll tick, `EpollLoop::run()` calls `FileLoop::run()`, which iterates all registered `FileConnection*` and calls `handle()` on each. A `ReadFileConnection` reads up to `BYTES_PER_READ_CYCLE` (1024) bytes from the file fd into the target string buffer per call; a `WriteFileConnection` does the reverse. When done, `handle_callback()` re-arms the parent `ClientConnection` and queues itself for deletion.
+**CGI flow:**
+1. `fork()` + `pipe()` + `execve()` the interpreter with CGI env vars (`GATEWAY_INTERFACE`, `REQUEST_METHOD`, `SCRIPT_FILENAME`, `QUERY_STRING`, etc.) plus any `cgi_param` pairs
+2. Creates `CgiConnection(this)` with the read end of the pipe, sets `_pid`
+3. `epoll.mod(this, 0)` + `epoll.add(cgiConn)`
+4. `CgiConnection::handle(EPOLLIN)` accumulates pipe output into `_output`; when the pipe closes, `waitpid()` and calls `callback->complete_cgi(_output)`
+5. `complete_cgi()` splits CGI headers from body at `\r\n\r\n`, writes body to a temp file, builds `Response` from CGI headers + tempfile, then `epoll.mod(clientConn, EPOLLOUT)`
 
 ### Request Parsing
 
@@ -74,7 +78,9 @@ Connection (abstract, owns fd + Http* config)
 
 ### Response
 
-`Response` stores `status_line`, `headers`, and `entity` as separate strings and writes them sequentially across calls via `write_count(fd, count)`, tracking position internally. `construct_status_line()` and `add_header_field()` build the response; `add_content_length()` appends the length of `entity`.
+`Response` owns a caller-supplied `char *buffer` of fixed `capacity`, a `std::vector<std::string> headers` queue, and a `std::fstream stream` for file content. `write_to(fd)` fills the buffer from pending headers then the file stream, writes as much as possible to `fd`, and tracks position with `pos`/`size`. `done()` returns true when headers are empty, the stream is exhausted, and the buffer is drained. `error()` reflects stream or write failures.
+
+Key builder methods: `add_status_line()`, `add_header_field()`, `add_content_length()` (uses `stat()` on the file), `add_date()`, `add_header_end()`. Call `set_file()` to attach a file after construction. `set_internal_error()` replaces the buffer with a static 500 response. `construct_3xx()` builds a redirect response inline.
 
 ### Configuration
 
@@ -97,6 +103,8 @@ Key directives:
 | `types { <mime> <ext>...; }` | http/server/location | |
 | `default_type <mime>` | http/server/location | |
 | `limit_except <method>... { ... }` | location | |
+| `cgi_pass <interpreter>` | location | interpreter path; enables CGI for the location |
+| `cgi_param <key> <value>` | location | extra env vars passed to the CGI process |
 
 ### Logger
 
@@ -110,15 +118,15 @@ LOG_INFO("component") << "message" << std::endl;
 
 1. `main()` parses config → builds `Http` → creates one `ServerConnection` per `Port` entry → enters `EpollLoop::run()`
 2. Accept: `ServerConnection::handle()` → `accept()` → `new ClientConnection(fd, &http, addr)` → `epoll.add()`
-3. Read: `ClientConnection::handle(EPOLLIN)` → `read()` → `RequestParser::feed()` → on complete: dispatch by method
-4. GET: open file → `new ReadFileConnection` → `epoll.mod(this, 0)` → `FileLoop.add(fileConn)`
-5. File done: `handle_callback()` → `epoll.mod(clientConn, EPOLLOUT)`
-6. Write: `ClientConnection::handle(EPOLLOUT)` → `Response::write_count()` → on finish: `epoll.del(this)`
+3. Read: `ClientConnection::handle(EPOLLIN)` → `read()` → `RequestParser::feed()` → on complete: check for CGI, else dispatch by method
+4. GET: `handle_get()` constructs `Response` (opens file via fstream), builds headers, `epoll.mod(this, EPOLLOUT)`
+5. CGI: `handle_cgi()` forks child, `epoll.mod(this, 0)`, `new CgiConnection` → `epoll.add(cgiConn)`; when pipe drains `complete_cgi()` → `epoll.mod(this, EPOLLOUT)`
+6. Write: `ClientConnection::handle(EPOLLOUT)` → `Response::write_to(fd)` → on `done()` or `error()`: `epoll.del(this)`
 7. Error/hangup at any stage: `epoll.del(conn)` → connection closed and freed at end of tick
 
 ### Source Layout
 
-- `src/` — `webserv.cpp`, `EpollLoop`, `FileLoop`, `ServerConnection`, `ClientConnection`, `FileConnection`, `Request`, `RequestParser`, `Response`, `Config`, `ConfigParser`, `utils`
+- `src/` — `webserv.cpp`, `EpollLoop`, `ServerConnection`, `ClientConnection`, `CgiConnection`, `Request`, `RequestParser`, `Response`, `Config`, `ConfigParser`, `utils`; also `ServerBlock` (currently unused legacy stub)
 - `inc/` — headers for the above, plus `Logger.hpp`
 - `parser/src/` — tokenizer (`Lexer`, `*Lex` classes), directive tree (`Grouper`, `Directive`), config object construction
 - `parser/inc/` — `config.hpp` (structs: `listen`, `mime`, `errors`, `limit`, etc.), `Http.hpp`, `Server.hpp`, `Location.hpp`, `Port.hpp`

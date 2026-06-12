@@ -12,7 +12,7 @@ class ClientConnection : public Connection {
 	public:
 		// TODO constructors, destructors etc
 		ClientConnection(int fildes, Http * config, struct sockaddr_in addr);
-		~ClientConnection() { };
+		~ClientConnection();
 
 		void	handle(uint32_t events);
 
@@ -27,6 +27,7 @@ class ClientConnection : public Connection {
 
 		RequestParser		_parser;
 		Response			_response;
+		std::string			_cgi_tmpfile;
 
 		void	enqueue_response();
 

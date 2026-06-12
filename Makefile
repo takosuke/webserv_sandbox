@@ -82,4 +82,28 @@ fclean: clean
 
 re: fclean all
 
-.PHONY: all clean fclean re
+CLOJURE_BIN	:= $(HOME)/.local/bin/clojure
+WWWROOT		:= $(CURDIR)/www
+
+install-clojure:
+	@if [ ! -f "$(CLOJURE_BIN)" ]; then \
+		echo "Installing Clojure CLI to ~/.local ..."; \
+		curl -sL https://github.com/clojure/brew-install/releases/latest/download/linux-install.sh -o /tmp/linux-install.sh; \
+		chmod +x /tmp/linux-install.sh; \
+		/tmp/linux-install.sh --prefix $(HOME)/.local; \
+		rm /tmp/linux-install.sh; \
+	else \
+		echo "Clojure already installed at $(CLOJURE_BIN)"; \
+	fi
+
+prepare-confs:
+	mkdir -p conf/generated
+	for f in conf/*.conf; do \
+		sed 's|__WWWROOT__|$(WWWROOT)|g' $$f > conf/generated/$$(basename $$f); \
+	done
+
+.PHONY: test
+test: install-clojure prepare-confs
+	cd webserv-tests && PATH="$(HOME)/.local/bin:$(PATH)" clojure -M:test
+
+.PHONY: all clean fclean re install-clojure prepare-confs

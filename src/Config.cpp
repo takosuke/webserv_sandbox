@@ -9,6 +9,32 @@
 #include <vector>
 #include <iostream>
 
+const static std::string methodstrings[4] = {
+	"GET", "POST", "DELETE", "UNKNOWN"
+};
+const static HttpMethod methodarr[15] = {
+	GET,
+	POST,
+	DELETE,
+	UNKNOWN
+};
+
+HttpMethod method_from_string(const std::string & str) {
+	for (int i = 0; i < 3; i++) {
+		if (str == methodstrings[i])
+			return (methodarr[i]);
+	}
+	return (UNKNOWN);
+}
+
+std::string string_from_method(const HttpMethod & method) {
+	for (int i = 0; i < 3; i++) {
+		if (method == methodarr[i])
+			return (methodstrings[i]);
+	}
+	return (methodstrings[3]);
+}
+
 /* DIRECTIVE STRUCTS **********************************************************/
 
 /* CONFIG :: HEADER ***********************************************************/
@@ -227,32 +253,6 @@ bool config::limit::is_allowed(const HttpMethod & met) const {
 	return (it != allowed.end());
 }
 
-const static std::string methodstrings[4] = {
-	"GET", "POST", "DELETE", "UNKNOWN"
-};
-const static HttpMethod methodarr[15] = {
-	GET,
-	POST,
-	DELETE,
-	UNKNOWN
-};
-
-HttpMethod config::limit::method_from_string(const std::string & str) {
-	for (int i = 0; i < 3; i++) {
-		if (str == methodstrings[i])
-			return (methodarr[i]);
-	}
-	return (UNKNOWN);
-}
-
-std::string config::limit::string_from_method(const HttpMethod & method) {
-	for (int i = 0; i < 3; i++) {
-		if (method == methodarr[i])
-			return (methodstrings[i]);
-	}
-	return (methodstrings[3]);
-}
-
 void config::limit::set_allowed(const std::vector<Token> & tokens) {
 	if (tokens.size() == 0)
 		 throw (std::runtime_error("no parameteres provided for limit_except directive"));
@@ -288,7 +288,7 @@ std::ostream & operator<<(std::ostream & out, const config::limit & limit) {
 		it != limit.allowed.end(); it++) {
 		if (it != limit.allowed.begin())
 			out << ", ";
-		out << config::limit::string_from_method(*it);
+		out << string_from_method(*it);
 	}
 	out << " }";
 	return (out);
@@ -987,7 +987,7 @@ void Location::from_directive(const BodyDirective & directive) {
 				was_set.cgi_pass = true;
 			} else if (it->name == "cgi_param") {
 				config::add_cgi_param(cgi, it->parameters);
-			} else if (it->name == "limit_excpet") {
+			} else if (it->name == "limit_except") {
 				config::add_limit_except(limit, it->parameters);
 			} else {
 				throw (std::runtime_error(std::string("invalid directive: ") + it->name));

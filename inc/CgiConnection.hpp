@@ -9,7 +9,7 @@ class CgiConnection : public Connection {
 	public:
 		CgiConnection(ClientConnection *callback)
 			: Connection(), _pid(-1), _callback(callback) {}
-		~CgiConnection() {}
+		~CgiConnection();
 
 		void handle(uint32_t events);
 
