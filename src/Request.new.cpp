@@ -7,7 +7,7 @@
 
 Request::Request()
 	: method(UNKNOWN), content_length(0), status(0),
-	interal(true), no_file(false) {
+	internal(true), no_file(false) {
 
 }
 

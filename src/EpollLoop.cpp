@@ -83,7 +83,6 @@ void	EpollLoop::run() {
 		int ready = epoll_wait(_epoll_fd, _events, MAX_EVENTS, -1);
 		// TODO EINTR not handled
 		// if (ready < 0 && errno == EINTR) continue;
-		std::cout << "looping " << ready << std::endl;
 		if (ready < 0 && sig_int == false) {
 			std::cerr << "epoll_wait() failed" << std::endl; // TODO throw exception
 			// here

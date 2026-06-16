@@ -19,16 +19,16 @@ SRCS	+= ConfigParser.cpp
 SRCS	+= Config.cpp
 
 SRCS	+= ServerConnection.cpp
-SRCS	+= ClientConnection.cpp
-SRCS	+= CgiConnection.cpp
+SRCS	+= ClientConnection.new.cpp
+# SRCS	+= CgiConnection.cpp
 
 SRCS	+= EpollLoop.cpp
 
 SRCS	+= ServerBlock.cpp
 
-SRCS	+= RequestParser.cpp
-SRCS	+= Request.cpp
-SRCS	+= Response.cpp
+# SRCS	+= RequestParser.cpp
+SRCS	+= Request.new.cpp
+SRCS	+= Response.new.cpp
 SRCS	+= ScratchBuffer.cpp
 
 SRCS	+= utils.cpp

@@ -9,13 +9,13 @@ class EpollLoop;
 class Connection {
 		// TODO constructors, destructors etc
 	public:
-		Connection() : fd(0), _http(NULL) {}
+		Connection() : fd(0), http(NULL) {}
 		Connection(int fildes, Http * config)
-			: fd(fildes), _http(config) { };
+			: fd(fildes), http(config) { };
 		virtual void handle(uint32_t events) = 0;
 		virtual ~Connection() {}
 		int	fd;
 	//ServerBlock *config;
-		Http *	_http;
+		Http *	http;
 	protected:
 };

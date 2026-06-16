@@ -10,6 +10,7 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <stdexcept>
+#include <algorithm>
 
 #include "Config.hpp"
 #include "EpollLoop.hpp"
@@ -101,7 +102,7 @@ std::string ClientConnection::_500_str = std::string("HTTP/1.0 500 Internal Serv
 
 ClientConnection::ClientConnection(int sockfd, Http *http_conf, struct sockaddr_in addr)
 	: Connection(sockfd, http_conf), _state(REQ_LINE), _addr(addr) {
-	_server = &(_http->get_default_server(_addr));
+	_server = &(http->get_default_server(_addr));
 	_buf.set_capacity(_server->get_header().buffer_size);
 }
 
@@ -124,20 +125,19 @@ void ClientConnection::handle(uint32_t events) {
 				_state = REQ_SETUP;
 		if (_state == REQ_SETUP)
 			if (!handle_setup())
-				_state = RES_HEADERS;
-		if (_state == REQ_BODY)
-			break ;
+				_state = RESPONSE;
+		// if (_state == REQ_BODY)
+		// 	break ;
 	} else if (events & EPOLLOUT) {
-		if (_state == CGI_TRANSMIT_BODY)
-			break ;
-		if (_state == CGI_HEADERS)
-			break ;
-		if (_state == CGI_BODY)
-			break ;
-		if (_state == RES_HEADERS)
-			break ;
-		if (_state == RES_BODY)
-			break ;
+		// if (_state == CGI_TRANSMIT_BODY)
+		// 	break ;
+		// if (_state == CGI_HEADERS)
+		// 	break ;
+		// if (_state == CGI_BODY)
+		// 	break ;
+		if (_state == RESPONSE)
+			if (handle_response())
+				EpollLoop::get_instance().del(this);
 	}
 }
 
@@ -279,12 +279,12 @@ bool	ClientConnection::handle_req_line() {
 				_buf.clear();
 				_state = REQ_SETUP;
 			} else {
-				_req.version = req_line.substr(sp1 + 1);
-				if (_req.version.compare(0, 8, "HTTP/2.0"))
+				_req.version = req_line.substr(sp2 + 1);
+				if (_req.version.compare(0, 8, "HTTP/2.0") == 0)
 					return (_req.status = 505, false);
 				else if (!((_req.version.compare(0, 8, "HTTP/1.1") == 0
 						|| _req.version.compare(0, 8, "HTTP/1.0") == 0)
-					&& _req.version.find_first_not_of('0', 8) != std::string::npos))
+					&& _req.version.find_first_not_of('0', 8) == std::string::npos))
 					return (_req.status = 400, false);
 
 				_req.uri = req_line.substr(sp1 + 1, sp2 - sp1 - 1);
@@ -327,6 +327,21 @@ bool	ClientConnection::handle_req_headers() {
 				_state = REQ_SETUP;
 				return (parse_req_headers());
 			}
+			std::transform(headers_line.begin(), headers_line.end(), headers_line.begin(), ::tolower);
+			size_t colon = headers_line.find(":");
+			if (!colon) {
+				_state = REQ_SETUP;
+				return (_req.status = 400, false);
+			}
+			std::string key = headers_line.substr(0, colon);
+			std::string val = headers_line.substr(colon + 1);
+			size_t start = val.find_first_not_of(" \t");
+			if (start != std::string::npos)
+				val = val.substr(start);
+			// FIXME duplicate headers are being silently dropped
+			_req.headers.insert(std::make_pair(key, val));
+			_buf.erase(0, pos + 2);
+			pos = _buf.find("\r\n");
 		} catch ( std::exception & e) {
 			LOG_WARN("Request") << "caugth exception: " << e.what() << std::endl;
 			return (_req.status = 500, false);
@@ -419,7 +434,7 @@ bool ClientConnection::handle_setup() {
 
 	/* Get appropriate virtual server if a Host header field was given */
 	if (!_req.hostname.empty())
-		_server = &(_http->get_server(_addr, _req.hostname));
+		_server = &(http->get_server(_addr, _req.hostname));
 	/* Default server is set up at initialization so now we can look up the
 	 * Location in a loop for internal redirects.
 	 * After performing a redirection we need to validate the method and
@@ -468,21 +483,24 @@ bool ClientConnection::handle_setup() {
 	/*	We want to either start initializing the response or continue to
 	 *	send a body to the cgi.
 	 */ 
-	_state = RES_HEADERS;
+	_state = RESPONSE;
 	if (_loc->get_cgi().is_set == true) {
 		if (setup_cgi()) {
 			_state = REQ_BODY;
+			return (true);
 		} else {
 			_req.status = 500;
-			_state = RES_HEADERS;
+			_state = RESPONSE;
 		}
 	}
+	setup_res();
 	return (true);
 }
 
 /**	@brief Sets up the response based on the information saved in `_req`.
  */ 
 bool ClientConnection::setup_res() {
+	EpollLoop::get_instance().mod(this, EPOLLOUT | EPOLLERR | EPOLLHUP);
 	try {
 		_res.add_status_line(HTTP_VERSION_STR, _req.status);
 		if (!_req.internal)
@@ -497,29 +515,30 @@ bool ClientConnection::setup_res() {
 				throw (std::runtime_error("Couldn't open stream."));
 			}
 		}
+		_buf.clear();
 	_res.add_header_end();
 	} catch (std::exception &e) {
 		setup_internal_error();
 		return (false);
 	}
-	_buf.clear();
 	return (true);
 }
 
-void ClientConnection::buffer_headers() {
-	while (_res._headers.size() > 0 && _buf.fill_capacity() <= _res.headers.front().size()) {
-		_buf.fill(_res._headers.front().c_str(), _res._headers.front().size());
+void ClientConnection::buffer_res_headers() {
+	while (_res.headers.size() > 0 && _buf.fill_capacity() > _res.headers.front().size()) {
+		_buf.fill(_res.headers.front().c_str(), _res.headers.front().size());
+		_res.headers.erase(_res.headers.begin());
 	}
 }
 
 void ClientConnection::buffer_file() {
-	while (_res._headers.size() == 0
+	while (_res.headers.size() == 0
 		&& _stream.is_open() && _stream.good() && !_stream.eof() && _buf.fill_capacity() > 1)
 		_buf.fill(_stream);
 }
 
 void ClientConnection::fill_res_buffer() {
-	buffer_headers();
+	buffer_res_headers();
 	buffer_file();
 }
 
@@ -589,11 +608,6 @@ bool ClientConnection::setup_cgi() {
 		_buf.feed(stdin_fd[1]);
 	}
 	close(stdin_fd[1]);
-	CgiConnection *cgi = new CgiConnection(this);
-	cgi->fd = stdout_fd[0];
-	cgi->_pid = pid;
-	EpollLoop::get_instance().mod(this, 0);
-	EpollLoop::get_instance().add(cgi);
 
 	return (true);
 }
@@ -622,7 +636,17 @@ size_t ClientConnection::get_file_size() const {
 
 void ClientConnection::setup_internal_error() {
 	_stream.close();
-	_res._headers.clear();
+	_res.headers.clear();
 	_buf.set_data(const_cast<char *>(_500_str.c_str()), _500_str.size());
 	_buf.readpos = _500_str.size();
+}
+
+bool ClientConnection::handle_response() {
+	if (_buf.feed_capacity() <= 0) {
+		_buf.clear();
+		fill_res_buffer();
+	}
+ 	if (_res.headers.size() == 0 && (!_stream.is_open() || _stream.eof()) && _buf.feed_capacity() == 0)
+		return (false);
+	return (_buf.feed(fd) > 0);
 }

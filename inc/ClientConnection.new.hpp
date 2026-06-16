@@ -26,8 +26,7 @@ private:
 		CGI_TRANSMIT_BODY,		// Transmit remaining body to cgi
 		CGI_HEADERS,			// Recieve and parse CGI headers
 		CGI_BODY,				// Transmit cgi body
-		RES_HEADERS,			// Transmit response headers
-		RES_BODY				// Transmit response body
+		RESPONSE				// Transmit response body
 	}				_state;
 
 	ScratchBuffer	_buf;
@@ -45,6 +44,7 @@ private:
 	bool	handle_req_line();
 	bool	handle_req_headers();
 	bool	handle_setup();
+	bool	handle_response();
 
 	bool	parse_req_headers();
 	bool	setup_res();
@@ -56,12 +56,16 @@ private:
 	bool	is_method_allowed();
 	bool	is_file_existing();
 
+	void	fill_res_buffer();
+	void	buffer_res_headers();
+	void	buffer_file();
+
 	void 	epi_redirect();
 
 	void	setup_internal_error();
 
 public:
-	ClientConnection(int sockfd, Http *http_conf, struct sockaddr_int addr);
+	ClientConnection(int sockfd, Http *http_conf, struct sockaddr_in addr);
 	~ClientConnection();
 
 	void	handle(uint32_t events);

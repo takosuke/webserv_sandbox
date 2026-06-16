@@ -571,7 +571,7 @@ std::ostream & operator<<(std::ostream & out, const config::mime & mime) {
 /* CONFIG :: REDIRECT *********************************************************/
 
 config::redirect::redirect()
-	: is_set(false), status_code(0), path(0) {
+	: is_set(false), status_code(0), path("") {
 
 }
 
@@ -695,7 +695,7 @@ config::errorpageinfo & config::errorpageinfo::operator=(const config::errorpage
 	return (*this);
 }
 
-bool starts_with_scheme(const std::string & uri) {
+bool config::starts_with_scheme(const std::string & uri) {
 	static std::string	schemestrs[14] = {
 		std::string("blob"),
 		std::string("data"),
@@ -777,7 +777,7 @@ void config::add_error_page(config::errors & errors, const std::vector<Token> & 
 			throw (std::runtime_error("too many parameters for error_page directive"));
 	
 		bool	internal = true;
-		if (starts_with_scheme(path)) {
+		if (config::starts_with_scheme(path)) {
 			internal = false;
 			if (response_code == 0)
 				response_code = 302;
@@ -821,7 +821,7 @@ std::ostream & operator<<(std::ostream & out, const config::errors & errors) {
 
 /* CONFIG :: CGI **************************************************************/
 
-config::cgi::cgi() : is_set(false), pass() { };
+config::cgi::cgi() : is_set(false), pass("") { };
 
 config::cgi::cgi(const config::cgi &other) { *this = other; };
 
@@ -916,10 +916,8 @@ void config::add_server_name(std::vector<std::string> & names, const std::vector
 
 /* LOCATION *******************************************************************/
 
-Location::Location() {
-	path = "";
-	is_prefix = true;
-	root = "html";
+Location::Location() : path(""), root("html"), is_prefix(true) {
+
 }
 
 Location::Location(const Location & other) {
@@ -930,9 +928,7 @@ Location::Location(const BodyDirective & directive) {
 	from_directive(directive);
 }
 
-Location::Location(const Server & server) {
-	path = "";
-	is_prefix = true;
+Location::Location(const Server & server) : path(""), root("html"), is_prefix(true) {
 	from_server(server);
 }
 
