@@ -554,6 +554,8 @@ std::string config::mime::get_type_ext_string() const {
 void config::add_default_type(config::mime & mime, const std::vector<Token> & tokens) {
 	try {
 		check_parameter_count(1, 1, tokens.size());
+		if (tokens[0].type != Token::string)
+			throw (std::runtime_error("expected string"));
 		mime.set_default(tokens[0].str);
 	} catch (std::exception & e) {
 		throw (std::runtime_error(std::string("[default_type] ") + e.what()));
@@ -564,6 +566,53 @@ std::ostream & operator<<(std::ostream & out, const config::mime & mime) {
 	out << "mime { default_type: " << mime.get_default() <<
 		", types: " << mime.get_type_ext_string() << " }";
 	return (out);
+}
+
+/* CONFIG :: REDIRECT *********************************************************/
+
+config::redirect::redirect()
+	: is_set(false), status_code(0), path(0) {
+
+}
+
+config::redirect::redirect(const config::redirect &other) {
+	*this = other;
+}
+
+config::redirect::~redirect() {
+
+}
+
+config::redirect &config::redirect::operator=(const config::redirect &other) {
+	if (this == &other)
+		return (*this);
+	is_set = other.is_set;
+	status_code = other.status_code;
+	path = other.path;
+	return (*this);
+}
+
+void config::add_return(config::redirect &redirect, const std::vector<Token> &tokens) {
+	try {
+		check_parameter_count(1, 2, tokens.size());
+
+		std::vector<Token>::const_iterator it = tokens.begin();
+
+		if (it->type == Token::number) {
+			redirect.status_code = it->num;
+			if (redirect.status_code < 0 || redirect.status_code >= 600)
+				throw (std::runtime_error("invalid status code"));
+			++it;
+		}
+		
+		if (it != tokens.end() && it->type != Token::string)
+			throw (std::runtime_error("expected string Token"));
+
+		redirect.path = it->str;
+		redirect.is_set = true;
+	} catch (std::exception &e) {
+		throw (std::runtime_error(std::string("[return] ") + e.what()));
+	}
 }
 
 /* CONFIG :: ERRORS ***********************************************************/
@@ -772,7 +821,7 @@ std::ostream & operator<<(std::ostream & out, const config::errors & errors) {
 
 /* CONFIG :: CGI **************************************************************/
 
-config::cgi::cgi() : pass() { };
+config::cgi::cgi() : is_set(false), pass() { };
 
 config::cgi::cgi(const config::cgi &other) { *this = other; };
 
@@ -781,12 +830,13 @@ config::cgi::~cgi() { };
 config::cgi &config::cgi::operator=(const config::cgi &other) {
 	if (this == &other)
 		return (*this);
+	is_set = other.is_set;
 	pass = other.pass;
 	params = other.params;
 	return (*this);
 }
 
-void config::add_cgi_pass(std::string &pass, const std::vector<Token> &tokens) {
+void config::add_cgi_pass(config::cgi &cgi, const std::vector<Token> &tokens) {
 	try {
 		check_parameter_count(1, 1, tokens.size());
 
@@ -794,7 +844,8 @@ void config::add_cgi_pass(std::string &pass, const std::vector<Token> &tokens) {
 			&& tokens.front().type != Token::url
 			&& tokens.front().type != Token::string)
 			throw (std::runtime_error("expected path, url or string"));
-		pass = tokens.front().str;
+		cgi.pass = tokens.front().str;
+		cgi.is_set = true;
 	} catch (std::exception &e) {
 		throw (std::runtime_error(std::string("[cgi_pass] ") + e.what()));
 	}
@@ -905,6 +956,7 @@ Location & Location::operator=(const Location & other) {
 	root = other.root;
 	body = other.body;
 	mime = other.mime;
+	redirect = other.redirect;
 	errorpages = other.errorpages;
 	copy_deep_container(locations, other.locations);
 	return (*this);
@@ -917,6 +969,7 @@ void Location::from_directive(const BodyDirective & directive) {
 		bool	body_timeout;
 		bool	body_max;
 		bool	default_type;
+		bool	redirect;
 		bool	error_page;
 		bool	cgi_pass;
 	}	was_set;
@@ -925,6 +978,7 @@ void Location::from_directive(const BodyDirective & directive) {
 	was_set.body_timeout = false;
 	was_set.body_max = false;
 	was_set.default_type = false;
+	was_set.redirect = false;
 	was_set.error_page = false;
 	was_set.cgi_pass = false;
 
@@ -975,6 +1029,11 @@ void Location::from_directive(const BodyDirective & directive) {
 					throw (std::runtime_error("multiple default_type directives"));
 				config::add_default_type(mime, it->parameters);
 				was_set.default_type = true;
+			} else if (it->name == "return") {
+				if (was_set.redirect)
+					throw (std::runtime_error("multiple return directives"));
+				config::add_return(redirect, it->parameters);
+				was_set.redirect = true;
 			} else if (it->name == "error_page") {
 				if (!was_set.error_page)
 					errorpages.clear();
@@ -983,7 +1042,7 @@ void Location::from_directive(const BodyDirective & directive) {
 			} else if (it->name == "cgi_pass") {
 				if (was_set.cgi_pass)
 					throw (std::runtime_error("multiple cgi_pass directives"));
-				config::add_cgi_pass(cgi.pass, it->parameters);
+				config::add_cgi_pass(cgi, it->parameters);
 				was_set.cgi_pass = true;
 			} else if (it->name == "cgi_param") {
 				config::add_cgi_param(cgi, it->parameters);

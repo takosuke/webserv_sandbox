@@ -6,7 +6,8 @@
 #include <algorithm>
 
 Request::Request()
-	: method(UNKOWN), content_length(0), status(0) {
+	: method(UNKNOWN), content_length(0), status(0),
+	interal(true), no_file(false) {
 
 }
 

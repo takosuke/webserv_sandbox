@@ -1,16 +1,22 @@
 #pragma once
 
 #include "Connection.hpp"
-#include "Request.hpp"
-#include "Response.hpp"
+#include "Request.new.hpp"
+#include "Response.new.hpp"
 #include "ScratchBuffer.hpp"
 
 #include <netinet/in.h>
 #include <stdint.h>
 
+#ifndef REDIRECT_LIMIT
+# define REDIRECT_LIMIT 5
+#endif
+
 class ClientConnection : public Connection {
 private:
 	ClientConnection() { }; // make private to be uncallable
+	
+	static std::string	_500_str;
 	
 	enum {
 		REQ_LINE,				// Reading request line
@@ -30,12 +36,33 @@ private:
 
 	struct sockaddr_in	_addr;
 
-	Server			*_server;
-	Location		*_loc;
+	const Server		*_server;
+	const Location		*_loc;
+
+	std::string			_file;
+	std::fstream		_stream;
+
+	bool	handle_req_line();
+	bool	handle_req_headers();
+	bool	handle_setup();
+
+	bool	parse_req_headers();
+	bool	setup_res();
+	bool	setup_cgi();
+
+	bool	set_file(const std::string &path);
+	size_t	get_file_size() const;
+
+	bool	is_method_allowed();
+	bool	is_file_existing();
+
+	void 	epi_redirect();
+
+	void	setup_internal_error();
 
 public:
 	ClientConnection(int sockfd, Http *http_conf, struct sockaddr_int addr);
 	~ClientConnection();
 
 	void	handle(uint32_t events);
-}
+};

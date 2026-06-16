@@ -21,4 +21,7 @@ struct Request {
 	int			port;
 
 	int			status;		// current status code fo the request (200, 201, 404, ...)
+	
+	bool		internal;	// tells if a path is internal or an external URL
+	bool		no_file;	// tells if we need to construct a body less response
 };

@@ -125,6 +125,13 @@ void Response::add_header_field(const std::string & name, const std::string & va
 	_headers.push_back(name + ": " + value + "\r\n");
 }
 
+void Response::add_header_field(const std::string & name, size_t num) {
+	std::ostringstream	iss;
+
+	iss << num;
+	_headers.push_back(name + ": " + iss.str()+ "\r\n");
+}
+
 void Response::add_header_end() {
 	_headers.push_back("\r\n");
 }
@@ -135,7 +142,7 @@ void Response::add_allowed(const Location *loc) {
 			it != loc->get_limit().allowed.end(); it++) {
 		if (it != loc->get_limit().allowed.begin())
 			stream << ", ";
-		stream << config::limit::string_from_method(*it);
+		stream << string_from_method(*it);
 	}
 	add_header_field("Allow", stream.str());
 }

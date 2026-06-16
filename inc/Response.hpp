@@ -86,6 +86,7 @@ public:
 	 */ 
 	void	add_status_line(const std::string & version, int status_code);
 	void	add_header_field(const std::string & name, const std::string & value);
+	void	add_header_field(const std::string & name, size_t num);
 	void	add_allowed(const Location *loc);
 	void	add_content_length();
 	void	add_date();

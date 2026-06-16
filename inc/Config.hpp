@@ -200,6 +200,23 @@ namespace config {
 	void add_types(config::mime & mime, const BodyDirective & directive);
 	void add_default_type(config::mime & mime, const std::vector<Token> & tokens);
 
+	struct redirect {
+	public:
+		bool				is_set;
+		// 0 if no status_code provided, otherwise the code to overwrite
+		long unsigned int	status_code;
+		std::string			path;
+		bool				internal;
+
+		redirect();
+		redirect(const redirect &other);
+		~redirect();
+
+		redirect &operator=(const redirect &other);
+	};
+
+	void add_return(config::redirect & redirect, const std::vector<Token> &tokens);
+
 	/** @brief Basic struct that holds information about a page associated to a
 	 *  given error code. Since the code should be supplied by the user it
 	 *  doesn't need to be saved here.
@@ -223,6 +240,8 @@ namespace config {
 
 #define DEFAULT_ERROR_PAGE "error_page.html"
 #define DEFAULT_ERROR_CODE 404
+
+	bool starts_with_scheme(const std::string & uri);
 
 	struct errors {
 	private:
@@ -258,6 +277,7 @@ namespace config {
 
 	struct cgi {
 	public:
+		bool									is_set;
 		std::string								pass;
 		std::vector<std::pair<std::string, std::string> >	params;
 
@@ -268,7 +288,7 @@ namespace config {
 		cgi & operator=(const cgi & other);
 	};
 
-	void add_cgi_pass(std::string & pass, const std::vector<Token> & tokens);
+	void add_cgi_pass(config::cgi & cgi, const std::vector<Token> & tokens);
 	void add_cgi_param(config::cgi & cgi, const std::vector<Token> & tokens);
 }
 
@@ -322,12 +342,14 @@ private:
 
 	std::string		root;
 
-	config::limit	limit;
-	config::body	body;
-	config::output	output;
-	config::mime	mime;
-	config::errors	errorpages;
-	config::cgi		cgi;
+	config::limit		limit;
+	config::header		header;
+	config::body		body;
+	config::output		output;
+	config::mime		mime;
+	config::redirect	redirect;
+	config::errors		errorpages;
+	config::cgi			cgi;
 
 	std::vector<const Location *>	locations;
 
@@ -352,23 +374,25 @@ public:
 	void	set_path(const std::string & other) { path = other; };
 	void	set_root(const std::string & other) { root = other; };
 	void	set_limit(const config::limit & other) { limit = other; };
+	void	set_header(const config::header & other) { header = other; };
 	void	set_body(const config::body & other) { body = other;};
 	void	set_output(const config::output & other) { output = other; };
 	void	set_mime(const config::mime & other) { mime = other; };
+	void	set_redirect(const config::redirect & other) { redirect = other; };
 	void	set_errorpages(const config::errors & other) { errorpages = other; };
 	void	set_locations(const std::vector<const Location *> & other) { locations = other; };
 
 	const std::string		& get_path() const { return (path); };
 	const std::string		& get_root() const { return (root); };
 	const config::limit		& get_limit() const { return (limit); };
+	const config::header	& get_header() const { return (header); };
 	const config::body		& get_body() const { return (body); };
 	const config::output	& get_output() const { return (output); };
 	const config::mime		& get_mime() const { return (mime); };
+	const config::redirect	& get_redirect() const { return (redirect); };
 	const config::errors	& get_errorpages() const { return (errorpages); };
 	const config::cgi		& get_cgi() const { return (cgi); };
 	const std::vector<const Location *>	& get_locations() const { return (locations); };
-
-	int cache_errorpages() const;
 };
 
 std::ostream & operator<<(std::ostream & out, const Location & loc);
