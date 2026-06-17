@@ -1,7 +1,6 @@
 #include "ClientConnection.new.hpp"
 
 #include <cerrno>
-#include <cstdint>
 #include <cstdlib>
 #include <iostream>
 #include <netinet/in.h>
@@ -137,7 +136,9 @@ void ClientConnection::handle(uint32_t events) {
 		if (_state == REQ_BODY)
 			if (!setup_cgi())
 				_state = RESPONSE;
+		std::cout << "BAH" << std::endl;
 
+	
 
 
 	} else if (events & EPOLLOUT) {
@@ -641,7 +642,7 @@ bool ClientConnection::setup_cgi() {
 	_cgi_pid = pid;
 	fcntl(stdout_fd[0], F_SETFL, O_NONBLOCK);
 	_state = CGI_HEADERS;
-	EpollLoop::get_instance().rearm(this, stdout_fd[0], EPOLLIN | EPOLLERR | EPOLLHUP);
+	EpollLoop::get_instance().rearm(this, EPOLLIN | EPOLLERR | EPOLLHUP, stdout_fd[0]);
 	return (true);
 }
 
@@ -721,10 +722,10 @@ void ClientConnection::finalize_cgi() {
 	_stream.close();
 	waitpid(_cgi_pid, NULL, 0);
 	_stream.open(_file.c_str(), std::ios::in | std::ios::binary);
-	_res.add_header_field("Conenct-Length", get_file_size());
+	_res.add_header_field("Content-Length", get_file_size());
 	_res.add_header_end();
 	_buf.clear();
-	EpollLoop::get_instance().rearm(this, _client_fd, EPOLLOUT | EPOLLERR | EPOLLHUP);
+	EpollLoop::get_instance().rearm(this, EPOLLOUT | EPOLLERR | EPOLLHUP, _client_fd);
 	_state = RESPONSE;
 }
 

@@ -5,7 +5,6 @@
 #include "Response.new.hpp"
 #include "ScratchBuffer.hpp"
 
-#include <cstdint>
 #include <netinet/in.h>
 #include <stdint.h>
 

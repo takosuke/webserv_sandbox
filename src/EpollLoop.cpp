@@ -1,6 +1,6 @@
 #include <cerrno>
-#include <cstdint>
 #include <stdexcept>
+#include <stdint.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include "EpollLoop.hpp"
