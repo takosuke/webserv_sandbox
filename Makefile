@@ -49,6 +49,7 @@ MKDIR	:= mkdir -p
 CXXFLAGS	?=
 CXXFLAGS	+= -Wall -Werror -Wextra
 CXXFLAGS	+= -std=c++98 -MMD -MP
+CXXFLAGS += -Wno-type-limits -Wno-maybe-uninitialized # TODO REMOVE THIS!!!!
 CPPFLAGS	:=
 CPPFLAGS	+= -I $(IDIR)
 
