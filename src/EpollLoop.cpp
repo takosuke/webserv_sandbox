@@ -1,4 +1,5 @@
 #include <cerrno>
+#include <cstdint>
 #include <stdexcept>
 #include <sys/socket.h>
 #include <netinet/in.h>
@@ -66,6 +67,18 @@ void	EpollLoop::mod(Connection *conn, uint32_t events) {
 	ev.data.ptr = conn;
 	// TODO error check EPOLL_CTL_MOD
 	epoll_ctl(_epoll_fd, EPOLL_CTL_MOD, conn->fd, &ev);
+}
+
+void	EpollLoop::rearm(Connection *conn, uint32_t events, int new_fd) {
+	epoll_ctl(_epoll_fd, EPOLL_CTL_DEL, conn->fd, NULL);
+	_connections.erase(conn->fd);
+	conn->fd = new_fd;
+	epoll_event ev;
+	memset(&ev, 0, sizeof(ev));
+	ev.events = events;
+	ev.data.ptr = conn;
+	epoll_ctl(_epoll_fd, EPOLL_CTL_ADD, conn->fd, &ev);
+	_connections[new_fd] = conn;
 }
 
 void	EpollLoop::clear() {

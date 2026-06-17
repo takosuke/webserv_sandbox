@@ -15,6 +15,7 @@ class EpollLoop
 		void add(Connection *conn);
 		void mod(Connection *conn, uint32_t events);
 		void del(Connection *conn);
+		void rearm(Connection *conn, uint32_t events, int new_fd);
 		void clear();
 		void run();
 
