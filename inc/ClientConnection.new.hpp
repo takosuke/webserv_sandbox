@@ -5,6 +5,7 @@
 #include "Response.new.hpp"
 #include "ScratchBuffer.hpp"
 
+#include <cstdint>
 #include <netinet/in.h>
 #include <stdint.h>
 
@@ -41,6 +42,9 @@ private:
 	std::string			_file;
 	std::fstream		_stream;
 
+	int					_client_fd;
+	pid_t				_cgi_pid;
+
 	bool	handle_req_line();
 	bool	handle_req_headers();
 	bool	handle_setup();
@@ -49,6 +53,10 @@ private:
 	bool	parse_req_headers();
 	bool	setup_res();
 	bool	setup_cgi();
+
+	bool	handle_cgi_output(uint32_t events);
+	void	parse_cgi_headers(size_t sep);
+	void	finalize_cgi();
 
 	bool	set_file(const std::string &path);
 	size_t	get_file_size() const;
