@@ -42,7 +42,10 @@ private:
 	std::fstream		_stream;
 
 	int					_client_fd;
+	int					_cgi_stdin_fd;
+	int					_cgi_stdout_fd;
 	pid_t				_cgi_pid;
+	size_t				_written_body;
 
 	bool	handle_req_line();
 	bool	handle_req_headers();
@@ -53,6 +56,7 @@ private:
 	bool	setup_res();
 	bool	setup_cgi();
 
+	bool	handle_cgi_input(uint32_t events);
 	bool	handle_cgi_output(uint32_t events);
 	void	parse_cgi_headers(size_t sep);
 	void	finalize_cgi();

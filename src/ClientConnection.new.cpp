@@ -114,6 +114,10 @@ ClientConnection::~ClientConnection() {
 }
 
 void ClientConnection::handle(uint32_t events) {
+	if (_state == REQ_BODY || _state == CGI_TRANSMIT_BODY) {
+		handle_cgi_input(events);
+		return;
+	}
 	if (_state == CGI_HEADERS || _state == CGI_BODY) {
 		handle_cgi_output(events);
 		return;
@@ -134,20 +138,8 @@ void ClientConnection::handle(uint32_t events) {
 			if (!handle_setup())
 				_state = RESPONSE;
 		if (_state == REQ_BODY)
-			if (!setup_cgi())
-				_state = RESPONSE;
-		std::cout << "BAH" << std::endl;
-
-	
-
-
+			handle_cgi_input(events);
 	} else if (events & EPOLLOUT) {
-		// if (_state == CGI_TRANSMIT_BODY)
-		// 	break ;
-
-		// 	break ;
-		// if (_state == CGI_BODY)
-		// 	break ;
 		if (_state == RESPONSE)
 			if (handle_response())
 				EpollLoop::get_instance().del(this);
@@ -584,20 +576,14 @@ bool ClientConnection::setup_cgi() {
 		envp.push_back(const_cast<char *>(env_strings[i].c_str()));
 	envp.push_back(NULL);
 
-	/*
 	int stdout_fd[2];
-	int stdin_fd[2];
 	if (pipe(stdout_fd) < 0) {
-		if (pipe(stdin_fd) < 0) {
-			close(stdout_fd[0]);
-			close(stdout_fd[1]);
-			return (false);
-		}
+		_req.status = 500;
 		return (false);
 	}
-	*/
-	int	stdout_fd[2];
-	if (pipe(stdout_fd) < 0) {
+
+	int stdin_fd[2];
+	if (pipe(stdin_fd) < 0) {
 		close(stdout_fd[0]);
 		close(stdout_fd[1]);
 		_req.status = 500;
@@ -608,16 +594,16 @@ bool ClientConnection::setup_cgi() {
 	if (pid < 0) {
 		close(stdout_fd[0]);
 		close(stdout_fd[1]);
-	//	close(stdin_fd[0]);
-	//	close(stdin_fd[1]);
+		close(stdin_fd[0]);
+		close(stdin_fd[1]);
 		_req.status = 500;
 		return (false);
 	}
 	
 	if (pid == 0) {
-	//	dup2(stdin_fd[0], STDIN_FILENO);
-	//	close(stdin_fd[0]);
-	//	close(stdin_fd[1]);
+		dup2(stdin_fd[0], STDIN_FILENO);
+		close(stdin_fd[0]);
+		close(stdin_fd[1]);
 		dup2(stdout_fd[1], STDOUT_FILENO);
 		close(stdout_fd[0]);
 		close(stdout_fd[1]);
@@ -625,24 +611,23 @@ bool ClientConnection::setup_cgi() {
 		execve(interp.c_str(), argv, &envp[0]);
 		exit(1);
 	}
-//	close(stdin_fd[0]);
+	close(stdin_fd[0]);
 	close(stdout_fd[1]);
-//	fcntl(stdin_fd[1], F_SETFL, O_NONBLOCK);
-	// TODO: make loopable? states?
-	// Maybe put in the RequestParser body handling or extract body handling from request parser
-	/*
-	if (_req.method == POST && _req.content_length) {
-		if (_buf.fill_capacity() > 0)
-			_buf.fill(fd);
-		_buf.feed(stdin_fd[1]);
-	}
-	close(stdin_fd[1]);
-	*/
+	fcntl(stdin_fd[1], F_SETFL, O_NONBLOCK);
+	fcntl(stdout_fd[0], F_SETFL, O_NONBLOCK);
 	_client_fd = fd;
 	_cgi_pid = pid;
-	fcntl(stdout_fd[0], F_SETFL, O_NONBLOCK);
-	_state = CGI_HEADERS;
-	EpollLoop::get_instance().rearm(this, EPOLLIN | EPOLLERR | EPOLLHUP, stdout_fd[0]);
+	_cgi_stdin_fd = stdin_fd[1];
+	_cgi_stdout_fd = stdout_fd[0];
+	_written_body = 0;
+	if (_req.method == POST && _req.content_length > 0) {
+		_state = REQ_BODY;
+	} else {
+		close(_cgi_stdin_fd);
+		_cgi_stdin_fd = -1;
+		_state = CGI_HEADERS;
+		EpollLoop::get_instance().rearm(this, EPOLLIN | EPOLLERR | EPOLLHUP, _cgi_stdout_fd);
+	}
 	return (true);
 }
 
@@ -679,11 +664,37 @@ bool ClientConnection::handle_cgi_output(uint32_t events) {
 		}
 	}
 
-	if (events & EPOLLHUP)
+	if (events & (EPOLLHUP | EPOLLHUP))
 		finalize_cgi();
 
 	return (true);
 }
+
+bool ClientConnection::handle_cgi_input(uint32_t events) {
+	if (_buf.feed_capacity() > 0) {
+		size_t before = _buf.writepos;
+		_buf.feed(_cgi_stdin_fd);
+		_written_body += _buf.writepos - before;
+		if (_buf.feed_capacity() == 0)
+			_buf.clear();
+		if (_written_body >= _req.content_length) {
+			if (_state == REQ_BODY)
+				close(_cgi_stdin_fd);
+			else if (_state == CGI_TRANSMIT_BODY)
+				 close(fd);
+			 _cgi_stdin_fd = -1;
+			 _state = CGI_HEADERS;
+			 EpollLoop::get_instance().rearm(this, EPOLLIN | EPOLLERR | EPOLLHUP, _cgi_stdout_fd);
+		} else if (events & EPOLLIN) {
+			_state = CGI_TRANSMIT_BODY;
+			EpollLoop::get_instance().rearm(this, EPOLLOUT | EPOLLERR | EPOLLHUP, _cgi_stdin_fd);
+		} else if (events & EPOLLOUT) {
+			 _state = REQ_BODY;
+			 EpollLoop::get_instance().rearm(this, EPOLLIN | EPOLLERR | EPOLLHUP, _client_fd);
+		}
+	}
+	return true;
+} 
 
 void ClientConnection::parse_cgi_headers(size_t sep) {
 	std::vector<std::pair<std::string, std::string> > cgi_headers;
