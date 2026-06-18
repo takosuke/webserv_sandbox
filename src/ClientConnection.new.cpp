@@ -137,7 +137,7 @@ void ClientConnection::handle(uint32_t events) {
 		if (_state == REQ_SETUP)
 			if (!handle_setup())
 				_state = RESPONSE;
-		if (_state == REQ_BODY)
+		if (_state == REQ_BODY || _state == CGI_TRANSMIT_BODY)
 			handle_cgi_input(events);
 	} else if (events & EPOLLOUT) {
 		if (_state == RESPONSE)
@@ -670,30 +670,42 @@ bool ClientConnection::handle_cgi_output(uint32_t events) {
 	return (true);
 }
 
-bool ClientConnection::handle_cgi_input(uint32_t events) {
-	if (_buf.feed_capacity() > 0) {
-		size_t before = _buf.writepos;
-		_buf.feed(_cgi_stdin_fd);
-		_written_body += _buf.writepos - before;
-		if (_buf.feed_capacity() == 0)
-			_buf.clear();
+void ClientConnection::handle_cgi_input(uint32_t events) {
+	if (_state == REQ_BODY) {
+		if (events & (EPOLLERR | EPOLLHUP)) {
+			EpollLoop::get_instance().del(this);
+			return;
+		}
+		if (_buf.fill_capacity() > 1)
+			_buf.fill(fd);
+		if (_buf.feed_capacity() > 0) {
+			_state = CGI_TRANSMIT_BODY;
+			EpollLoop::get_instance().rearm(this, EPOLLOUT | EPOLLERR | EPOLLHUP, _cgi_stdin_fd);
+		}
+		return;
+	}
+	if (events & (EPOLLERR | EPOLLHUP)) {
+		close(fd);
+		_cgi_stdin_fd = -1;
+		_state = CGI_HEADERS;
+		EpollLoop::get_instance().rearm(this, EPOLLIN | EPOLLERR | EPOLLHUP, _cgi_stdout_fd);
+		return;
+	}
+	size_t before = _buf.writepos;
+	_buf.feed(_cgi_stdin_fd);
+	_written_body += _buf.writepos - before;
+	if (_buf.feed_capacity() == 0){
+		_buf.clear();
 		if (_written_body >= _req.content_length) {
-			if (_state == REQ_BODY)
-				close(_cgi_stdin_fd);
-			else if (_state == CGI_TRANSMIT_BODY)
-				 close(fd);
+			 close(fd);
 			 _cgi_stdin_fd = -1;
 			 _state = CGI_HEADERS;
 			 EpollLoop::get_instance().rearm(this, EPOLLIN | EPOLLERR | EPOLLHUP, _cgi_stdout_fd);
-		} else if (events & EPOLLIN) {
-			_state = CGI_TRANSMIT_BODY;
-			EpollLoop::get_instance().rearm(this, EPOLLOUT | EPOLLERR | EPOLLHUP, _cgi_stdin_fd);
-		} else if (events & EPOLLOUT) {
+		} else {
 			 _state = REQ_BODY;
 			 EpollLoop::get_instance().rearm(this, EPOLLIN | EPOLLERR | EPOLLHUP, _client_fd);
 		}
 	}
-	return true;
 } 
 
 void ClientConnection::parse_cgi_headers(size_t sep) {

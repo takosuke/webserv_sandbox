@@ -56,7 +56,7 @@ private:
 	bool	setup_res();
 	bool	setup_cgi();
 
-	bool	handle_cgi_input(uint32_t events);
+	void	handle_cgi_input(uint32_t events);
 	bool	handle_cgi_output(uint32_t events);
 	void	parse_cgi_headers(size_t sep);
 	void	finalize_cgi();
