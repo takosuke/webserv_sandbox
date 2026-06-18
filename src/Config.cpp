@@ -605,8 +605,9 @@ void config::add_return(config::redirect &redirect, const std::vector<Token> &to
 			++it;
 		}
 		
-		if (it != tokens.end() && it->type != Token::string)
-			throw (std::runtime_error("expected string Token"));
+		if (it != tokens.end() && !(it->type == Token::string
+			|| it->type == Token::path || it->type == Token::url))
+			throw (std::runtime_error("expected string, path or url"));
 
 		redirect.path = it->str;
 		redirect.is_set = true;
@@ -715,7 +716,7 @@ bool config::starts_with_scheme(const std::string & uri) {
 	for (int i = 0; i < 14; i++) {
 		size_t	schemelen = schemestrs[i].size();
 		if (uri.compare(0, schemelen, schemestrs[i]) == 0
-			&& uri.compare(schemelen, schemelen + 3, "://") == 0) {
+			&& uri.compare(schemelen, 3, "://") == 0) {
 			return (true);
 		}
 	}
@@ -884,6 +885,82 @@ std::ostream & operator<<(std::ostream & out, const config::cgi & cgi) {
 	return (out);
 }
 
+/* CONFIG :: INDEX ************************************************************/
+
+config::index::index() : is_set(true), path("index.html") {
+
+}
+
+config::index::index(const config::index &other) {
+	*this = other;
+}
+
+config::index::~index() {
+
+}
+
+config::index &config::index::operator=(const config::index &other) {
+	if (this == &other)
+		return (*this);
+	is_set = other.is_set;
+	path = other.path;
+	return (*this);
+}
+
+void config::add_index(config::index &index, const std::vector<Token> &tokens) {
+	try {
+		check_parameter_count(1, 1, tokens.size());
+
+		if (tokens[0].type != Token::string)
+			throw (std::runtime_error("expected string parameter"));
+
+		index.is_set = true;
+		index.path = tokens[0].str;
+	} catch (std::exception & e) {
+		throw (std::runtime_error(std::string("[index] ") + e.what()));
+	}
+}
+
+/* CONFIG :: AUTOINDEX ********************************************************/
+
+config::autoindex::autoindex() : is_set(false) {
+
+}
+
+config::autoindex::autoindex(const config::autoindex &other) {
+	*this = other;
+}
+
+config::autoindex::~autoindex() {
+
+}
+
+config::autoindex &config::autoindex::operator=(const config::autoindex &other) {
+	if (this == &other)
+		return (*this);
+	is_set = other.is_set;
+	return (*this);
+}
+
+void config::add_autoindex(config::autoindex &autoindex, const std::vector<Token> &tokens) {
+	try {
+		check_parameter_count(1, 1, tokens.size());
+
+		if (tokens[0].type != Token::string)
+			throw (std::runtime_error("expected string parameter"));
+
+		if (tokens[0].str == "true")
+			autoindex.is_set = true;
+		else if (tokens[0].str == "false")
+			autoindex.is_set = false;
+		else
+			throw (std::runtime_error("only accepts 'true' and 'false' as parameter"));
+
+	} catch (std::exception & e) {
+		throw (std::runtime_error(std::string("[autoindex] ") + e.what()));
+	}
+}
+
 /* CONFIG :: GENERAL **********************************************************/
 
 void config::add_root(std::string & root, const std::vector<Token> & tokens) {
@@ -968,6 +1045,8 @@ void Location::from_directive(const BodyDirective & directive) {
 		bool	redirect;
 		bool	error_page;
 		bool	cgi_pass;
+		bool	index;
+		bool	autoindex;
 	}	was_set;
 	was_set.root = false;
 	was_set.body_buffer_size = false;
@@ -977,6 +1056,8 @@ void Location::from_directive(const BodyDirective & directive) {
 	was_set.redirect = false;
 	was_set.error_page = false;
 	was_set.cgi_pass = false;
+	was_set.index = false;
+	was_set.autoindex= false;
 
 	/* Here to be in scope during try for proper deletin in case of a throw */
 	Location *	loc = NULL;
@@ -1035,6 +1116,16 @@ void Location::from_directive(const BodyDirective & directive) {
 					errorpages.clear();
 				config::add_error_page(errorpages, it->parameters);
 				was_set.error_page = true;
+			} else if (it->name == "index") {
+				if (was_set.index)
+					throw (std::runtime_error("multiple index directives"));
+				config::add_index(index, it->parameters);
+				was_set.index = true;
+			} else if (it->name == "autoindex") {
+				if (was_set.autoindex)
+					throw (std::runtime_error("multiple autoindex directives"));
+				config::add_autoindex(autoindex, it->parameters);
+				was_set.autoindex = true;
 			} else if (it->name == "cgi_pass") {
 				if (was_set.cgi_pass)
 					throw (std::runtime_error("multiple cgi_pass directives"));
@@ -1179,6 +1270,8 @@ void Server::from_directive(const BodyDirective & directive) {
 		bool	body_max;
 		bool	default_type;
 		bool	error_page;
+		bool	index;
+		bool	autoindex;
 	}	was_set;
 	was_set.root = false;
 	was_set.header_buffer_size = false;
@@ -1189,6 +1282,8 @@ void Server::from_directive(const BodyDirective & directive) {
 	was_set.body_max = false;
 	was_set.default_type = false;
 	was_set.error_page = false;
+	was_set.index = false;
+	was_set.autoindex = false;
 
 	/* Here to be in scope during try for proper deletin in case of a throw */
 	Location *	loc = NULL;
@@ -1242,6 +1337,16 @@ void Server::from_directive(const BodyDirective & directive) {
 					errorpages.clear();
 				config::add_error_page(errorpages, it->parameters);
 				was_set.error_page = true;
+			} else if (it->name == "index") {
+				if (was_set.index)
+					throw (std::runtime_error("multiple index directives"));
+				config::add_index(index, it->parameters);
+				was_set.index = true;
+			} else if (it->name == "autoindex") {
+				if (was_set.autoindex)
+					throw (std::runtime_error("multiple autoindex directives"));
+				config::add_autoindex(autoindex, it->parameters);
+				was_set.autoindex = true;
 			} else if (it->name == "listen") {
 				config::add_listen(listen, it->parameters);
 			} else if (it->name == "server_name") {
@@ -1469,6 +1574,8 @@ void Http::from_directive(const BodyDirective & directive) {
 		bool	body_timeout;
 		bool	body_max;
 		bool	default_type;
+		bool	index;
+		bool	autoindex;
 	}	was_set;
 	was_set.root = false;
 	was_set.header_buffer_size = false;
@@ -1478,6 +1585,8 @@ void Http::from_directive(const BodyDirective & directive) {
 	was_set.body_timeout = false;
 	was_set.body_max = false;
 	was_set.default_type = false;
+	was_set.index = false;
+	was_set.autoindex = false;
 
 	/* Here to be in scope during the catch statement for deleting in case of a throw */
 	Server *	server = NULL;
@@ -1526,6 +1635,16 @@ void Http::from_directive(const BodyDirective & directive) {
 					throw (std::runtime_error("multiple default_type directives"));
 				config::add_default_type(mime, it->parameters);
 				was_set.default_type = true;
+			} else if (it->name == "index") {
+				if (was_set.index)
+					throw (std::runtime_error("multiple index directives"));
+				config::add_index(index, it->parameters);
+				was_set.index = true;
+			} else if (it->name == "autoindex") {
+				if (was_set.autoindex)
+					throw (std::runtime_error("multiple autoindex directives"));
+				config::add_autoindex(autoindex, it->parameters);
+				was_set.autoindex = true;
 			} else if (it->name == "error_page") {
 				config::add_error_page(errorpages, it->parameters);
 			} else {

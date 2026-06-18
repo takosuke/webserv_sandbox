@@ -115,8 +115,11 @@ void ClientConnection::handle(uint32_t events) {
 		EpollLoop::get_instance().del(this);
 		return ;
 	} else if (events & EPOLLIN) {
-		if (_buf.fill_capacity() > 1)
+		if (_buf.fill_capacity() > 1) {
+			if (_buf.feed_capacity() == 0)
+				_buf.clear();
 			_buf.fill(fd);
+		}
 		if (_state == REQ_LINE)
 			if (!handle_req_line())
 				_state = REQ_SETUP;
@@ -391,7 +394,7 @@ bool ClientConnection::parse_req_headers() {
 	return (true);
 }
 
-inline bool ClientConnection::is_method_allowed() {
+inline bool ClientConnection::is_method_allowed() const {
 	/* Deny POST for static content */
 	if (_req.method == POST && _loc->get_cgi().is_set == false)
 		return (false);
@@ -400,11 +403,18 @@ inline bool ClientConnection::is_method_allowed() {
 
 #include <sys/stat.h>
 
-inline bool ClientConnection::is_file_existing() {
+inline bool ClientConnection::is_file_existing() const {
 	std::string	path = _loc->get_root() + _req.path;
 	struct stat	statbuf;
 
 	return (stat(path.c_str(), &statbuf) == 0);
+}
+
+inline bool ClientConnection::is_dir() const {
+	std::string	path = _loc->get_root() + _req.path;
+	struct stat	statbuf;
+
+	return (stat(path.c_str(), &statbuf) == 0 && statbuf.st_mode == S_IFDIR);
 }
 
 void ClientConnection::epi_redirect() {
@@ -420,6 +430,9 @@ void ClientConnection::epi_redirect() {
 	if (epi.response_code != 0)
 		_req.status = epi.response_code;
 	if (epi.internal) {
+		/* Make sure our paths are prepended by a '/' */
+		if (_req.path[0] != '/')
+			_req.path.insert(0, 1, '/');
 		_req.internal = true;
 		_req.no_file = false;
 		_loc = &(_server->get_location(_req.path));
@@ -432,6 +445,9 @@ void ClientConnection::epi_redirect() {
 bool ClientConnection::handle_setup() {
 	int	redirects = 0;
 
+	_req.status = 200; // GET
+	if (_req.method == POST)
+		_req.status = 201; // POST
 	/* Get appropriate virtual server if a Host header field was given */
 	if (!_req.hostname.empty())
 		_server = &(http->get_server(_addr, _req.hostname));
@@ -453,6 +469,10 @@ bool ClientConnection::handle_setup() {
 			if (config::starts_with_scheme(_req.path)) {
 				_req.no_file = true;
 				_req.internal = false;
+			} else {
+				/* Make sure our paths are prepended by a '/' */
+				if (_req.path[0] != '/')
+					_req.path.insert(0, 1, '/');
 			}
 			++redirects;
 		} else if (!is_method_allowed()) {
@@ -465,6 +485,28 @@ bool ClientConnection::handle_setup() {
 			_req.status = 404; // Not found
 			epi_redirect();
 			++redirects;
+		} else if (_req.path.size() > 0 && _req.path[_req.path.size() - 1] == '/') {
+			/* If we have an index for directories use it */
+			if (_loc->get_index().is_set == true) {
+				LOG_DEBUG("return") << "redirection from: " << _req.path << " to " << _loc->get_index().path << std::endl;
+				/* Check if we have a url to an external file */
+				_req.path = _loc->get_index().path;
+				if (config::starts_with_scheme(_req.path)) {
+					_req.no_file = true;
+					_req.internal = false;
+				} else {
+					/* Make sure our paths are prepended by a '/' */
+					if (_req.path[0] != '/')
+						_req.path.insert(0, 1, '/');
+				}
+				++redirects;
+			} else if (_loc->get_autoindex().is_set == true) {
+				/* TODO Setup autoindex */	
+			} else {
+				_req.status = 405; // Method not allowed
+				epi_redirect();
+				++redirects;
+			}
 		} else {
 			break ;
 		}

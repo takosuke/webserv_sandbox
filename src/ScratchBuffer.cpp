@@ -4,10 +4,12 @@
 
 ScratchBuffer::ScratchBuffer() : _ref_data(false), capacity(1024), readpos(0), writepos(0) {
 	data = new char[capacity];
+	bzero(data, capacity);
 }
 
 ScratchBuffer::ScratchBuffer(size_t cap) : _ref_data(false), capacity(cap), readpos(0), writepos(0) {
 	data = new char[capacity];
+	bzero(data, capacity);
 }
 
 ScratchBuffer::ScratchBuffer(const ScratchBuffer &other) {
@@ -22,7 +24,11 @@ ScratchBuffer::~ScratchBuffer() {
 ScratchBuffer &ScratchBuffer::operator=(const ScratchBuffer &other) {
 	if (this == &other)
 		return (*this);
-	set_capacity(other.capacity);
+	_ref_data = other._ref_data;
+	if (_ref_data == false)
+		set_capacity(other.capacity);
+	else
+		data = other.data;
 	readpos = other.readpos;
 	writepos = other.writepos;
 	std::memcpy(data, other.data, readpos);
@@ -35,7 +41,10 @@ void ScratchBuffer::set_capacity(size_t cap) {
 	if (new_data == NULL)
 		throw (std::runtime_error("Couldn't create new data"));
 	size_t	cpysize = std::min(sizeof(data), sizeof(new_data));
-	std::memcpy(new_data, data, cpysize);
+	if (data != NULL)
+		std::memcpy(new_data, data, cpysize);
+	else
+		bzero(new_data, cap);
 	if (!_ref_data)
 		delete[] (data);
 	_ref_data = false;

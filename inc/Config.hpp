@@ -290,6 +290,33 @@ namespace config {
 
 	void add_cgi_pass(config::cgi & cgi, const std::vector<Token> & tokens);
 	void add_cgi_param(config::cgi & cgi, const std::vector<Token> & tokens);
+
+	struct index {
+	public:
+		bool		is_set;
+		std::string	path;
+
+		index();
+		index(const index &other);
+		~index();
+
+		index &operator=(const index &other);
+	};
+
+	void	add_index(config::index &index, const std::vector<Token> &tokens);
+
+	struct autoindex {
+	public:
+		bool	is_set;
+
+		autoindex();
+		autoindex(const autoindex &other);
+		~autoindex();
+
+		autoindex &operator=(const autoindex &other);
+	};
+
+	void	add_autoindex(config::autoindex &autoindex, const std::vector<Token> &tokens);
 }
 
 std::ostream & operator<<(std::ostream & out, const config::header & header);
@@ -350,6 +377,8 @@ private:
 	config::redirect	redirect;
 	config::errors		errorpages;
 	config::cgi			cgi;
+	config::index		index;
+	config::autoindex	autoindex;
 
 	std::vector<const Location *>	locations;
 
@@ -380,6 +409,8 @@ public:
 	void	set_mime(const config::mime & other) { mime = other; };
 	void	set_redirect(const config::redirect & other) { redirect = other; };
 	void	set_errorpages(const config::errors & other) { errorpages = other; };
+	void	set_index(const config::index & other) { index = other; };
+	void	set_index(const config::autoindex & other) { autoindex = other; };
 	void	set_locations(const std::vector<const Location *> & other) { locations = other; };
 
 	const std::string		& get_path() const { return (path); };
@@ -391,6 +422,8 @@ public:
 	const config::mime		& get_mime() const { return (mime); };
 	const config::redirect	& get_redirect() const { return (redirect); };
 	const config::errors	& get_errorpages() const { return (errorpages); };
+	const config::index		& get_index() const { return (index); };
+	const config::autoindex	& get_autoindex() const { return (autoindex); };
 	const config::cgi		& get_cgi() const { return (cgi); };
 	const std::vector<const Location *>	& get_locations() const { return (locations); };
 };
@@ -412,6 +445,8 @@ private:
 	config::output				output;
 	config::mime				mime;
 	config::errors				errorpages;
+	config::index				index;
+	config::autoindex			autoindex;
 
 	std::vector<const Location *> locations;
 
@@ -439,6 +474,8 @@ public:
 	void	set_output(const config::output & other) { output = other; };
 	void	set_mime(const config::mime & other) { mime = other;  };
 	void	set_errorpages(const config::errors & other) { errorpages = other; };
+	void	set_index(const config::index & other) { index = other;  };
+	void	set_autoindex(const config::autoindex & other) { autoindex = other;  };
 	void	set_locations(const std::vector<const Location *> & other) { copy_deep_container(locations, other); };
 
 	const std::string					& get_root() const { return (root); };
@@ -449,6 +486,8 @@ public:
 	const config::output				& get_output() const { return (output); };
 	const config::mime					& get_mime() const { return (mime); };
 	const config::errors				& get_errorpages() const { return (errorpages); };
+	const config::index					& get_index() const { return (index); };
+	const config::autoindex				& get_autoindex() const { return (autoindex); };
 	const std::vector<const Location *>			& get_locations() const { return (locations); };
 };
 
@@ -498,6 +537,8 @@ private:
 	config::output	output;
 	config::mime	mime;
 	config::errors	errorpages;
+	config::index				index;
+	config::autoindex			autoindex;
 
 	std::map<struct sockaddr_in, Port>		ports;
 	std::vector<const Server *>	servers;
@@ -523,6 +564,8 @@ public:
 	void	set_output(const config::output & other) { output = other; };
 	void	set_mime(const config::mime & other) { mime = other; };
 	void	set_errorpages(const config::errors & other) { errorpages = other; };
+	void	set_index(const config::index & other) { index = other; };
+	void	set_autoindex(const config::autoindex & other) { autoindex = other; };
 	void	set_servers(const std::vector<const Server *> & other) { copy_deep_container(servers, other); };
 
 	const std::string			& get_root() const { return (root); };
@@ -531,6 +574,8 @@ public:
 	const config::output		& get_output() const { return (output); };
 	const config::mime			& get_mime() const { return (mime); };
 	const config::errors		& get_errorpages() const { return (errorpages); };
+	const config::index			& get_index() const { return (index); };
+	const config::autoindex			& get_autoindex() const { return (autoindex); };
 	const std::vector<const Server *>			& get_server() const { return (servers); };
 	const std::map<struct sockaddr_in, Port>	& get_ports() const { return (ports); };
 };

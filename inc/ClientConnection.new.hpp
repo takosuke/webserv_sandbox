@@ -53,8 +53,9 @@ private:
 	bool	set_file(const std::string &path);
 	size_t	get_file_size() const;
 
-	bool	is_method_allowed();
-	bool	is_file_existing();
+	bool	is_method_allowed() const;
+	bool	is_file_existing() const;
+	bool	is_dir() const;
 
 	void	fill_res_buffer();
 	void	buffer_res_headers();
