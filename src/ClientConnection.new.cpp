@@ -501,7 +501,11 @@ bool ClientConnection::handle_setup() {
 				}
 				++redirects;
 			} else if (_loc->get_autoindex().is_set == true) {
-				/* TODO Setup autoindex */	
+				if (!setup_autoindex()) {
+					_req.status = 500;
+					epi_redirect();
+					++redirects;
+				}
 			} else {
 				_req.status = 405; // Method not allowed
 				epi_redirect();
@@ -651,6 +655,10 @@ bool ClientConnection::setup_cgi() {
 	}
 	close(stdin_fd[1]);
 
+	return (true);
+}
+
+bool ClientConnection::setup_autoindex() {
 	return (true);
 }
 

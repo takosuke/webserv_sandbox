@@ -1119,12 +1119,17 @@ void Location::from_directive(const BodyDirective & directive) {
 			} else if (it->name == "index") {
 				if (was_set.index)
 					throw (std::runtime_error("multiple index directives"));
+				if (was_set.autoindex)
+					throw (std::runtime_error("index and autoindex set at the same time"));
 				config::add_index(index, it->parameters);
 				was_set.index = true;
 			} else if (it->name == "autoindex") {
 				if (was_set.autoindex)
 					throw (std::runtime_error("multiple autoindex directives"));
+				if (was_set.index)
+					throw (std::runtime_error("index and autoindex set at the same time"));
 				config::add_autoindex(autoindex, it->parameters);
+				index.is_set = false;
 				was_set.autoindex = true;
 			} else if (it->name == "cgi_pass") {
 				if (was_set.cgi_pass)
@@ -1340,12 +1345,17 @@ void Server::from_directive(const BodyDirective & directive) {
 			} else if (it->name == "index") {
 				if (was_set.index)
 					throw (std::runtime_error("multiple index directives"));
+				if (was_set.autoindex)
+					throw (std::runtime_error("index and autoindex set at the same time"));
 				config::add_index(index, it->parameters);
 				was_set.index = true;
 			} else if (it->name == "autoindex") {
 				if (was_set.autoindex)
 					throw (std::runtime_error("multiple autoindex directives"));
+				if (was_set.index)
+					throw (std::runtime_error("index and autoindex set at the same time"));
 				config::add_autoindex(autoindex, it->parameters);
+				index.is_set = false;
 				was_set.autoindex = true;
 			} else if (it->name == "listen") {
 				config::add_listen(listen, it->parameters);
@@ -1638,12 +1648,17 @@ void Http::from_directive(const BodyDirective & directive) {
 			} else if (it->name == "index") {
 				if (was_set.index)
 					throw (std::runtime_error("multiple index directives"));
+				if (was_set.autoindex)
+					throw (std::runtime_error("index and autoindex set at the same time"));
 				config::add_index(index, it->parameters);
 				was_set.index = true;
 			} else if (it->name == "autoindex") {
 				if (was_set.autoindex)
 					throw (std::runtime_error("multiple autoindex directives"));
+				if (was_set.index)
+					throw (std::runtime_error("index and autoindex set at the same time"));
 				config::add_autoindex(autoindex, it->parameters);
+				index.is_set = false;
 				was_set.autoindex = true;
 			} else if (it->name == "error_page") {
 				config::add_error_page(errorpages, it->parameters);

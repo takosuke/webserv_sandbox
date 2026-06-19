@@ -26,6 +26,8 @@ private:
 		CGI_TRANSMIT_BODY,		// Transmit remaining body to cgi
 		CGI_HEADERS,			// Recieve and parse CGI headers
 		CGI_BODY,				// Transmit cgi body
+		AUTOI_HEADERS,			// Get autoindex headers
+		AUTOI_BODY,				// Transmit autoindex body
 		RESPONSE				// Transmit response body
 	}				_state;
 
@@ -49,6 +51,7 @@ private:
 	bool	parse_req_headers();
 	bool	setup_res();
 	bool	setup_cgi();
+	bool	setup_autoindex();
 
 	bool	set_file(const std::string &path);
 	size_t	get_file_size() const;
