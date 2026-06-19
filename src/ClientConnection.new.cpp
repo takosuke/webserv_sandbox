@@ -122,7 +122,7 @@ void ClientConnection::handle(uint32_t events) {
 		handle_cgi_output(events);
 		return;
 	}
-	if (events & (EPOLLERR | EPOLLHUP)) {
+	 if (events & (EPOLLERR | EPOLLHUP)) {
 		EpollLoop::get_instance().del(this);
 		return ;
 	} else if (events & EPOLLIN) {
@@ -137,8 +137,10 @@ void ClientConnection::handle(uint32_t events) {
 		if (_state == REQ_SETUP)
 			if (!handle_setup())
 				_state = RESPONSE;
-		if (_state == REQ_BODY || _state == CGI_TRANSMIT_BODY)
-			handle_cgi_input(events);
+		if (_state == REQ_BODY && _buf.feed_capacity() > 0) {
+			_state = CGI_TRANSMIT_BODY;
+			EpollLoop::get_instance().rearm(this, EPOLLOUT | EPOLLERR | EPOLLHUP, _cgi_stdin_fd);
+		}
 	} else if (events & EPOLLOUT) {
 		if (_state == RESPONSE)
 			if (handle_response())
