@@ -62,7 +62,7 @@ void ScratchBuffer::set_data(char *buf, size_t cap) {
 }
 
 size_t ScratchBuffer::fill(int fd) {
-	size_t	readret = read(fd, data + readpos, fill_capacity());
+	int	readret = read(fd, data + readpos, fill_capacity());
 
 	if (readret > 0)
 		readpos += readret;

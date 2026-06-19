@@ -767,8 +767,8 @@ void config::add_error_page(config::errors & errors, const std::vector<Token> & 
 
 		if (it == tokens.end())
 			throw (std::runtime_error("no error page provided"));
-		if (it->type != Token::path && it->type != Token::string)
-			throw (std::runtime_error("expected path or string token"));
+		if (it->type != Token::path && it->type != Token::url)
+			throw (std::runtime_error("expected path or url token"));
 
 		std::string path = it++->str;
 		if (path.size() == 0)

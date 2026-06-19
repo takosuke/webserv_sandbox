@@ -2,7 +2,7 @@
 import os
 import sys
 
-body = "Hello, World!!!!!\n"
+body = "Hello, World!\n\n" + sys.stdin.read() + "!!!!\n"
 
 sys.stdout.write("Content-Type: text/plain\r\n")
 sys.stdout.write("Status: 400 Bad Request\r\n")

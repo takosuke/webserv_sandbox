@@ -49,6 +49,10 @@ MKDIR	:= mkdir -p
 CXXFLAGS	?=
 CXXFLAGS	+= -Wall -Werror -Wextra
 CXXFLAGS	+= -std=c++98 -MMD -MP
+
+ifeq ($(ls -al $(which cc) | sed -e 's/.*-> //' | sed -e 's/\(.*\/\)*//'), "clang")
+	CXXFLAGS	+= -Wno-type-limits -Wno-maybe-uninitialized # TODO REMOVE THIS!!!!
+endif
 CPPFLAGS	:=
 CPPFLAGS	+= -I $(IDIR)
 

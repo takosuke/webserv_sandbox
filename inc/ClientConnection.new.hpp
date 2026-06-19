@@ -43,6 +43,12 @@ private:
 	std::string			_file;
 	std::fstream		_stream;
 
+	int					_client_fd;
+	int					_cgi_stdin_fd;
+	int					_cgi_stdout_fd;
+	pid_t				_cgi_pid;
+	size_t				_written_body;
+
 	bool	handle_req_line();
 	bool	handle_req_headers();
 	bool	handle_setup();
@@ -52,6 +58,11 @@ private:
 	bool	setup_res();
 	bool	setup_cgi();
 	bool	setup_autoindex();
+
+	void	handle_cgi_input(uint32_t events);
+	bool	handle_cgi_output(uint32_t events);
+	void	parse_cgi_headers(size_t sep);
+	void	finalize_cgi();
 
 	bool	set_file(const std::string &path);
 	size_t	get_file_size() const;

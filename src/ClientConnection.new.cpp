@@ -3,9 +3,10 @@
 #include <cerrno>
 #include <cstdlib>
 #include <iostream>
-#include <sys/socket.h>
 #include <netinet/in.h>
+#include <sys/socket.h>
 #include <sys/epoll.h>
+#include <sys/wait.h>
 #include <cstring>
 #include <unistd.h>
 #include <fcntl.h>
@@ -15,6 +16,8 @@
 #include "Config.hpp"
 #include "EpollLoop.hpp"
 #include "Logger.hpp"
+#include "Response.new.hpp"
+#include "ScratchBuffer.hpp"
 
 std::string ClientConnection::_500_str = std::string("HTTP/1.0 500 Internal Server Error\r\n\r\n");
 
@@ -111,7 +114,15 @@ ClientConnection::~ClientConnection() {
 }
 
 void ClientConnection::handle(uint32_t events) {
-	if (events & (EPOLLERR | EPOLLHUP)) {
+	if (_state == REQ_BODY || _state == CGI_TRANSMIT_BODY) {
+		handle_cgi_input(events);
+		return;
+	}
+	if (_state == CGI_HEADERS || _state == CGI_BODY) {
+		handle_cgi_output(events);
+		return;
+	}
+	 if (events & (EPOLLERR | EPOLLHUP)) {
 		EpollLoop::get_instance().del(this);
 		return ;
 	} else if (events & EPOLLIN) {
@@ -129,15 +140,11 @@ void ClientConnection::handle(uint32_t events) {
 		if (_state == REQ_SETUP)
 			if (!handle_setup())
 				_state = RESPONSE;
-		// if (_state == REQ_BODY)
-		// 	break ;
+		if (_state == REQ_BODY && _buf.feed_capacity() > 0) {
+			_state = CGI_TRANSMIT_BODY;
+			EpollLoop::get_instance().rearm(this, EPOLLOUT | EPOLLERR | EPOLLHUP, _cgi_stdin_fd);
+		}
 	} else if (events & EPOLLOUT) {
-		// if (_state == CGI_TRANSMIT_BODY)
-		// 	break ;
-		// if (_state == CGI_HEADERS)
-		// 	break ;
-		// if (_state == CGI_BODY)
-		// 	break ;
 		if (_state == RESPONSE)
 			if (handle_response())
 				EpollLoop::get_instance().del(this);
@@ -530,7 +537,11 @@ bool ClientConnection::handle_setup() {
 	 *	send a body to the cgi.
 	 */ 
 	_state = RESPONSE;
-	if (_loc->get_cgi().is_set == true) {
+	if (_req.internal == true && _loc->get_cgi().is_set == true) {
+		if (!setup_cgi()) 
+			_req.status = 500;
+		return (true);
+		/*
 		if (setup_cgi()) {
 			_state = REQ_BODY;
 			return (true);
@@ -538,6 +549,7 @@ bool ClientConnection::handle_setup() {
 			_req.status = 500;
 			_state = RESPONSE;
 		}
+		*/
 	}
 	setup_res();
 	return (true);
@@ -613,13 +625,16 @@ bool ClientConnection::setup_cgi() {
 	envp.push_back(NULL);
 
 	int stdout_fd[2];
-	int stdin_fd[2];
 	if (pipe(stdout_fd) < 0) {
-		if (pipe(stdin_fd) < 0) {
-			close(stdout_fd[0]);
-			close(stdout_fd[1]);
-			return (false);
-		}
+		_req.status = 500;
+		return (false);
+	}
+
+	int stdin_fd[2];
+	if (pipe(stdin_fd) < 0) {
+		close(stdout_fd[0]);
+		close(stdout_fd[1]);
+		_req.status = 500;
 		return (false);
 	}
 
@@ -629,6 +644,7 @@ bool ClientConnection::setup_cgi() {
 		close(stdout_fd[1]);
 		close(stdin_fd[0]);
 		close(stdin_fd[1]);
+		_req.status = 500;
 		return (false);
 	}
 	
@@ -646,20 +662,146 @@ bool ClientConnection::setup_cgi() {
 	close(stdin_fd[0]);
 	close(stdout_fd[1]);
 	fcntl(stdin_fd[1], F_SETFL, O_NONBLOCK);
-	// TODO: make loopable? states?
-	// Maybe put in the RequestParser body handling or extract body handling from request parser
-	if (_req.method == POST && _req.content_length) {
-		if (_buf.fill_capacity() > 0)
-			_buf.fill(fd);
-		_buf.feed(stdin_fd[1]);
+	fcntl(stdout_fd[0], F_SETFL, O_NONBLOCK);
+	_client_fd = fd;
+	_cgi_pid = pid;
+	_cgi_stdin_fd = stdin_fd[1];
+	_cgi_stdout_fd = stdout_fd[0];
+	_written_body = 0;
+	if (_req.method == POST && _req.content_length > 0) {
+		_state = REQ_BODY;
+	} else {
+		close(_cgi_stdin_fd);
+		_cgi_stdin_fd = -1;
+		_state = CGI_HEADERS;
+		EpollLoop::get_instance().rearm(this, EPOLLIN | EPOLLERR | EPOLLHUP, _cgi_stdout_fd);
 	}
-	close(stdin_fd[1]);
+	return (true);
+}
+
+bool ClientConnection::handle_cgi_output(uint32_t events) {
+	if (events & EPOLLIN && _buf.fill_capacity() > 1)
+		_buf.fill(fd);
+
+	if (_state == CGI_HEADERS) {
+		size_t sep = _buf.find("\r\n\r\n");
+		if (sep == ScratchBuffer::npos) {
+			if (_buf.fill_capacity() <= 1) {
+				_req.status = 500;
+				finalize_cgi();
+			}
+			return (true);
+		}
+		parse_cgi_headers(sep);
+		char tmpname[] = "/tmp/cgi_XXXXXX";
+		int tmpfd = mkstemp(tmpname);
+		close(tmpfd);
+		_file = tmpname;
+		_stream.open(_file.c_str(), std::ios::out | std::ios::binary);
+		if (_buf.feed_capacity() > 0) {
+			_buf.feed(_stream);
+			_buf.clear();
+		}
+		_state = CGI_BODY;
+	}
+
+	if (_state == CGI_BODY) {
+		if (_buf.feed_capacity() > 0) {
+			_buf.feed(_stream);
+			_buf.clear();
+		}
+	}
+
+	if (events & (EPOLLHUP | EPOLLHUP))
+		finalize_cgi();
 
 	return (true);
 }
 
 bool ClientConnection::setup_autoindex() {
 	return (true);
+}
+
+void ClientConnection::handle_cgi_input(uint32_t events) {
+	if (_state == REQ_BODY) {
+		if (events & (EPOLLERR | EPOLLHUP)) {
+			EpollLoop::get_instance().del(this);
+			return;
+		}
+		if (_buf.fill_capacity() > 1)
+			_buf.fill(fd);
+		if (_buf.feed_capacity() > 0) {
+			_state = CGI_TRANSMIT_BODY;
+			EpollLoop::get_instance().rearm(this, EPOLLOUT | EPOLLERR | EPOLLHUP, _cgi_stdin_fd);
+		}
+		return;
+	}
+	if (events & (EPOLLERR | EPOLLHUP)) {
+		close(fd);
+		_cgi_stdin_fd = -1;
+		_state = CGI_HEADERS;
+		EpollLoop::get_instance().rearm(this, EPOLLIN | EPOLLERR | EPOLLHUP, _cgi_stdout_fd);
+		return;
+	}
+	size_t before = _buf.writepos;
+	_buf.feed(_cgi_stdin_fd);
+	_written_body += _buf.writepos - before;
+	if (_buf.feed_capacity() == 0){
+		_buf.clear();
+		if (_written_body >= _req.content_length) {
+			 close(fd);
+			 _cgi_stdin_fd = -1;
+			 _state = CGI_HEADERS;
+			 EpollLoop::get_instance().rearm(this, EPOLLIN | EPOLLERR | EPOLLHUP, _cgi_stdout_fd);
+		} else {
+			 _state = REQ_BODY;
+			 EpollLoop::get_instance().rearm(this, EPOLLIN | EPOLLERR | EPOLLHUP, _client_fd);
+		}
+	}
+} 
+
+void ClientConnection::parse_cgi_headers(size_t sep) {
+	std::vector<std::pair<std::string, std::string> > cgi_headers;
+	size_t start = 0;
+	size_t end;
+	_req.status = 200;
+	
+	while ((end = _buf.find("\r\n", start)) < sep) {
+		std::string line(_buf.data + start, end - start);
+		size_t colon = line.find(':');
+		if (colon != std::string::npos) {
+			std::string key = line.substr(0, colon);
+			std::string val = line.substr(colon + 1);
+			size_t trim = val.find_first_not_of(" \t");
+			if (trim != std::string::npos)
+				val = val.substr(trim);
+			if (key == "Status")
+				_req.status = std::atoi(val.c_str());
+			else
+				cgi_headers.push_back(std::make_pair(key, val));
+		}
+		start = end + 2;
+	}
+
+	_res.add_status_line(HTTP_VERSION_STR, _req.status);
+	for (size_t i = 0; i < cgi_headers.size(); ++i)
+		_res.add_header_field(cgi_headers[i].first, cgi_headers[i].second);
+
+	_buf.erase(0, sep + 4);
+}
+
+void ClientConnection::finalize_cgi() {
+	if (_buf.feed_capacity() > 0)
+		_buf.feed(_stream);
+	_stream.flush();
+	_stream.close();
+	waitpid(_cgi_pid, NULL, 0);
+	_stream.open(_file.c_str(), std::ios::in | std::ios::binary);
+	_res.add_header_field("Content-Length", get_file_size());
+	_res.add_header_end();
+	_buf.clear();
+	EpollLoop::get_instance().rearm(this, EPOLLOUT | EPOLLERR | EPOLLHUP, _client_fd);
+	_state = RESPONSE;
 }
 
 bool ClientConnection::set_file(const std::string &path) {
