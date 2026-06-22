@@ -71,9 +71,9 @@ std::string autoindex::as_html(const std::string & locationname,
 	}
 	response << "</pre><hr></body>" << std::endl <<
 		"</html>" << std::endl;
-	std::ostringstream	con_len;
-	con_len << "Content-Lengt: " << response.str().size() << "\r\n\r\n";
-	return (con_len.str() + response.str());
+	std::ostringstream headers;
+	headers << "Content-Length: " << response.str().size() << "\r\n\r\n";
+	return (headers.str() + response.str());
 }
 
 // static std::string	fmt_xml(const std::vector<File> & files) {

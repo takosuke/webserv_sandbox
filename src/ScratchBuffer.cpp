@@ -95,7 +95,8 @@ size_t ScratchBuffer::feed(int fd) {
 
 size_t ScratchBuffer::feed(std::fstream &fstream) {
 	fstream.write(data + writepos, readpos - writepos);
-	writepos += fstream.gcount();
+	if (fstream.good())
+		writepos += readpos - writepos;
 	return (fstream.gcount());
 }
 

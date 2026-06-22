@@ -104,16 +104,26 @@ std::string ClientConnection::_500_str = std::string("HTTP/1.0 500 Internal Serv
  */
 
 ClientConnection::ClientConnection(int sockfd, Http *http_conf, struct sockaddr_in addr)
-	: Connection(sockfd, http_conf), _state(REQ_LINE), _addr(addr) {
+	: Connection(sockfd, http_conf), _state(REQ_LINE), _addr(addr),
+	_client_fd(sockfd), _cgi_stdin_fd(-1), _cgi_stdout_fd(-1) {
 	_server = &(http->get_default_server(_addr));
 	_buf.set_capacity(_server->get_header().buffer_size);
 }
 
 ClientConnection::~ClientConnection() {
-
+	close(_cgi_stdin_fd);
+	close(_cgi_stdout_fd);
 }
 
 void ClientConnection::handle(uint32_t events) {
+	if (events & (EPOLLERR | EPOLLHUP)) {
+		if (fd != _client_fd) {
+			LOG_ERROR("ClientConnection") << "EPOLLERR while handling CGI, switching back to client fd" << std::endl;
+			EpollLoop::get_instance().rearm(this, EPOLLERR | EPOLLHUP, _client_fd);
+		}
+		EpollLoop::get_instance().del(this);
+		return ;
+	}
 	if (_state == REQ_BODY || _state == CGI_TRANSMIT_BODY) {
 		handle_cgi_input(events);
 		return;
@@ -122,10 +132,7 @@ void ClientConnection::handle(uint32_t events) {
 		handle_cgi_output(events);
 		return;
 	}
-	 if (events & (EPOLLERR | EPOLLHUP)) {
-		EpollLoop::get_instance().del(this);
-		return ;
-	} else if (events & EPOLLIN) {
+	if (events & EPOLLIN) {
 		if (_buf.fill_capacity() > 1) {
 			if (_buf.feed_capacity() == 0)
 				_buf.clear();
@@ -512,6 +519,8 @@ bool ClientConnection::handle_setup() {
 					_req.status = 500;
 					epi_redirect();
 					++redirects;
+				} else {
+					return (true);
 				}
 			} else {
 				_req.status = 405; // Method not allowed
@@ -541,15 +550,6 @@ bool ClientConnection::handle_setup() {
 		if (!setup_cgi()) 
 			_req.status = 500;
 		return (true);
-		/*
-		if (setup_cgi()) {
-			_state = REQ_BODY;
-			return (true);
-		} else {
-			_req.status = 500;
-			_state = RESPONSE;
-		}
-		*/
 	}
 	setup_res();
 	return (true);
@@ -692,7 +692,7 @@ bool ClientConnection::handle_cgi_output(uint32_t events) {
 			}
 			return (true);
 		}
-		parse_cgi_headers(sep);
+		parse_cgi_headers(sep + 2); // add 2 because we look for the last /r/n sequence
 		char tmpname[] = "/tmp/cgi_XXXXXX";
 		int tmpfd = mkstemp(tmpname);
 		close(tmpfd);
@@ -715,10 +715,6 @@ bool ClientConnection::handle_cgi_output(uint32_t events) {
 	if (events & (EPOLLHUP | EPOLLHUP))
 		finalize_cgi();
 
-	return (true);
-}
-
-bool ClientConnection::setup_autoindex() {
 	return (true);
 }
 
@@ -787,7 +783,7 @@ void ClientConnection::parse_cgi_headers(size_t sep) {
 	for (size_t i = 0; i < cgi_headers.size(); ++i)
 		_res.add_header_field(cgi_headers[i].first, cgi_headers[i].second);
 
-	_buf.erase(0, sep + 4);
+	_buf.erase(0, sep + 2);
 }
 
 void ClientConnection::finalize_cgi() {
@@ -802,6 +798,65 @@ void ClientConnection::finalize_cgi() {
 	_buf.clear();
 	EpollLoop::get_instance().rearm(this, EPOLLOUT | EPOLLERR | EPOLLHUP, _client_fd);
 	_state = RESPONSE;
+}
+
+bool ClientConnection::setup_autoindex() {
+	const std::string	directory_name = _req.path;
+	const std::string	directory_path = _loc->get_root() + _req.path;
+
+	int stdout_fd[2];
+	if (pipe(stdout_fd) < 0) {
+		_req.status = 500;
+		return (false);
+	}
+
+	int stdin_fd[2];
+	if (pipe(stdin_fd) < 0) {
+		close(stdout_fd[0]);
+		close(stdout_fd[1]);
+		_req.status = 500;
+		return (false);
+	}
+
+	pid_t pid = fork();
+	if (pid < 0) {
+		close(stdout_fd[0]);
+		close(stdout_fd[1]);
+		close(stdin_fd[0]);
+		close(stdin_fd[1]);
+		_req.status = 500;
+		return (false);
+	}
+	
+	if (pid == 0) {
+		dup2(stdin_fd[0], STDIN_FILENO);
+		close(stdin_fd[0]);
+		close(stdin_fd[1]);
+		dup2(stdout_fd[1], STDOUT_FILENO);
+		close(stdout_fd[0]);
+		close(stdout_fd[1]);
+		char *argv[] = { (char *)AUTOINDEX_LOCATION, (char*)directory_name.c_str(), (char *)directory_path.c_str(), NULL };
+		execve(AUTOINDEX_LOCATION, argv, environ);
+		exit(1);
+	}
+	close(stdin_fd[0]);
+	close(stdout_fd[1]);
+	fcntl(stdin_fd[1], F_SETFL, O_NONBLOCK);
+	fcntl(stdout_fd[0], F_SETFL, O_NONBLOCK);
+	_client_fd = fd;
+	_cgi_pid = pid;
+	_cgi_stdin_fd = stdin_fd[1];
+	_cgi_stdout_fd = stdout_fd[0];
+	_written_body = 0;
+	if (_req.method == POST && _req.content_length > 0) {
+		_state = REQ_BODY;
+	} else {
+		close(_cgi_stdin_fd);
+		_cgi_stdin_fd = -1;
+		_state = CGI_HEADERS;
+		EpollLoop::get_instance().rearm(this, EPOLLIN | EPOLLERR | EPOLLHUP, _cgi_stdout_fd);
+	}
+	return (true);
 }
 
 bool ClientConnection::set_file(const std::string &path) {

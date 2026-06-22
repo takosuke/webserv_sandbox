@@ -71,6 +71,7 @@ void	EpollLoop::mod(Connection *conn, uint32_t events) {
 
 void	EpollLoop::rearm(Connection *conn, uint32_t events, int new_fd) {
 	epoll_ctl(_epoll_fd, EPOLL_CTL_DEL, conn->fd, NULL);
+	LOG_INFO("Epoll") << "rearming connection: " << conn->fd << " to: " << new_fd << std::endl;
 	_connections.erase(conn->fd);
 	conn->fd = new_fd;
 	epoll_event ev;

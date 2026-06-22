@@ -410,7 +410,7 @@ public:
 	void	set_redirect(const config::redirect & other) { redirect = other; };
 	void	set_errorpages(const config::errors & other) { errorpages = other; };
 	void	set_index(const config::index & other) { index = other; };
-	void	set_index(const config::autoindex & other) { autoindex = other; };
+	void	set_autoindex(const config::autoindex & other) { autoindex = other; };
 	void	set_locations(const std::vector<const Location *> & other) { locations = other; };
 
 	const std::string		& get_path() const { return (path); };
