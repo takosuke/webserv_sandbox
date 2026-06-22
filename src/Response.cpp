@@ -118,7 +118,7 @@ void Response::add_status_line(const std::string & version, int status_code) {
 	std::ostringstream	sstream;
 
 	sstream << version << " " << status_code << " " << get_reason_phrase(status_code) << "\r\n";
-	_headers.push_back(sstream.str());
+	_headers.insert(_headers.begin(), sstream.str());
 }
 
 void Response::add_header_field(const std::string & name, const std::string & value) {

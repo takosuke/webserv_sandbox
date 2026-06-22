@@ -12,6 +12,8 @@
 # define REDIRECT_LIMIT 5
 #endif
 
+#define AUTOINDEX_LOCATION "./autoindex"
+
 class ClientConnection : public Connection {
 private:
 	ClientConnection() { }; // make private to be uncallable

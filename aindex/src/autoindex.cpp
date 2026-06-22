@@ -16,7 +16,7 @@ std::string autoindex::as_html(const std::string & locationname,
 
 	dir = opendir(dirpath.c_str());
 	if (dir == NULL)
-		return (std::string(""));
+		return (std::string("Status: 404\r\n\r\n"));
 
 	std::vector<File>	files;
 
@@ -40,7 +40,7 @@ std::string autoindex::as_html(const std::string & locationname,
 		std::string filename = it->name();
 		if (it->hidden() || it->is_self())
 			continue ;
-		response << "<a href=" << filename << ">";
+		response << "<a href=" << locationname << filename << ">";
 		if (filename.size() > 50) {
 			response << cropfilename(filename, 50, "..>");
 		} else {
@@ -71,9 +71,9 @@ std::string autoindex::as_html(const std::string & locationname,
 	}
 	response << "</pre><hr></body>" << std::endl <<
 		"</html>" << std::endl;
-	std::ostringstream	con_len;
-	con_len << "Content-Lengt: " << response.str().size() << "\r\n\r\n";
-	return (con_len.str() + response.str());
+	std::ostringstream	headers;
+	headers << "Status: 200\r\n" << "Content-Length: " << response.str().size() << "\r\n\r\n";
+	return (headers.str() + response.str());
 }
 
 // static std::string	fmt_xml(const std::vector<File> & files) {
