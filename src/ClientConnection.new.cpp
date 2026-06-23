@@ -549,15 +549,6 @@ bool ClientConnection::handle_setup() {
 		if (!setup_cgi()) 
 			_req.status = 500;
 		return (true);
-		/*
-		if (setup_cgi()) {
-			_state = REQ_BODY;
-			return (true);
-		} else {
-			_req.status = 500;
-			_state = RESPONSE;
-		}
-		*/
 	}
 	setup_res();
 	return (true);
@@ -688,8 +679,9 @@ bool ClientConnection::setup_cgi() {
 }
 
 bool ClientConnection::handle_cgi_output(uint32_t events) {
+	size_t readret = 0;
 	if (events & EPOLLIN && _buf.fill_capacity() > 1)
-		_buf.fill(fd);
+		readret = _buf.fill(fd);
 
 	if (_state == CGI_HEADERS) {
 		size_t pos;
@@ -742,7 +734,7 @@ bool ClientConnection::handle_cgi_output(uint32_t events) {
 		}
 	}
 
-	if (events & (EPOLLHUP | EPOLLHUP))
+	if (readret == 0 || (events & EPOLLERR))
 		finalize_cgi();
 
 	return (true);
