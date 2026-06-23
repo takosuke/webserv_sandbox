@@ -5,6 +5,8 @@ autoindex
 
 conf/generated/
 
+cajon_desastre/
+
 # Test framework
 .clj-kondo/
 .cpcache/
