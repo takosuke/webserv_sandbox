@@ -234,6 +234,37 @@ static std::string normalize_req_path(const std::string& path) {
 	return result;
 }
 
+static char const hex_val[256] = {
+	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 
+	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 
+	0, 0, 0, 0, 0, 0, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 0, 0, 0, 0, 
+	0, 0, 0, 0, 0, 10, 11, 12, 13, 14, 15, 0, 0, 0, 0, 0, 0, 0, 0, 0, 
+	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 10, 11, 12, 
+	13, 14, 15, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 
+	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 
+	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 
+	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 
+	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 
+	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 
+	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 
+	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+};
+
+static inline char decode_hex(const char *hex) {
+	return (hex_val[static_cast<int>(hex[0])] + hex_val[static_cast<int>(hex[1])]);
+}
+
+static std::string &decode_request_uri(std::string &uri) {
+	for (size_t pos = uri.find('%'); pos != std::string::npos; pos = uri.find('%')) {
+		if (is_valid_hex(uri[pos + 1], uri[pos + 2])) {
+			std::string	rep;
+			rep.insert(rep.begin(), decode_hex(uri.c_str() + pos + 1));
+			uri.replace(pos, 3, rep);
+		}
+	}
+	return (uri);
+}
+
 static bool validate_req_path(const std::string& path) {
 	if (path.empty())
 		return false;
@@ -302,6 +333,7 @@ bool	ClientConnection::handle_req_line() {
 					return (_req.status = 400, false);
 
 				_req.uri = req_line.substr(sp1 + 1, sp2 - sp1 - 1);
+				_req.uri = decode_request_uri(_req.uri);
 				if (_req.uri.empty() || !is_valid_url_encoding(_req.uri))
 					return (_req.status = 400, false);				
 				size_t	query_start = _req.uri.find("?");
