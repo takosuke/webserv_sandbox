@@ -212,11 +212,13 @@ static std::string normalize_req_path(const std::string& path) {
 	std::istringstream ss(path);
 	std::string seg;
 
-	while (std::getline(ss, seg, '/')) {
+	while (!ss.eof()) {
+		std::getline(ss, seg, '/');
 		if (seg == "." || seg.empty()) {
 			continue;
-		} else if (seg == ".." && !segments.empty()) {
-			segments.pop_back();
+		} else if (seg.compare("..") == 0) {
+			if (!segments.empty())
+				segments.pop_back();
 			// I don't think we care if there are any ".." instances that would
 			// move us above the root. We can just disregard them and stay in
 			// "/" until we hit another valid segment
@@ -237,7 +239,7 @@ static std::string normalize_req_path(const std::string& path) {
 static char const hex_val[256] = {
 	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 
 	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 
-	0, 0, 0, 0, 0, 0, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 0, 0, 0, 0, 
+	0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 0, 0,
 	0, 0, 0, 0, 0, 10, 11, 12, 13, 14, 15, 0, 0, 0, 0, 0, 0, 0, 0, 0, 
 	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 10, 11, 12, 
 	13, 14, 15, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 
@@ -251,18 +253,20 @@ static char const hex_val[256] = {
 };
 
 static inline char decode_hex(const char *hex) {
-	return (hex_val[static_cast<int>(hex[0])] + hex_val[static_cast<int>(hex[1])]);
+	return ((hex_val[static_cast<int>(hex[0])] * 16) + hex_val[static_cast<int>(hex[1])]);
 }
 
-static std::string &decode_request_uri(std::string &uri) {
-	for (size_t pos = uri.find('%'); pos != std::string::npos; pos = uri.find('%')) {
-		if (is_valid_hex(uri[pos + 1], uri[pos + 2])) {
+static std::string decode_http(const std::string &uri) {
+	std::string	new_uri(uri);
+	
+	for (size_t pos = new_uri.find('%'); pos != std::string::npos; pos = new_uri.find('%')) {
+		if (is_valid_hex(new_uri[pos + 1], new_uri[pos + 2])) {
 			std::string	rep;
-			rep.insert(rep.begin(), decode_hex(uri.c_str() + pos + 1));
-			uri.replace(pos, 3, rep);
+			rep.insert(rep.begin(), decode_hex(new_uri.c_str() + pos + 1));
+			new_uri.replace(pos, 3, rep);
 		}
 	}
-	return (uri);
+	return (new_uri);
 }
 
 static bool validate_req_path(const std::string& path) {
@@ -333,16 +337,19 @@ bool	ClientConnection::handle_req_line() {
 					return (_req.status = 400, false);
 
 				_req.uri = req_line.substr(sp1 + 1, sp2 - sp1 - 1);
-				_req.uri = decode_request_uri(_req.uri);
 				if (_req.uri.empty() || !is_valid_url_encoding(_req.uri))
 					return (_req.status = 400, false);				
 				size_t	query_start = _req.uri.find("?");
 
-				_req.path = normalize_req_path(_req.uri.substr(0, query_start));
+				_req.path = _req.uri.substr(0, query_start);
 				if (!validate_req_path(_req.path))
 					return (_req.status = 400, false);
-				if (query_start != std::string::npos)
+				_req.path = decode_http(_req.path);
+				_req.path = normalize_req_path(_req.path);
+				if (query_start != std::string::npos) {
 					_req.query = _req.uri.substr(query_start + 1);
+					_req.query = decode_http(_req.query);
+				}
 				_buf.erase(0, pos + 2);
 				_state = REQ_HEADERS;
 			}
