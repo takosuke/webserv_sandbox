@@ -40,7 +40,6 @@ int main(int ac, char *av[]) {
 	try {
 		Http http(grouper.main.body_directives[0]);
 		const std::map<struct sockaddr_in, Port> &ports = http.get_ports();
-		LOG_INFO("INFO") << "http:" << http << std::endl;
 
 		for (std::map<struct sockaddr_in, Port>::const_iterator it = ports.begin();
 				it != ports.end(); ++it)

@@ -3,10 +3,10 @@
 #include "Config.hpp"
 
 #include <string>
-#include <iostream>
-#include <map>
 
 struct Request {
+	Request();
+
 	// TODO beginning underscores for consistency?
 	HttpMethod	method;
 	std::string	uri;		// raw: "http://site/images/42.gif?val=43"
@@ -20,25 +20,8 @@ struct Request {
 	std::string	hostname;
 	int			port;
 
-	const Server *		server;
-	const Location *	location;
-
-	// can maybe go
-	bool		valid;		// if parsing error, false
-	int			error;		// 400, 414, parsing errors
-
-	Request()
-		: method(UNKNOWN), content_length(0),
-		server(NULL), location(NULL),
-		valid(true), error(0) { };
-
-	std::string methodToString(HttpMethod m) const;
-	HttpMethod stringToMethod(const std::string& s);
-	void		printRequest();
-	friend std::ostream& operator<<(std::ostream& os, const Request& req) {
-		os << "Request method:" << req.method << std::endl
-			<< "Request path:" << req.path << std::endl
-			<< "Query string:" << req.query << std::endl;
-		return os;
-	}
+	int			status;		// current status code fo the request (200, 201, 404, ...)
+	
+	bool		internal;	// tells if a path is internal or an external URL
+	bool		no_file;	// tells if we need to construct a body less response
 };

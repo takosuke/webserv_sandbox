@@ -108,6 +108,14 @@ size_t ScratchBuffer::feed_capacity() {
 	return (readpos - writepos);
 }
 
+bool ScratchBuffer::fill_eof() {
+	return (readpos > 0 && data[readpos - 1] == '0');
+}
+
+bool ScratchBuffer::feed_eof() {
+	return (data[writepos] == '0');
+}
+
 #include <cstring>
 
 char *strnchr(const char *ptr, char c, size_t count = -1) {

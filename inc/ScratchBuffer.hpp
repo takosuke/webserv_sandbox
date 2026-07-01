@@ -36,6 +36,9 @@ public:
 	size_t	fill_capacity();
 	size_t	feed_capacity();
 
+	bool	fill_eof();
+	bool	feed_eof();
+
 	size_t	find(char c, size_t searchpos = 0);
 	size_t	find(const std::string &str, size_t searchpos = 0);
 

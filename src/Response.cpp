@@ -11,8 +11,6 @@
 
 /* RESPONSE *******************************************************************/
 
-std::string Response::error_buffer = std::string("HTTP/1.0 500 Internal Server Error\r\nContent-Length: 0\r\n\r\n");
-
 std::map<int, std::string>	Response::reason_phrase_map = std::map<int, std::string>();
 
 /**	@brief Initializes the Reason Phrase map.
@@ -61,79 +59,33 @@ const std::string &Response::get_reason_phrase(int code) {
 	return (unknown_status_code);
 }
 
-Response::Response(ScratchBuffer *buf) {
-	_buffer = buf;
-	_buffer->clear();
-	_error = false;
-	_stream.setstate(std::ios_base::eofbit);
-}
-
-Response::Response(ScratchBuffer *buf, const std::string &filename) {
-	_buffer = buf;
-	_buffer->clear();
-	_file = filename;
-	_stream.open(filename.c_str());
-	_error = !_stream.is_open();
-}
-
 Response & Response::operator=(const Response &other) {
 	if (this == &other)
 		return (*this);
-	_buffer = other._buffer;
-	_file = other._file;
-	_error = other._error;
-	if (_file.size() != 0) {
-		_stream.open(_file.c_str());
-		_error = !_stream.is_open();
-	}
+	headers = other.headers;
 	return (*this);
-}
-
-bool Response::done() const {
-	return (_headers.size() == 0 && (!_stream.is_open() || _stream.eof()) && _buffer->feed_capacity() == 0);
-}
-
-bool Response::error() const {
-	return (_error != false || (_stream.is_open() && _stream.fail()));
-}
-
-/**	@brief Sets the streams fiel to `filename`
- * 	
- * 	error() should be checked after to see if the operation worked.
- */
-void Response::set_file(const std::string &filename) {
-	_file = filename;
-	_stream.open(filename.c_str());
-}
-
-void Response::set_internal_error() {
-	_error = false;
-	_stream.close();
-	_headers.clear();
-	_buffer->set_data(const_cast<char *>(error_buffer.c_str()), error_buffer.size());
-	_buffer->readpos = error_buffer.size();
 }
 
 void Response::add_status_line(const std::string & version, int status_code) {
 	std::ostringstream	sstream;
 
 	sstream << version << " " << status_code << " " << get_reason_phrase(status_code) << "\r\n";
-	_headers.insert(_headers.begin(), sstream.str());
+	headers.insert(headers.begin(), sstream.str());
 }
 
 void Response::add_header_field(const std::string & name, const std::string & value) {
-	_headers.push_back(name + ": " + value + "\r\n");
+	headers.push_back(name + ": " + value + "\r\n");
 }
 
 void Response::add_header_field(const std::string & name, size_t num) {
 	std::ostringstream	iss;
 
 	iss << num;
-	_headers.push_back(name + ": " + iss.str()+ "\r\n");
+	headers.push_back(name + ": " + iss.str()+ "\r\n");
 }
 
 void Response::add_header_end() {
-	_headers.push_back("\r\n");
+	headers.push_back("\r\n");
 }
 
 void Response::add_allowed(const Location *loc) {
@@ -145,30 +97,6 @@ void Response::add_allowed(const Location *loc) {
 		stream << string_from_method(*it);
 	}
 	add_header_field("Allow", stream.str());
-}
-
-#include <sys/stat.h>
-
-/**	@brief Gets the content length of the file at `filepath` and adds it as a
- * 	header field.
- *
- * 	@Return 1 on completion, 0 if there was not enough room in the buffer,
- * 	-1 if a critical error occured.
- */
-void Response::add_content_length() {
-	struct stat	statbuf;
-	size_t		filesize = 0;
-
-	if (_file.size() != 0) {
-		if (stat(_file.c_str(), &statbuf) != 0)
-			throw (std::runtime_error("stat error"));
-		filesize = statbuf.st_size;
-	}
-
-	std::ostringstream	stream;
-
-	stream << filesize;
-	return (add_header_field("Content-Length", stream.str()));
 }
 
 #include <ctime>
@@ -183,63 +111,4 @@ void Response::add_date() {
 	if (std::strftime(buf, 30, "%a, %d %b %Y %H:%M:%S GMT" , std::gmtime(&localtimestamp)) == 0)
 		throw (std::runtime_error("couldn't create 'Date' header string"));
 	add_header_field("Date", buf);
-}
-
-void Response::clear_buffer() {
-	_buffer->clear();
-}
-
-void Response::buffer_headers() {
-	while (_headers.size() > 0) {
-		size_t	fillret = _buffer->fill(_headers.front().c_str(), _headers.front().size());
-		if (fillret < _headers.front().size())
-			break ;
-		_headers.erase(_headers.begin());
-	}
-}
-
-void Response::buffer_file() {
-	while (_headers.size() == 0
-		&& _stream.is_open() && !_stream.fail() && !_stream.eof() && _buffer->fill_capacity() > 1) {
-		_buffer->fill(_stream);
-	}
-}
-
-void Response::fill_buffer() {
-	buffer_headers();
-	buffer_file();
-}
-
-void Response::construct(const Request &req) {
-	_buffer->clear();
-	try {
-		add_status_line(HTTP_VERSION_STR, req.error);
-		if (req.error >= 300 && req.error < 400)
-			add_header_field("Location", req.path);
-		else
-			add_allowed(req.location);
-		add_date();
-		if (req.method == GET) {
-			if (req.path.size() != 0)
-				set_file(req.location->get_root() + req.path);
-			add_content_length();
-		}
-		add_header_end();
-	}	catch (std::exception &e) {
-		set_internal_error();
-	}
-}
-
-void Response::write_to(int fd) {
-	int	writeret;
-
-	if (_buffer->feed_capacity() <= 0) {
-		_buffer->clear();
-		fill_buffer();
-	}
-	if (done())
-		return ;
-	writeret = _buffer->feed(fd);
-	if (writeret < 0)
-		_error = true;
 }

@@ -1,14 +1,12 @@
 #pragma once
 
+#include "Config.hpp"
+
 #include <map>
 #include <vector>
 #include <string>
 
 #include <stdint.h>
-
-#include "Config.hpp"
-#include "Request.hpp"
-#include "ScratchBuffer.hpp"
 
 /* STATUS LINE ****************************************************************/
 
@@ -44,40 +42,17 @@
  */
 struct Response {
 private:
-	static std::string					error_buffer;
 	static std::map<int, std::string>	reason_phrase_map;
 	static int					init_reason_phrase_map();
 	static const std::string	&get_reason_phrase(int code);
 
-	std::fstream	_stream;
-	std::string		_file;
-
-	ScratchBuffer	*_buffer;
-
-	std::vector<std::string>	_headers;
-
-	bool			_error;
-
-	void	buffer_headers();
-	void	buffer_file();
-
 public:
+	std::vector<std::string>	headers;
 
 	Response() { };
-	Response(const Response & other) { *this = other; };
-	Response(ScratchBuffer *buf);
-	Response(ScratchBuffer *buf, const std::string & filename);
 	~Response() { };
 
 	Response & operator=(const Response & other);
-
-	bool	done() const;
-	bool	error() const;
-
-	void	set_buffer(ScratchBuffer *buf) { _buffer = buf; };
-	void	set_file(const std::string &filename);
-
-	void	set_internal_error();
 
 	/**	These functions add header fields to the internal vector for later
 	 * 	writing to a buffer and then the socket.
@@ -88,16 +63,6 @@ public:
 	void	add_header_field(const std::string & name, const std::string & value);
 	void	add_header_field(const std::string & name, size_t num);
 	void	add_allowed(const Location *loc);
-	void	add_content_length();
 	void	add_date();
 	void	add_header_end();
-
-	/**	These functions write the necessary parts of the Reponse to the buffer.
-	 */ 
-	void	clear_buffer();
-	void	fill_buffer();
-
-	void	construct(const Request &req);
-
-	void	write_to(int fd);
 };
