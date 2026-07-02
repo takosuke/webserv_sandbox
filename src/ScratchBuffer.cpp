@@ -12,7 +12,7 @@ ScratchBuffer::ScratchBuffer(size_t cap) : _ref_data(false), capacity(cap), read
 	bzero(data, capacity);
 }
 
-ScratchBuffer::ScratchBuffer(const ScratchBuffer &other) {
+ScratchBuffer::ScratchBuffer(const ScratchBuffer &other) : _ref_data(false), data(NULL), capacity(1024), readpos(0), writepos(0) {
 	*this = other;
 }
 

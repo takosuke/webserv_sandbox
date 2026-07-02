@@ -600,7 +600,7 @@ void config::add_return(config::redirect &redirect, const std::vector<Token> &to
 
 		if (it->type == Token::number) {
 			redirect.status_code = it->num;
-			if (redirect.status_code < 0 || redirect.status_code >= 600)
+			if (redirect.status_code < 100 || redirect.status_code >= 600)
 				throw (std::runtime_error("invalid status code"));
 			++it;
 		}
