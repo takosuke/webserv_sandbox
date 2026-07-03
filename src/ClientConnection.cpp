@@ -399,7 +399,7 @@ bool	ClientConnection::handle_req_headers() {
 			}
 			std::transform(headers_line.begin(), headers_line.end(), headers_line.begin(), ::tolower);
 			size_t colon = headers_line.find(":");
-			if (!colon) {
+			if (!colon || colon == ScratchBuffer::npos) {
 				_state = REQ_SETUP;
 				return (_req.status = 400, false);
 			}
