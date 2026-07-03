@@ -83,6 +83,53 @@
         (let [line (.readLine in)]
           (if (nil? line) lines (recur (conj lines line))))))))
 
+(defn raw-request-timeout
+  "Like raw-request, but installs a read timeout so a hanging/spinning server
+  cannot block the test suite forever. Sends payload, half-closes the write
+  side, then reads until EOF or timeout-ms elapses with no data.
+
+  Returns {:response <string, possibly partial or empty> :timed-out <bool>}.
+  A well-behaved server answers (or closes) before the deadline, so :timed-out
+  is false. A server that hangs the request (e.g. an infinite decode loop) or
+  never detects a half-closed peer leaves :timed-out true."
+  [host port payload timeout-ms]
+  (with-open [sock (Socket. host port)]
+    (.setSoTimeout sock timeout-ms)
+    (let [out (.getOutputStream sock)
+          in  (.getInputStream sock)]
+      (.write out (.getBytes payload "UTF-8"))
+      (.flush out)
+      (.shutdownOutput sock)
+      (let [baos (java.io.ByteArrayOutputStream.)
+            buf  (byte-array 8192)]
+        (try
+          (loop []
+            (let [n (.read in buf)]
+              (when (pos? n)
+                (.write baos buf 0 n)
+                (recur))))
+          {:response (String. (.toByteArray baos) "ISO-8859-1") :timed-out false}
+          (catch java.net.SocketTimeoutException _
+            {:response (String. (.toByteArray baos) "ISO-8859-1") :timed-out true})
+          ;; A RST/abrupt close ("Connection reset") ends the read like an EOF
+          ;; would: the peer is gone, so it is not a hang. Return what we got
+          ;; (often empty) so callers assert on the status line, not on an
+          ;; uncaught exception.
+          (catch java.net.SocketException _
+            {:response (String. (.toByteArray baos) "ISO-8859-1") :timed-out false}))))))
+
+(defn responsive?
+  "Send a fresh, well-formed GET /index.html on a new connection with a read
+  timeout and return true iff it comes back 200 within timeout-ms. Used as a
+  liveness probe after a pathological request."
+  [timeout-ms]
+  (let [{:keys [response timed-out]}
+        (raw-request-timeout "127.0.0.1" 8080
+          "GET /index.html HTTP/1.0\r\nHost: 127.0.0.1\r\n\r\n" timeout-ms)]
+    (and (not timed-out)
+         (= 200 (when-let [[_ c] (re-find #"HTTP/\S+ (\d{3})" response)]
+                  (Integer/parseInt c))))))
+
 (defn status-code
   "Parse the HTTP status code integer out of a raw response string."
   [raw-response]
