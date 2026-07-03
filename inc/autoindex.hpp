@@ -16,6 +16,7 @@ namespace autoindex {
 
 	struct Flags {
 	public:
+		Flags() : exact_size(true), format(html) { };
 		bool	exact_size;
 		e_fmt	format;
 	};

@@ -18,6 +18,7 @@
 #include "Logger.hpp"
 #include "Response.hpp"
 #include "ScratchBuffer.hpp"
+#include "autoindex.hpp"
 
 std::string ClientConnection::_500_str = std::string("HTTP/1.0 500 Internal Server Error\r\n\r\n");
 
@@ -894,62 +895,36 @@ void ClientConnection::finalize_cgi() {
 }
 
 bool ClientConnection::setup_autoindex() {
-       const std::string       directory_name = _req.path;
-       const std::string       directory_path = _loc->get_root() + _req.path;
+	_state = RESPONSE;
+	try {
+		const std::string       directory_name = _req.path;
+		const std::string       directory_path = _loc->get_root() + _req.path;
+		const std::string		autoindex_response = autoindex::as_html(directory_name, directory_path, autoindex::Flags());
 
-       int stdout_fd[2];
-       if (pipe(stdout_fd) < 0) {
-               _req.status = 500;
-               return (false);
-       }
+		char tmpname[] = "/tmp/autoindex_XXXXXX";
+		int tmpfd = mkstemp(tmpname);
+		close(tmpfd);
+		_file = tmpname;
+		_stream.open(_file.c_str(), std::ios::out | std::ios::binary);
+		_stream << autoindex_response;
+		_stream.close();
+		_stream.open(_file.c_str(), std::ios::in | std::ios::binary);
 
-       int stdin_fd[2];
-       if (pipe(stdin_fd) < 0) {
-               close(stdout_fd[0]);
-               close(stdout_fd[1]);
-               _req.status = 500;
-               return (false);
-       }
-
-       pid_t pid = fork();
-       if (pid < 0) {
-               close(stdout_fd[0]);
-               close(stdout_fd[1]);
-               close(stdin_fd[0]);
-               close(stdin_fd[1]);
-               _req.status = 500;
-               return (false);
-       }
-
-       if (pid == 0) {
-               dup2(stdin_fd[0], STDIN_FILENO);
-               close(stdin_fd[0]);
-               close(stdin_fd[1]);
-               dup2(stdout_fd[1], STDOUT_FILENO);
-               close(stdout_fd[0]);
-               close(stdout_fd[1]);
-               char *argv[] = { (char *)AUTOINDEX_LOCATION, (char*)directory_name.c_str(), (char *)directory_path.c_str(), NULL };
-               execve(AUTOINDEX_LOCATION, argv, environ);
-               exit(1);
-       }
-       close(stdin_fd[0]);
-       close(stdout_fd[1]);
-       fcntl(stdin_fd[1], F_SETFL, O_NONBLOCK);
-       fcntl(stdout_fd[0], F_SETFL, O_NONBLOCK);
-       _client_fd = fd;
-       _cgi_pid = pid;
-       _cgi_stdin_fd = stdin_fd[1];
-       _cgi_stdout_fd = stdout_fd[0];
-       _written_body = 0;
-       if (_req.method == POST && _req.content_length > 0) {
-               _state = REQ_BODY;
-       } else {
-               close(_cgi_stdin_fd);
-               _cgi_stdin_fd = -1;
-               _state = CGI_HEADERS;
-               EpollLoop::get_instance().rearm(this, EPOLLIN | EPOLLERR | EPOLLHUP, _cgi_stdout_fd);
-       }
-       return (true);
+		_res.add_status_line(HTTP_VERSION_STR, _req.status);
+		if (!_req.internal)
+			_res.add_header_field("Location", _req.path);
+		else
+			_res.add_allowed(_loc);
+		_res.add_date();
+		_res.add_header_field("Content-Length", get_file_size());
+		_buf.clear();
+		_res.add_header_end();
+	} catch (std::exception &e) {
+		setup_internal_error();
+		return (false);
+	}
+	EpollLoop::get_instance().mod(this, EPOLLOUT | EPOLLERR | EPOLLHUP);
+	return (true);
 }
 
 bool ClientConnection::set_file(const std::string &path) {

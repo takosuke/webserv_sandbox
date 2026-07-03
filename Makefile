@@ -31,6 +31,9 @@ SRCS	+= ScratchBuffer.cpp
 
 SRCS	+= utils.cpp
 
+SRCS	+= autoindex.cpp
+SRCS	+= autoindex_File.cpp
+
 OBJS	:= $(SRCS:.cpp=.o)
 OBJS	:= $(addprefix $(ODIR), $(OBJS))
 
@@ -63,17 +66,13 @@ endif
 
 # * RULES ******************************************************************** #
 
-all: $(NAME) autoindex
+all: $(NAME)
 
 $(NAME): $(ODIR) $(OBJS)
 	$(CXX) $(LDFLAGS) -o $(NAME) $(OBJS)
 
 $(ODIR):
 	$(MKDIR) $(ODIR)
-
-autoindex:
-	make -C ./aindex DEBUG=$(DEBUG)
-	cp ./aindex/autoindex .
 
 -include $(DEPS)
 
@@ -82,12 +81,9 @@ $(ODIR)%.o: %.cpp
 
 clean:
 	$(RM) $(ODIR)
-	make -C aindex clean
 
 fclean: clean
 	$(RM) $(NAME)
-	make -C aindex fclean
-	$(RM) autoindex
 
 re: fclean all
 
