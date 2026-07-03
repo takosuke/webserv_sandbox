@@ -806,7 +806,7 @@ bool ClientConnection::handle_cgi_output(uint32_t events) {
 		}
 	}
 
-	if (events & (EPOLLHUP | EPOLLHUP))
+	if (events & (EPOLLERR | EPOLLHUP))
 		finalize_cgi();
 
 	return (true);
