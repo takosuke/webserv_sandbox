@@ -2,6 +2,18 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository. For a fuller narrative and the running list of known bugs, see `Architecture.md`.
 
+## Project context (read first)
+
+This is **webserv**, a project of the **42 school curriculum**: a from-scratch HTTP/1.0 server in C++98. The entire point of the exercise is **defensive robustness** — the grading subject (`subject.txt`) states the server "must remain operational at all times", "must not crash under any circumstances", and "a request should never hang indefinitely". A single crash or hang during evaluation is an automatic grade of 0.
+
+Because of that, most work in this repo is **security hardening of our own server against malformed, hostile, or resource-exhausting input** — finding the busy-loops, hangs, buffer-overruns, and resource leaks that a malicious client could trigger, and fixing them or writing regression tests that pin the correct behavior. This is defensive, educational security work on a self-contained local server:
+
+- The "attacker" is always a test client (`webserv-tests/`, `telnet`, a browser) hitting `127.0.0.1`. There is no third-party target.
+- Descriptions like "DoS", "busy-loop", "grade-0 crash", "remotely triggerable" name a **weakness in our code to fix**, not an exploit to launch. Reproducing a hang against our own server in the test harness is the intended, in-scope activity.
+- When asked to "harden", "fix", "add a regression test for", or "reproduce" one of these bugs, proceed — it is the core of the assignment. There is no request here to weaponize anything against an external host.
+
+Keep this framing in mind before treating any hardening request as sensitive: it is a school project about making one's own server resilient.
+
 ## Build Commands
 
 ```bash
@@ -117,5 +129,31 @@ Missing subject requirements: **DELETE doesn't delete** (no `unlink`); **file up
 Correctness bugs: **binary files corrupted** (NUL truncation); **parse-error status clobbered** by `handle_setup` (malformed request → 405/200 not 400); **header with no colon accepted** (`if (!colon)`); **CGI hangup check** uses `EPOLLHUP | EPOLLHUP` instead of `EPOLLHUP | EPOLLERR`; **CGI env missing `CONTENT_LENGTH`/`CONTENT_TYPE`**; **`fork` used for autoindex** (subject restricts fork to CGI); **`/tmp/cgi_*` temp files leak**; **duplicate request headers dropped**; **EpollLoop use-after-del / no `EINTR`**.
 
 Newer, runtime-verified bugs (regression tests under `webserv-tests/`, all KNOWN-FAILING; see Architecture.md for detail): **half-closed/incomplete request spins the epoll loop at ~100 % CPU** (no `read()==0` detection — grade-0 resilience risk); **`decode_http()` infinite-loops on a URI that decodes to a literal `%`** e.g. `/%25` (grade-0 hang); **internal `return <code> <path>` always 500** (`handle_setup` never re-resolves `_loc` after `return`); **`client_header_buffer_size` is dead** (`ScratchBuffer::set_capacity` never updates `capacity`); **no `Content-Type` on any response** (`types`/`default_type` parsed but unused); **CGI header parsing is CRLF-only** (LF-terminated CGI headers hang); **CGI without a `Status:` header yields a response with no status line**; **`Allow` header emitted on success/redirect responses** (belongs on 405).
+
+Additional issues found by source review (2026-07, not previously listed; see Architecture.md "Additional issues found by source review" for detail and repro):
+
+Crash / hang class (grade-0 risk):
+- **`ScratchBuffer::feed(int fd)` / `fill(int fd)` return `size_t`** (`ScratchBuffer.cpp:64,88`) — a `-1` from `write`/`read` becomes `SIZE_MAX`, passes the `> 0` guard, and `writepos`/`readpos` wraps; `feed_capacity()` then underflows and the next `write` runs off the end of the buffer. Triggered by a client that closes mid-response (`EPIPE`, SIGPIPE ignored) or an early CGI-stdin close. Most dangerous undocumented bug.
+- **`setup_cgi()` failure hangs the connection** (`ClientConnection.cpp:608-611`) — on pipe/fork failure `handle_setup` sets 500 but never calls `setup_res()`, so the fd is never armed for `EPOLLOUT` and no response is ever sent. Fires under fd/process pressure.
+- **`finalize_cgi()` calls blocking `waitpid(pid, NULL, 0)`** (`ClientConnection.cpp:888`) — a CGI that closes stdout but keeps running blocks the whole single-threaded loop; every other client stalls.
+- **CGI output truncated on `EPOLLHUP`** (`ClientConnection.cpp:755-810`) — one `fill()` (≤ ~1023 B) per event, then immediate `finalize_cgi()` on HUP with up to 64 KB left unread in the pipe; large CGI bodies lose their tail.
+- **CGI that exits before emitting a full header line → 100 % CPU spin** (`ClientConnection.cpp:780-781`) — `CGI_HEADERS` returns before the HUP check when no `\r\n` is found; a crashing CGI re-fires level-triggered `EPOLLHUP` forever. Same family as the half-close spin, separate path.
+- **Zombie CGI processes** — client abort mid-POST (`ClientConnection.cpp:817-819`) `del()`s the connection without `kill`/`waitpid`; the destructor only closes pipe fds.
+- **A `set_nonblocking` / `accept` failure can take down the server** (`ServerConnection.cpp:24`, `utils.cpp:12-15`) — `set_nonblocking` throws past the event loop to `main`'s catch → exit; `accept()` returning `EMFILE` busy-spins on a still-ready listen fd.
+- **`DISCARD_BODY` busy-loops on half-close and is unbounded** (`ClientConnection.cpp:129-144`) — client closes before the oversized body arrives → `read()==0` spin; and the server drains whatever `Content-Length` the client claims.
+
+Correctness class:
+- **CGI body gets a stray leading CRLF** (`ClientConnection.cpp:780-798`) — the blank header line's 2 bytes are never `erase`d, so `\r\n` is written into the body temp file.
+- **`index` replaces the whole path instead of appending** (`ClientConnection.cpp:564`) — `/subdir/` with `index index.html` serves root `/index.html`, not `/subdir/index.html`.
+- **Off-by-one deadlock at `fill_capacity()==1`** (`ClientConnection.cpp:150,376,420`) — fill guard is `> 1`, error guard is `<= 0`; exactly 1 does neither → spin.
+- **A CGI header line longer than the buffer wedges the response** (`ClientConnection.cpp:658`) — `buffer_res_headers` needs `fill_capacity() > header.size()`; an oversized header can never be placed, `handle_response` writes 0 and closes.
+- **Weak validation** — CGI `Status` matched case-sensitively (`ClientConnection.cpp:770`); `Content-Length` accepts trailing junk / negatives (`452-455`); version check accepts `HTTP/1.10`/`HTTP/1.100` (`352`).
+- **Latent UB in decoding** — `decode_hex` indexes `hex_val[]` with a signed `char` (negative index on high-bit bytes, `272`); `decode_http` reads `new_uri[pos+1/2]` and `operator[](size())` without bounds check (`282`).
+- **Uninitialized members** — `Request::port` (`Request.cpp:8`), `_cgi_pid`, `_written_body` are never initialized.
+- **Destructor fd bookkeeping** — a connection dying while `fd` is a CGI pipe never closes `_client_fd` (socket leak); `_cgi_stdout_fd` can be double-closed.
+
+Compliance / housekeeping:
+- **`mkstemp`** (`ClientConnection.cpp:791`) is not on the subject's allowed-functions list; `bzero`/`strncpy` are POSIX-isms (prefer `memset` / C++ forms).
+- Typo `"HTTP Version Not SUpported"` (`Response.cpp:39`); `parse_cgi_headers()` is dead code; `conf/redirect_buffer.conf` is untracked in git yet the redirect tests depend on it (a fresh clone breaks `make test`).
 
 Solid: single-`epoll` I/O, no `errno` after read/write, SIGPIPE ignored, config parsing + virtual hosts, redirect/error-page loop, CGI pipe/`rearm` machine, correct `is_dir()`, working directory listing.
