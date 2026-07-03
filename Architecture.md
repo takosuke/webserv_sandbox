@@ -170,7 +170,7 @@ LOG_INFO("component") << "message" << std::endl;
 - `aindex/` — the standalone `./autoindex` helper (its own Makefile; `main(argc, argv)` takes the URL path and the filesystem path of the directory to list).
 - `conf/` — example configs (use `__WWWROOT__`); `conf/generated/` holds `make prepare-confs` output.
 - `www/` — static assets, error pages (`404.html`, `50x.html`), `cgi-bin/`.
-- `webserv-tests/` — Clojure integration test suite (`make test`).
+- `webserv-tests/` — Clojure integration test suite (`make test`). Regression tests for the newly found bugs live in `resilience_test.clj` (half-close busy-loop, `%25` decode loop, LF-only CGI headers — each `:each`, timeout-guarded via `server/raw-request-timeout`), `redirect_test.clj` (internal vs. external `return`, `client_header_buffer_size`), and `content_type_test.clj` (missing `Content-Type`, CGI-without-`Status`). They rely on `conf/redirect_buffer.conf` and the CGI helpers `www/cgi-bin/no_status.py` / `www/cgi-bin/lf_headers.py`.
 - `incremental_versions/` — historical snapshots, not compiled.
 
 ## Subject scope & known gaps
@@ -198,3 +198,18 @@ Bugs/gaps worth knowing before extending (verified against the current code and 
 - **CGI temp files leak** — `/tmp/cgi_XXXXXX` files are created but never `unlink`'d.
 - **Duplicate request headers** are silently dropped (`FIXME` in source).
 - **EpollLoop use-after-del / no `EINTR` handling** (see Event Loop above) — "must not crash" risks.
+
+**Newly found (2026-07, verified at runtime — not previously documented)**
+
+These are covered by regression tests under `webserv-tests/` (see the test list below); each is KNOWN-FAILING today.
+
+- **Half-closed / incomplete request → 100 % CPU busy-loop (grade-0 resilience risk).** A client that sends a partial request and then `shutdown(SHUT_WR)` (or just drops) pegs a CPU core indefinitely. When `read()` returns 0 (peer closed at EOF), `ScratchBuffer::fill()` returns 0, the state stays `REQ_LINE`/`REQ_HEADERS`, and the socket remains EPOLLIN-ready (EOF is "readable"), so `epoll_wait` re-delivers the fd every iteration forever. `ClientConnection::handle()` never checks for `read()==0` to `del()` the connection. Idle server = 0 % CPU; one half-close = ~80–95 %. A handful of such clients is a trivial DoS. (`ClientConnection.cpp:149-166`, `ScratchBuffer.cpp:64`.)
+- **`decode_http()` infinite loop on any URI that decodes to a literal `%` (grade-0 hang).** `GET /%25` hangs forever and spins the CPU: `%25` decodes to `%`, the `while (find('%'))` loop then finds the bare `%`, `is_valid_hex` fails, nothing is replaced, and the scan position is never advanced → infinite loop. Reachable by any client (`/%25`, `/%2525`, …). (`ClientConnection.cpp:275`.)
+- **Internal `return <code> <path>` always yields 500.** `location /old { return 301 /index.html; }` returns 500, not a redirect. In `handle_setup` the `return` branch sets `_req.path` but **never re-resolves `_loc`**, so the same location's `return` fires on every loop iteration until `REDIRECT_LIMIT`, which forces a 500. Only external returns (`return 302 https://…`) work, because they set `internal=false` and break the loop. Internal redirects — a required config feature — never work. (`ClientConnection.cpp:529-544`.)
+- **`client_header_buffer_size` / `large_client_header_buffers` are dead — `ScratchBuffer::set_capacity()` never updates `capacity`.** `set_capacity()` allocates a new buffer but never assigns `capacity = cap`, so `fill_capacity()` keeps using the old 1024 default; the directive has no effect (a 3 KB request line under a 16 KB configured buffer still collapses into a 500). The same function's `std::min(sizeof(data), sizeof(new_data))` is `min(8,8)=8` — it copies 8 bytes of a pointer, not the buffer contents (harmless only because it is called pre-fill). (`ScratchBuffer.cpp:38-52`.)
+- **No `Content-Type` on any response; `types` / `default_type` are parsed-but-unused.** `setup_res` emits `Allow`, `Date`, `Content-Length` but never `Content-Type`, and no `content-type`/`mime` lookup exists in `ClientConnection.cpp` or `Response.cpp`. Browsers MIME-sniff HTML but mishandle CSS/JS/images, so "serve a fully static website" is only partially met.
+- **CGI header parsing is CRLF-only — LF-terminated CGI headers hang the connection.** `handle_cgi_output` splits headers on `"\r\n"` exclusively; a CGI that emits Unix `\n` line endings (RFC 3875 permits LF) never terminates header parsing and the request times out. (`ClientConnection.cpp:760`.)
+- **A CGI that omits `Status:` produces a response with no status line.** When the CGI sends no `Status:` header, the server never calls `add_status_line`, so the response begins with the CGI's own headers and has no `HTTP/x 200` line at all (should default to 200). (`ClientConnection.cpp:758-799`.)
+- **`Allow` header is emitted on success responses, including redirects.** `setup_res` calls `add_allowed()` for every internal response, so a plain `200 OK` and even a `301`/`302` carry `Allow: GET, POST, DELETE`. `Allow` belongs on `405`. (`ClientConnection.cpp:639`.)
+
+Priority order for fixes: the half-close busy-loop and the `%25` decode loop first — both are remotely triggerable, both violate "must remain operational / never hang indefinitely", and either alone is an evaluation-failing DoS.
