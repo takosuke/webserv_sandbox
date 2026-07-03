@@ -35,6 +35,23 @@
     (is (= 400 (:status (server/http-request
                           "GET /%zz HTTP/1.1\r\nHost: 127.0.0.1\r\n\r\n"))))))
 
+(deftest test-content-length-trailing-junk-is-400
+  (testing "KNOWN-FAILING: a Content-Length with trailing junk returns 400"
+    ;; `iss >> content_length` on "10abc" extracts 10 and does not set failbit,
+    ;; so the malformed length is accepted and the request is served 200.
+    (is (= 400 (:status (server/http-request
+                          (str "GET /index.html HTTP/1.1\r\n"
+                               "Host: 127.0.0.1\r\n"
+                               "Content-Length: 10abc\r\n"
+                               "Connection: close\r\n\r\n")))))))
+
+(deftest test-bogus-minor-version-is-400
+  (testing "KNOWN-FAILING: a bogus HTTP minor version (HTTP/1.10) returns 400"
+    ;; The version check only requires the first 8 chars to be HTTP/1.1 or
+    ;; HTTP/1.0 followed by zeros, so HTTP/1.10 is accepted as valid and served.
+    (is (= 400 (:status (server/http-request
+                          "GET /index.html HTTP/1.10\r\nHost: 127.0.0.1\r\n\r\n"))))))
+
 (deftest test-server-survives-malformed-request-lines
   (testing "Server stays responsive after a batch of malformed request lines"
     ;; Not a clobber assertion — a resilience check: whatever the status codes,
