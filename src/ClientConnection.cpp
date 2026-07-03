@@ -108,6 +108,7 @@ ClientConnection::ClientConnection(int sockfd, Http *http_conf, struct sockaddr_
 	: Connection(sockfd, http_conf), _state(REQ_LINE), _addr(addr),
 	_client_fd(sockfd), _cgi_stdin_fd(-1), _cgi_stdout_fd(-1) {
 	_server = &(http->get_default_server(_addr));
+	_timeout = _server->get_header().timeout;
 	_buf.set_capacity(_server->get_header().buffer_size);
 }
 
@@ -119,6 +120,10 @@ ClientConnection::~ClientConnection() {
 }
 
 void ClientConnection::handle(uint32_t events) {
+	_last_update = time(NULL);
+	// Failsafe set to 0 so it compares as a timeout for sure
+	if (_last_update == static_cast<time_t>(-1))
+		_last_update = 0;
 	if (_state == REQ_BODY || _state == CGI_TRANSMIT_BODY) {
 		handle_cgi_input(events);
 		return;
@@ -597,6 +602,7 @@ bool ClientConnection::handle_setup() {
 		_req.status = 500;
 		epi_redirect();
 	}
+	_timeout = _loc->get_header().timeout;
 	/* Possible states:
 	 * 	a:	We found a valid file within the redirect limit
 	 * 	b:	We found an external link withing the redirect limit

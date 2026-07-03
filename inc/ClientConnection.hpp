@@ -16,7 +16,7 @@
 
 class ClientConnection : public Connection {
 private:
-	ClientConnection() { }; // make private to be uncallable
+	ClientConnection() : Connection() { }; // make private to be uncallable
 	
 	static std::string	_500_str;
 	
