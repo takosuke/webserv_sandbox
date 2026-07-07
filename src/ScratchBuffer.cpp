@@ -71,7 +71,7 @@ size_t ScratchBuffer::fill(int fd) {
 }
 
 size_t ScratchBuffer::fill(std::fstream &fstream) {
-	fstream.get(data + readpos, fill_capacity(), '\0');
+	fstream.read(data + readpos, fill_capacity());
 	readpos += fstream.gcount();
 	return (fstream.gcount());
 }
