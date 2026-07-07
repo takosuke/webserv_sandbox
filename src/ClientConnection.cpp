@@ -900,7 +900,8 @@ void ClientConnection::finalize_cgi() {
 	_res.add_header_end();
 	_buf.clear();
 	EpollLoop::get_instance().rearm(this, EPOLLOUT | EPOLLERR | EPOLLHUP, _client_fd);
-	unlink(_file.c_str());
+	if (std::remove(_file.c_str()) != 0)
+		LOG_WARN("cgi") << "Couldn't remove temp file " << _file << std::endl;
 	_state = RESPONSE;
 }
 
