@@ -606,6 +606,15 @@ bool ClientConnection::handle_setup() {
 	 *	send a body to the cgi.
 	 */ 
 	_state = RESPONSE;
+	if (_req.method == DELETE && _req.internal && !_req.no_file && _req.status == 200) {
+		if (std::remove((_loc->get_root() + _req.path).c_str()) == 0) {
+			_req.status = 204;
+			_req.no_file = true;
+		} else {
+			_req.status = 500;
+			epi_redirect();
+		}
+	}
 	if (_req.no_file == false && _req.internal == true && _loc->get_cgi().is_set == true) {
 		if (!setup_cgi()) 
 			_req.status = 500;
