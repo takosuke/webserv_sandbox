@@ -59,7 +59,7 @@ CPPFLAGS	+= -I $(IDIR)
 
 ifdef DEBUG
 	CXXFLAGS	+= -g3
-	CXXFLAGS	+= -fno-limit-debug-info # gcc doesn't use this flag only clang (works with our setup though)
+#	CXXFLAGS	+= -fno-limit-debug-info # gcc doesn't use this flag only clang (works with our setup though)
 else
 	CXXFLAGS	+= -O3
 endif
