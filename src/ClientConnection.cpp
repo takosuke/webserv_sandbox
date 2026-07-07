@@ -891,6 +891,7 @@ void ClientConnection::finalize_cgi() {
 	_res.add_header_end();
 	_buf.clear();
 	EpollLoop::get_instance().rearm(this, EPOLLOUT | EPOLLERR | EPOLLHUP, _client_fd);
+	unlink(_file.c_str());
 	_state = RESPONSE;
 }
 
