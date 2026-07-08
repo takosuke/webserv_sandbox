@@ -313,6 +313,16 @@ static int parse_portstring(const std::string &portstr) {
 	return (port);
 }
 
+static bool equals_icase(const std::string &a, const std::string &b) {
+	if (a.size() != b.size())
+		return false;
+	for (std::string::size_type i = 0; i < a.size(); ++i)
+		if (std::tolower(static_cast<unsigned char>(a[i]))
+				!= std::tolower(static_cast<unsigned char>(b[i])))
+			return false;
+	return true;
+}
+
 /**	@brief Checks if a full request line is present and parses it. Once the
  *  parsing is complete set's up the next state.
  *
@@ -762,14 +772,27 @@ bool ClientConnection::setup_cgi() {
 }
 
 bool ClientConnection::handle_cgi_output(uint32_t events) {
-	if (events & EPOLLIN && _buf.fill_capacity() > 1)
-		_buf.fill(fd);
+	int		readret = -1;
+	// A pipe that HUPs can still hold buffered data, so read on HUP too
+	if ((events & (EPOLLIN | EPOLLHUP | EPOLLERR)) && _buf.fill_capacity() > 1)
+		readret = _buf.fill(fd);
 
 	if (_state == CGI_HEADERS) {
-		size_t pos;
-		pos = _buf.find("\r\n");
-		while (pos != ScratchBuffer::npos && pos != 0) {
-			std::string line(_buf.data, pos);
+		// Don't commit headers to _res until the blank line is in the buffer
+		std::vector<std::pair<std::string, std::string> >	fields;
+		int		status = 200;
+		size_t	body_start = ScratchBuffer::npos;
+		size_t	line_start = 0;
+		size_t pos = _buf.find('\n');
+		while (pos != ScratchBuffer::npos) {
+			size_t	len = pos - line_start;
+			if (len > 0 && _buf.data[pos - 1] == '\r')
+				--len;	// tolerate CRLF and LF
+			if (len == 0) {
+				body_start = pos + 1;
+				break;
+			}
+			std::string line(_buf.data, len);
 			size_t colon = line.find(':');
 			if (colon != std::string::npos) {
 				std::string key = line.substr(0, colon);
@@ -777,26 +800,39 @@ bool ClientConnection::handle_cgi_output(uint32_t events) {
 				size_t trim = val.find_first_not_of(" \t");
 				if (trim != std::string::npos)
 					val = val.substr(trim);
-				if (key == "Status") {
-					_req.status = std::atoi(val.c_str());
-					_res.add_status_line(HTTP_VERSION_STR, _req.status);
+				if (equals_icase(key, "Status")) {
+					status = std::atoi(val.c_str());
 				}
 				else
-					_res.add_header_field(key, val);
+					fields.push_back(std::make_pair(key, val));
 			}
-			_buf.erase(0, pos + 2);
-			pos = _buf.find("\r\n") ;
+			line_start = pos + 1;
+			pos = _buf.find('\n', line_start);
 		}
-		if (pos != 0)
-			return (true);
-		// size_t sep = _buf.find("\r\n\r\n");
-		// if (sep == ScratchBuffer::npos) {
-		// 	if (_buf.fill_capacity() <= 1) {
-		// 		_req.status = 500;
-		// 	}
-		// 	return (true);
-		// }
-		// parse_cgi_headers(sep);
+
+		if (body_start == ScratchBuffer::npos) {
+			if (readret == 0 || _buf.fill_capacity() <= 1) {
+				// Header block incomplete, do 502 instead of spinning on HUP
+				// forever
+				waitpid(_cgi_pid, NULL, 0); // FIXME blocking
+				_res.headers.clear();
+				_res.add_status_line(HTTP_VERSION_STR, 502);
+				_res.add_date();
+				_res.add_header_end();
+				_req.status = 502;
+				_req.no_file = true;
+				_buf.clear();
+				_state = RESPONSE;
+				EpollLoop::get_instance().rearm(this, EPOLLOUT | EPOLLERR | EPOLLHUP, _client_fd);
+			}
+			return true;
+		}
+
+		_req.status = status;
+		_res.add_status_line(HTTP_VERSION_STR, status);
+		for (size_t i = 0; i < fields.size(); ++i)
+			_res.add_header_field(fields[i].first, fields[i].second);
+		_buf.erase(0, body_start);
 		char tmpname[] = "/tmp/cgi_XXXXXX";
 		int tmpfd = mkstemp(tmpname);
 		close(tmpfd);
@@ -814,10 +850,11 @@ bool ClientConnection::handle_cgi_output(uint32_t events) {
 			_buf.feed(_stream);
 			_buf.clear();
 		}
+		// Finalize on EOF not on HUP flag - HUP can arrive with data still on
+		// the pipe
+		if (readret == 0)
+			finalize_cgi();
 	}
-
-	if (events & (EPOLLERR | EPOLLHUP))
-		finalize_cgi();
 
 	return (true);
 }
@@ -895,7 +932,8 @@ void ClientConnection::finalize_cgi() {
 		_buf.feed(_stream);
 	_stream.flush();
 	_stream.close();
-	waitpid(_cgi_pid, NULL, 0);
+	waitpid(_cgi_pid, NULL, 0); // FIXME
+
 	_stream.open(_file.c_str(), std::ios::in | std::ios::binary);
 	_res.add_header_end();
 	_buf.clear();
