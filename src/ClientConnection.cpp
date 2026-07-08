@@ -12,6 +12,7 @@
 #include <fcntl.h>
 #include <stdexcept>
 #include <algorithm>
+#include <sstream>
 
 #include "Config.hpp"
 #include "EpollLoop.hpp"
@@ -706,6 +707,17 @@ bool ClientConnection::setup_cgi() {
 	env_strings.push_back("PATH_INFO=" + _req.path);
 	env_strings.push_back("QUERY_STRING=" + _req.query);
 	env_strings.push_back("SERVER_NAME=" + _req.hostname);
+	if (_req.method == POST && _req.content_length > 0) {
+		std::ostringstream oss;
+		oss << _req.content_length;
+		env_strings.push_back("CONTENT_LENGTH=" + oss.str());
+	}
+	std::map<std::string, std::string>::const_iterator ct = _req.headers.find("content-type");
+	if (ct != _req.headers.end())
+	{
+		LOG_DEBUG("cgi") << "content-type= " << ct->second << std::endl;
+		env_strings.push_back("CONTENT_TYPE=" + ct->second);
+	}
 
 	const std::vector<std::pair<std::string, std::string> > &params =
 		_loc->get_cgi().params;
@@ -792,7 +804,7 @@ bool ClientConnection::handle_cgi_output(uint32_t events) {
 				body_start = pos + 1;
 				break;
 			}
-			std::string line(_buf.data, len);
+			std::string line(_buf.data + line_start, len);
 			size_t colon = line.find(':');
 			if (colon != std::string::npos) {
 				std::string key = line.substr(0, colon);
