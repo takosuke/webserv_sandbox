@@ -94,7 +94,7 @@ void	EpollLoop::run() {
 	sig_int = false;
 	signal(SIGINT, int_handler);
 	while (sig_int == false) {
-		int ready = epoll_wait(_epoll_fd, _events, MAX_EVENTS, -1);
+		int ready = epoll_wait(_epoll_fd, _events, MAX_EVENTS, 5);
 		// TODO EINTR not handled
 		// if (ready < 0 && errno == EINTR) continue;
 		if (ready < 0 && sig_int == false) {
