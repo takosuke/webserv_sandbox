@@ -696,9 +696,10 @@ void ClientConnection::fill_res_buffer() {
 bool ClientConnection::setup_cgi() {
 	const std::string	&interp = _loc->get_cgi().pass;
 	const std::string	&script = _loc->get_root() + _req.path;
-	// Scripts need at minimum REQUEST_METHOD, SCRIPT_FILENAME, QUERY_STRING, 
-	// SERVER_PROTOCOL, GATEWAY_INTERFACE, CONTENT_TYPE/CONTENT_LENGTH for
-	//  POST, plus any cgi_param pairs from the location config
+	// TODO missing:
+	// REMOTE_ADDR, SERVER_PORT, SCRIPT_NAME, SERVER_SOFTWARE, HTTP_* esp.
+	// HTTP_COOKIE
+	// REDIRECT_STATUS=200 for php
 	std::vector<std::string> env_strings;
 	env_strings.push_back("GATEWAY_INTERFACE=CGI/1.1");
 	env_strings.push_back("SERVER_PROTOCOL=" + _req.version);
