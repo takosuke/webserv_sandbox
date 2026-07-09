@@ -25,6 +25,19 @@
     (let [resp (server/http-get "/cgi-bin/hello.py")]
       (is (= "text/plain" (get-in resp [:headers "content-type"]))))))
 
+;; Regression: the CGI header parser once read every line after the first as
+;; a prefix of the buffer's *first* line (missing line_start offset), so only
+;; single-header CGI responses survived intact.  Pin a multi-header response
+;; with exact values for the second and later headers.
+(deftest test-cgi-multi-header-response-intact
+  (testing "All headers of a multi-header CGI response reach the client with exact values"
+    (let [resp (server/http-get "/cgi-bin/multi_header.py")]
+      (is (= 200 (:status resp)))
+      (is (= "text/plain" (get-in resp [:headers "content-type"])))
+      (is (= "alpha-value-4242" (get-in resp [:headers "x-first"])))
+      (is (= "beta" (get-in resp [:headers "x-second"])))
+      (is (clojure.string/includes? (:body resp) "multi-header-marker")))))
+
 ;; ---- echo script: env var forwarding ----
 
 (deftest test-cgi-request-method-env
