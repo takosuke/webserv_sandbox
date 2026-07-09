@@ -15,6 +15,7 @@
 #include <csignal>
 
 #include "Logger.hpp"
+#include "ClientConnection.hpp"
 
 static bool	sig_int	= false;
 
@@ -93,7 +94,7 @@ void	EpollLoop::run() {
 	sig_int = false;
 	signal(SIGINT, int_handler);
 	while (sig_int == false) {
-		int ready = epoll_wait(_epoll_fd, _events, MAX_EVENTS, -1);
+		int ready = epoll_wait(_epoll_fd, _events, MAX_EVENTS, 5);
 		// TODO EINTR not handled
 		// if (ready < 0 && errno == EINTR) continue;
 		if (ready < 0 && sig_int == false) {
@@ -109,6 +110,13 @@ void	EpollLoop::run() {
 		for (int i = 0; i < ready; i++) {
 			Connection *conn = (Connection*)_events[i].data.ptr;
 			conn->handle(_events[i].events);
+		}
+		time_t	cur_time = time(NULL);
+		for (std::map<int, Connection *>::const_iterator it = _connections.begin();
+			it != _connections.end(); it++) {
+			if (cur_time - it->second->_last_update > it->second->_timeout &&
+				dynamic_cast<ClientConnection *>(it->second) != NULL)
+				del(it->second);
 		}
 		clear();
 	}
