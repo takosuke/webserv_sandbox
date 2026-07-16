@@ -29,7 +29,7 @@
   (testing "KNOWN-FAILING: an incomplete request + half-close is answered or closed, not left hanging"
     (let [{:keys [timed-out]}
           (server/raw-request-timeout "127.0.0.1" 8080
-            "GET /index.html HTTP/1.0\r\nHos" 1500)]
+                                      "GET /index.html HTTP/1.0\r\nHos" 1500)]
       (is (not timed-out)
           "server should close or respond to a half-closed incomplete request"))))
 
@@ -38,7 +38,7 @@
     ;; Resilience check (not KNOWN-FAILING): trigger the half-open state on one
     ;; connection, then confirm a fresh connection is still served promptly.
     (future (server/raw-request-timeout "127.0.0.1" 8080
-              "GET /index.html HTTP/1.0\r\nHos" 1000))
+                                        "GET /index.html HTTP/1.0\r\nHos" 1000))
     (Thread/sleep 200)
     (is (server/responsive? 2000))))
 
@@ -53,7 +53,7 @@
   (testing "KNOWN-FAILING: a URI that decodes to a literal % is answered, not looped forever"
     (let [{:keys [response timed-out]}
           (server/raw-request-timeout "127.0.0.1" 8080
-            "GET /%25 HTTP/1.0\r\nHost: 127.0.0.1\r\n\r\n" 1500)]
+                                      "GET /%25 HTTP/1.0\r\nHost: 127.0.0.1\r\n\r\n" 1500)]
       (is (not timed-out) "request must terminate with a response")
       (is (re-find #"HTTP/\S+ \d{3}" response)
           "a status line should be returned"))))
@@ -62,7 +62,7 @@
   (testing "KNOWN-FAILING: %2525 (decodes to %25) also terminates"
     (let [{:keys [timed-out]}
           (server/raw-request-timeout "127.0.0.1" 8080
-            "GET /%2525 HTTP/1.0\r\nHost: 127.0.0.1\r\n\r\n" 1500)]
+                                      "GET /%2525 HTTP/1.0\r\nHost: 127.0.0.1\r\n\r\n" 1500)]
       (is (not timed-out)))))
 
 ;; ---------------------------------------------------------------------------
@@ -76,7 +76,7 @@
   (testing "KNOWN-FAILING: a CGI emitting LF-only header lines is parsed, not hung"
     (let [{:keys [timed-out]}
           (server/raw-request-timeout "127.0.0.1" 8080
-            "GET /cgi-bin/lf_headers.py HTTP/1.0\r\nHost: 127.0.0.1\r\n\r\n" 2500)]
+                                      "GET /cgi-bin/lf_headers.py HTTP/1.0\r\nHost: 127.0.0.1\r\n\r\n" 2500)]
       (is (not timed-out) "LF-terminated CGI headers must not hang the response"))))
 
 ;; ---------------------------------------------------------------------------
@@ -91,11 +91,11 @@
   (testing "KNOWN-FAILING: an oversized body that is half-closed early is answered or closed, not spun on"
     (let [{:keys [timed-out]}
           (server/raw-request-timeout "127.0.0.1" 8080
-            (str "POST /cgi-bin/env.py HTTP/1.1\r\n"
-                 "Host: 127.0.0.1\r\n"
-                 "Content-Length: 100000\r\n"
-                 "\r\n"
-                 "partial-body-then-eof") 1500)]
+                                      (str "POST /cgi-bin/env.py HTTP/1.1\r\n"
+                                           "Host: 127.0.0.1\r\n"
+                                           "Content-Length: 100000\r\n"
+                                           "\r\n"
+                                           "partial-body-then-eof") 1500)]
       (is (not timed-out)
           "server must not busy-loop when an oversized body is cut short"))))
 
@@ -111,7 +111,7 @@
   (testing "a %ff escape does not crash or wedge the server"
     (let [{:keys [timed-out]}
           (server/raw-request-timeout "127.0.0.1" 8080
-            "GET /%ff HTTP/1.0\r\nHost: 127.0.0.1\r\n\r\n" 1500)]
+                                      "GET /%ff HTTP/1.0\r\nHost: 127.0.0.1\r\n\r\n" 1500)]
       (is (not timed-out) "the request must terminate"))
     (is (server/responsive? 2000) "server stays responsive after a %ff request")))
 
