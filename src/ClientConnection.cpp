@@ -282,7 +282,8 @@ static inline char decode_hex(const char *hex) {
 static std::string decode_http(const std::string &uri) {
 	std::string	new_uri(uri);
 	
-	for (size_t pos = new_uri.find('%'); pos != std::string::npos; pos = new_uri.find('%')) {
+	for (size_t pos = new_uri.find('%'); pos != std::string::npos; pos = new_uri.find('%', pos + 1)) {
+		LOG_DEBUG("hex_decode") << "pos=" << pos;
 		if (is_valid_hex(new_uri[pos + 1], new_uri[pos + 2])) {
 			std::string	rep;
 			rep.insert(rep.begin(), decode_hex(new_uri.c_str() + pos + 1));
