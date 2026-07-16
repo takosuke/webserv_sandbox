@@ -276,7 +276,7 @@ static char const hex_val[256] = {
 };
 
 static inline char decode_hex(const char *hex) {
-	return ((hex_val[static_cast<int>(hex[0])] * 16) + hex_val[static_cast<int>(hex[1])]);
+	return ((hex_val[static_cast<unsigned char>(hex[0])] * 16) + hex_val[static_cast<unsigned char>(hex[1])]);
 }
 
 static std::string decode_http(const std::string &uri) {
@@ -284,10 +284,12 @@ static std::string decode_http(const std::string &uri) {
 	
 	for (size_t pos = new_uri.find('%'); pos != std::string::npos; pos = new_uri.find('%', pos + 1)) {
 		LOG_DEBUG("hex_decode") << "pos=" << pos;
-		if (is_valid_hex(new_uri[pos + 1], new_uri[pos + 2])) {
-			std::string	rep;
-			rep.insert(rep.begin(), decode_hex(new_uri.c_str() + pos + 1));
-			new_uri.replace(pos, 3, rep);
+		if (pos + 2 < new_uri.size()) {
+			if (is_valid_hex(new_uri[pos + 1], new_uri[pos + 2])) {
+				std::string	rep;
+				rep.insert(rep.begin(), decode_hex(new_uri.c_str() + pos + 1));
+				new_uri.replace(pos, 3, rep);
+			}
 		}
 	}
 	return (new_uri);
