@@ -121,10 +121,6 @@ ClientConnection::~ClientConnection() {
 }
 
 void ClientConnection::handle(uint32_t events) {
-	_last_update = time(NULL);
-	// Failsafe set to 0 so it compares as a timeout for sure
-	if (_last_update == static_cast<time_t>(-1))
-		_last_update = 0;
 	if (_state == REQ_BODY || _state == CGI_TRANSMIT_BODY) {
 		handle_cgi_input(events);
 		return;
@@ -142,6 +138,12 @@ void ClientConnection::handle(uint32_t events) {
 			setup_res();
 			return ;
 		}
+		if (readret == 0) {
+			_state = RESPONSE;
+			setup_res();
+			return ;
+		}
+		update_timestamp();
 		_written_body += readret;
 		_buf.clear();
 		if (_written_body >= _req.content_length) {
@@ -154,11 +156,18 @@ void ClientConnection::handle(uint32_t events) {
 		EpollLoop::get_instance().del(this);
 		return ;
 	} else if (events & EPOLLIN) {
+		int readret = -1;
 		if (_buf.fill_capacity() > 1) {
 			if (_buf.feed_capacity() == 0)
 				_buf.clear();
-			_buf.fill(fd);
+			readret = _buf.fill(fd);
 		}
+		if (readret == 0) {
+			EpollLoop::get_instance().del(this);
+			return ;
+		}
+		if (readret > 0)
+			update_timestamp();
 		if (_state == REQ_LINE)
 			if (!handle_req_line())
 				_state = REQ_SETUP;
@@ -172,9 +181,12 @@ void ClientConnection::handle(uint32_t events) {
 			EpollLoop::get_instance().rearm(this, EPOLLOUT | EPOLLERR | EPOLLHUP, _cgi_stdin_fd);
 		}
 	} else if (events & EPOLLOUT) {
-		if (_state == RESPONSE)
+		if (_state == RESPONSE) {
 			if (!handle_response())
 				EpollLoop::get_instance().del(this);
+			else
+				update_timestamp();
+		}
 	}
 }
 
@@ -330,6 +342,13 @@ static bool equals_icase(const std::string &a, const std::string &b) {
 				!= std::tolower(static_cast<unsigned char>(b[i])))
 			return false;
 	return true;
+}
+
+void	ClientConnection::update_timestamp() {
+	_last_update = time(NULL);
+	// Failsafe set to 0 so it compares as a timeout for sure
+	if (_last_update == static_cast<time_t>(-1))
+		_last_update = 0;
 }
 
 /**	@brief Checks if a full request line is present and parses it. Once the
@@ -798,6 +817,8 @@ bool ClientConnection::handle_cgi_output(uint32_t events) {
 	// A pipe that HUPs can still hold buffered data, so read on HUP too
 	if ((events & (EPOLLIN | EPOLLHUP | EPOLLERR)) && _buf.fill_capacity() > 1)
 		readret = _buf.fill(fd);
+	if (readret > 0)
+		update_timestamp();
 
 	if (_state == CGI_HEADERS) {
 		// Don't commit headers to _res until the blank line is in the buffer
@@ -887,8 +908,15 @@ void ClientConnection::handle_cgi_input(uint32_t events) {
 			EpollLoop::get_instance().del(this);
 			return;
 		}
+		int readret = -1;
 		if (_buf.fill_capacity() > 1)
-			_buf.fill(fd);
+			readret = _buf.fill(fd);
+		if (readret == 0) {
+			EpollLoop::get_instance().del(this);
+			return ;
+		}
+		if (readret > 0)
+			update_timestamp();
 		if (_buf.feed_capacity() > 0) {
 			_state = CGI_TRANSMIT_BODY;
 			EpollLoop::get_instance().rearm(this, EPOLLOUT | EPOLLERR | EPOLLHUP, _cgi_stdin_fd);
@@ -904,6 +932,8 @@ void ClientConnection::handle_cgi_input(uint32_t events) {
 	}
 	size_t before = _buf.writepos;
 	_buf.feed(_cgi_stdin_fd);
+	if (_buf.writepos > before)
+		update_timestamp();
 	_written_body += _buf.writepos - before;
 	if (_buf.feed_capacity() == 0){
 		_buf.clear();

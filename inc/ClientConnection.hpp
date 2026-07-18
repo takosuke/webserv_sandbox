@@ -50,6 +50,7 @@ private:
 	pid_t				_cgi_pid;
 	size_t				_written_body;
 
+	void	update_timestamp();
 	bool	handle_req_line();
 	bool	handle_req_headers();
 	bool	handle_setup();
