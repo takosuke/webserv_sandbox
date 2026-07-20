@@ -551,18 +551,24 @@ void ClientConnection::epi_redirect() {
 bool ClientConnection::handle_setup() {
 	int	redirects = 0;
 
-	_req.status = 200; // GET
-	if (_req.method == POST)
-		_req.status = 201; // POST
 	/* Get appropriate virtual server if a Host header field was given */
 	if (!_req.hostname.empty())
 		_server = &(http->get_server(_addr, _req.hostname));
+	if (_req.status != 0) {
+		_loc = &(_server->get_location("/"));
+		epi_redirect();
+		++ redirects;
+	} else {
+		_req.status = 200;
+		if (_req.method == POST)
+			_req.status = 201; // POST
+		_loc = &(_server->get_location(_req.path));
+	}
 	/* Default server is set up at initialization so now we can look up the
 	 * Location in a loop for internal redirects.
 	 * After performing a redirection we need to validate the method and
 	 * existence of the file again. We perform this redirection until we hit
 	 * the redirection limit. */
-	_loc = &(_server->get_location(_req.path));
 	while (_req.no_file == false && _req.internal == true && redirects < REDIRECT_LIMIT) {
 		/* Check for existing return field in location */
 		if (_loc->get_redirect().is_set) {
