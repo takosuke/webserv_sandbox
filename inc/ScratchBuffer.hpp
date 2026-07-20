@@ -26,15 +26,15 @@ public:
 	void	set_capacity(size_t cap); // Throws exception
 	void	set_data(char *buf, size_t cap);
 
-	size_t	fill(int fd);
-	size_t	fill(std::fstream &fstream);
-	size_t	fill(const char *str, size_t size);
+	int		fill(int fd);
+	int		fill(std::fstream &fstream);
+	int		fill(const char *str, int size);
 
-	size_t	feed(int fd);
-	size_t	feed(std::fstream &fstream);
+	int		feed(int fd);
+	int		feed(std::fstream &fstream);
 
-	size_t	fill_capacity();
-	size_t	feed_capacity();
+	int		fill_capacity();
+	int		feed_capacity();
 
 	bool	fill_eof();
 	bool	feed_eof();

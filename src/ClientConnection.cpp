@@ -604,9 +604,9 @@ bool ClientConnection::handle_setup() {
 		} else if (_req.path.size() > 0 && _req.path[_req.path.size() - 1] == '/') {
 			/* If we have an index for directories use it */
 			if (_loc->get_index().is_set == true) {
-				LOG_DEBUG("return") << "redirection from: " << _req.path << " to " << _loc->get_index().path << std::endl;
+				LOG_DEBUG("return") << "redirection from: " << _req.path << " to " << _req.path << _loc->get_index().path << std::endl;
 				/* Check if we have a url to an external file */
-				_req.path = _loc->get_index().path;
+				_req.path += _loc->get_index().path;
 				if (config::starts_with_scheme(_req.path)) {
 					_req.no_file = true;
 					_req.internal = false;
@@ -710,7 +710,7 @@ bool ClientConnection::setup_res() {
 }
 
 void ClientConnection::buffer_res_headers() {
-	while (_res.headers.size() > 0 && _buf.fill_capacity() > _res.headers.front().size()) {
+	while (_res.headers.size() > 0 && _buf.fill_capacity() > (int)_res.headers.front().size()) {
 		_buf.fill(_res.headers.front().c_str(), _res.headers.front().size());
 		_res.headers.erase(_res.headers.begin());
 	}

@@ -1031,6 +1031,8 @@ Location & Location::operator=(const Location & other) {
 	mime = other.mime;
 	redirect = other.redirect;
 	errorpages = other.errorpages;
+  index = other.index;
+  autoindex = other.autoindex;
 	copy_deep_container(locations, other.locations);
 	return (*this);
 }
@@ -1185,6 +1187,8 @@ void Location::from_server(const Server & server) {
 	output = server.get_output();
 	mime = server.get_mime();
 	errorpages = server.get_errorpages();
+  index = server.get_index();
+  autoindex = server.get_autoindex();
 }
 
 const Location & Location::get_location(const std::string & uri) const {
@@ -1260,6 +1264,8 @@ Server & Server::operator=(const Server & other) {
 	output = other.output;
 	mime = other.mime;
 	errorpages = other.errorpages;
+  index = other.index;
+  autoindex = other.autoindex;
 	copy_deep_container(locations, other.locations);
 	return (*this);
 }
@@ -1421,6 +1427,8 @@ void Server::from_http(const Http & http) {
 	output = http.get_output();
 	mime = http.get_mime();
 	errorpages = http.get_errorpages();
+  index = http.get_index();
+  autoindex = http.get_autoindex();
 }
 
 const Location & Server::get_location(const std::string & uri) const {
@@ -1563,6 +1571,8 @@ Http & Http::operator=(const Http & other) {
 	mime = other.mime;
 	errorpages = other.errorpages;
 	ports = other.ports;
+  index = other.index;
+  autoindex = other.autoindex;
 	copy_deep_container(servers, other.servers);
 	return (*this);
 }

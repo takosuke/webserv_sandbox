@@ -61,7 +61,7 @@ void ScratchBuffer::set_data(char *buf, size_t cap) {
 	writepos = 0;
 }
 
-size_t ScratchBuffer::fill(int fd) {
+int ScratchBuffer::fill(int fd) {
 	int	readret = read(fd, data + readpos, fill_capacity());
 
 	if (readret > 0)
@@ -70,13 +70,13 @@ size_t ScratchBuffer::fill(int fd) {
 	return (readret);
 }
 
-size_t ScratchBuffer::fill(std::fstream &fstream) {
+int	 ScratchBuffer::fill(std::fstream &fstream) {
 	fstream.read(data + readpos, fill_capacity());
 	readpos += fstream.gcount();
 	return (fstream.gcount());
 }
 
-size_t ScratchBuffer::fill(const char *str, size_t size) {
+int	 ScratchBuffer::fill(const char *str, int size) {
 	if (size > fill_capacity())
 		return (fill_capacity());
 	std::strncpy(data + readpos, str, size);
@@ -85,26 +85,26 @@ size_t ScratchBuffer::fill(const char *str, size_t size) {
 	return (size);
 }
 
-size_t ScratchBuffer::feed(int fd) {
-	size_t	writeret = write(fd, data + writepos, readpos - writepos);
+int	 ScratchBuffer::feed(int fd) {
+	int		writeret = write(fd, data + writepos, readpos - writepos);
 
 	if (writeret > 0)
 		writepos += writeret;
 	return (writeret);
 }
 
-size_t ScratchBuffer::feed(std::fstream &fstream) {
+int	 ScratchBuffer::feed(std::fstream &fstream) {
 	fstream.write(data + writepos, readpos - writepos);
 	if (fstream.good())
 		writepos += readpos - writepos;
 	return (fstream.gcount());
 }
 
-size_t ScratchBuffer::fill_capacity() {
+int	 ScratchBuffer::fill_capacity() {
 	return (capacity - readpos - 1);
 }
 
-size_t ScratchBuffer::feed_capacity() {
+int	 ScratchBuffer::feed_capacity() {
 	return (readpos - writepos);
 }
 
