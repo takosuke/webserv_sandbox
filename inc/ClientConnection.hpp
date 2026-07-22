@@ -58,15 +58,17 @@ private:
 
 	bool	parse_req_headers();
 	bool	setup_res();
+  bool  setup_post();
 	bool	setup_cgi();
 	bool	setup_autoindex();
 
 	void	handle_cgi_input(uint32_t events);
 	bool	handle_cgi_output(uint32_t events);
+  void  handle_post(uint32_t events);
 	void	parse_cgi_headers(size_t sep);
 	void	finalize_cgi();
 
-	bool	set_file(const std::string &path);
+	bool	set_file(const std::string &path, std::ios_base::openmode mode = std::ios_base::in | std::ios_base::out);
 	size_t	get_file_size() const;
 
 	bool	is_method_allowed() const;

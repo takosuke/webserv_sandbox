@@ -122,7 +122,10 @@ ClientConnection::~ClientConnection() {
 
 void ClientConnection::handle(uint32_t events) {
 	if (_state == REQ_BODY || _state == CGI_TRANSMIT_BODY) {
-		handle_cgi_input(events);
+    if (_loc->get_cgi().is_set)
+      handle_cgi_input(events);
+    else
+      handle_post(events);
 		return;
 	}
 	if (_state == CGI_HEADERS || _state == CGI_BODY) {
@@ -176,10 +179,11 @@ void ClientConnection::handle(uint32_t events) {
 				_state = REQ_SETUP;
 		if (_state == REQ_SETUP)
 			handle_setup();
-		if (_state == REQ_BODY && _buf.feed_capacity() > 0) {
-			_state = CGI_TRANSMIT_BODY;
-			EpollLoop::get_instance().rearm(this, EPOLLOUT | EPOLLERR | EPOLLHUP, _cgi_stdin_fd);
-		}
+    // Aren't we doing this in the cgi_setup??
+		// if (_state == REQ_BODY && _buf.feed_capacity() > 0) {
+		// 	_state = CGI_TRANSMIT_BODY;
+		// 	EpollLoop::get_instance().rearm(this, EPOLLOUT | EPOLLERR | EPOLLHUP, _cgi_stdin_fd);
+		// }
 	} else if (events & EPOLLOUT) {
 		if (_state == RESPONSE) {
 			if (!handle_response())
@@ -433,7 +437,7 @@ bool	ClientConnection::handle_req_headers() {
 			if (headers_line.empty()) {
 				_buf.erase(0, pos + 2);
 				_state = REQ_SETUP;
-				_written_body = _buf.readpos;
+				_written_body = 0;
 				return (parse_req_headers());
 			}
 			std::transform(headers_line.begin(), headers_line.end(), headers_line.begin(), ::tolower);
@@ -501,9 +505,6 @@ bool ClientConnection::parse_req_headers() {
 }
 
 inline bool ClientConnection::is_method_allowed() const {
-	/* Deny POST for static content */
-	if (_req.method == POST && _loc->get_cgi().is_set == false)
-		return (false);
 	return (_loc->get_limit().is_allowed(_req.method));
 }
 
@@ -560,10 +561,17 @@ bool ClientConnection::handle_setup() {
 		++ redirects;
 	} else {
 		_req.status = 200;
-		if (_req.method == POST)
-			_req.status = 201; // POST
+		if (_req.method == POST) {
+        _req.status = 201; // POST
+    }
 		_loc = &(_server->get_location(_req.path));
 	}
+  if (_req.method == POST && _loc->get_cgi().is_set == false && !setup_post()) {
+    _req.status = 500;
+    epi_redirect();
+    ++redirects;
+  }
+  else
 	/* Default server is set up at initialization so now we can look up the
 	 * Location in a loop for internal redirects.
 	 * After performing a redirection we need to validate the method and
@@ -624,10 +632,6 @@ bool ClientConnection::handle_setup() {
 					epi_redirect();
 					++redirects;
 				}
-			} else {
-				_req.status = 405; // Method not allowed
-				epi_redirect();
-				++redirects;
 			}
 		} else if (is_dir()) {
 			_req.path.push_back('/');
@@ -674,12 +678,39 @@ bool ClientConnection::handle_setup() {
 		}
 		*/
 	}
+  if (_req.method == POST) {
+    /* setup_post can potentially have appended to a small file and cleared everything to setup RESPONSE */
+    if (_state != RESPONSE)
+      _state = REQ_BODY;
+    return (true);
+  }
 	if (_req.status == 413) { // Content Too Large
 		_state = DISCARD_BODY;
 		return (true);
 	}
 	setup_res();
 	return (true);
+}
+
+bool ClientConnection::setup_post() {
+  if (set_file(_loc->get_root() + _req.path, std::ios_base::out | std::ios_base::app) == false)
+    return (false);
+  _written_body = 0;
+	size_t before = _buf.writepos;
+	_buf.feed(_stream);
+	if (_buf.writepos > before)
+		update_timestamp();
+	_written_body += _buf.writepos - before;
+	if (_buf.feed_capacity() == 0){
+		_buf.clear();
+		if (_written_body >= _req.content_length) {
+      _state = RESPONSE;
+      setup_res();
+		} else {
+			 _state = REQ_BODY;
+		}
+	}
+  return (true);
 }
 
 /**	@brief Sets up the response based on the information saved in `_req`.
@@ -718,7 +749,7 @@ void ClientConnection::buffer_res_headers() {
 
 void ClientConnection::buffer_file() {
 	while (_res.headers.size() == 0
-		&& _stream.is_open() && _stream.good() && !_stream.eof() && _buf.fill_capacity() > 1)
+		&& _stream.is_open() && _stream.good() && _buf.fill_capacity() > 1)
 		_buf.fill(_stream);
 }
 
@@ -808,7 +839,8 @@ bool ClientConnection::setup_cgi() {
 	_cgi_stdout_fd = stdout_fd[0];
 	_written_body = 0;
 	if (_req.method == POST && _req.content_length > 0) {
-		_state = REQ_BODY;
+		_state = CGI_TRANSMIT_BODY;
+    EpollLoop::get_instance().rearm(this, EPOLLOUT | EPOLLERR | EPOLLHUP, _cgi_stdin_fd);
 	} else {
 		close(_cgi_stdin_fd);
 		_cgi_stdin_fd = -1;
@@ -955,6 +987,43 @@ void ClientConnection::handle_cgi_input(uint32_t events) {
 	}
 } 
 
+void ClientConnection::handle_post(uint32_t events) {
+	if (_state == REQ_BODY) {
+		if (events & (EPOLLERR | EPOLLHUP)) {
+			EpollLoop::get_instance().del(this);
+			return;
+		}
+		int readret = -1;
+		if (_buf.fill_capacity() > 1)
+			readret = _buf.fill(fd);
+		if (readret == 0) {
+			EpollLoop::get_instance().del(this);
+			return ;
+		}
+		if (readret > 0)
+			update_timestamp();
+		if (_buf.feed_capacity() > 0) {
+			_state = RESPONSE;
+      setup_res();
+		}
+		return;
+	}
+	size_t before = _buf.writepos;
+	_buf.feed(_stream);
+	if (_buf.writepos > before)
+		update_timestamp();
+	_written_body += _buf.writepos - before;
+	if (_buf.feed_capacity() == 0){
+		_buf.clear();
+		if (_written_body >= _req.content_length) {
+      _state = RESPONSE;
+      setup_res();
+		} else {
+			 _state = REQ_BODY;
+		}
+	}
+} 
+
 void ClientConnection::parse_cgi_headers(size_t sep) {
 	std::vector<std::pair<std::string, std::string> > cgi_headers;
 	size_t start = 0;
@@ -1034,10 +1103,11 @@ bool ClientConnection::setup_autoindex() {
 	return (true);
 }
 
-bool ClientConnection::set_file(const std::string &path) {
+bool ClientConnection::set_file(const std::string &path, std::ios_base::openmode mode) {
+  _stream.close();
 	_file = path;
-	_stream.open(_file.c_str());
-	return (_stream.is_open());
+	_stream.open(_file.c_str(), mode);
+	return (_stream.is_open() && _stream.good());
 }
 
 /**	@brief Returns the size of the file `_file`.
