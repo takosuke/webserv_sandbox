@@ -65,6 +65,7 @@ private:
 	void	handle_cgi_input(uint32_t events);
 	bool	handle_cgi_output(uint32_t events);
   void  handle_post(uint32_t events);
+  void  handle_post_leftover();
 	void	parse_cgi_headers(size_t sep);
 	void	finalize_cgi();
 

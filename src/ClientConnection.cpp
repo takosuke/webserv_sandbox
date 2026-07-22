@@ -566,10 +566,17 @@ bool ClientConnection::handle_setup() {
     }
 		_loc = &(_server->get_location(_req.path));
 	}
-  if (_req.method == POST && _loc->get_cgi().is_set == false && !setup_post()) {
-    _req.status = 500;
-    epi_redirect();
-    ++redirects;
+  if (_req.method == POST && _loc->get_cgi().is_set == false) {
+    /* Added content size too large check becuase setup post would create a file */
+    if (_req.content_length > _loc->get_body().max_size) {
+			_req.status = 413;
+			epi_redirect();
+			++redirects;
+    } else if (!setup_post()) {
+      _req.status = 500;
+      epi_redirect();
+      ++redirects;
+    }
   }
   else
 	/* Default server is set up at initialization so now we can look up the
@@ -680,11 +687,12 @@ bool ClientConnection::handle_setup() {
 	}
   if (_req.method == POST) {
     /* setup_post can potentially have appended to a small file and cleared everything to setup RESPONSE */
-    if (_state != RESPONSE)
-      _state = REQ_BODY;
+    _state = REQ_BODY;
+    handle_post_leftover();
     return (true);
   }
 	if (_req.status == 413) { // Content Too Large
+    _written_body = _buf.feed_capacity(); // We treat the rest in the buffer as written
 		_state = DISCARD_BODY;
 		return (true);
 	}
@@ -695,22 +703,26 @@ bool ClientConnection::handle_setup() {
 bool ClientConnection::setup_post() {
   if (set_file(_loc->get_root() + _req.path, std::ios_base::out | std::ios_base::app) == false)
     return (false);
+  return (true);
+}
+
+/* Sends the remaining bytes in the buffer to the file after setup is completed */
+void ClientConnection::handle_post_leftover() {
   _written_body = 0;
-	size_t before = _buf.writepos;
-	_buf.feed(_stream);
-	if (_buf.writepos > before)
-		update_timestamp();
-	_written_body += _buf.writepos - before;
-	if (_buf.feed_capacity() == 0){
-		_buf.clear();
-		if (_written_body >= _req.content_length) {
+  size_t before = _buf.writepos;
+  _buf.feed(_stream);
+  if (_buf.writepos > before)
+    update_timestamp();
+  _written_body += _buf.writepos - before;
+  if (_buf.feed_capacity() == 0){
+    _buf.clear();
+    if (_written_body >= _req.content_length) {
       _state = RESPONSE;
       setup_res();
-		} else {
-			 _state = REQ_BODY;
-		}
-	}
-  return (true);
+    } else {
+      _state = REQ_BODY;
+    }
+  }
 }
 
 /**	@brief Sets up the response based on the information saved in `_req`.
