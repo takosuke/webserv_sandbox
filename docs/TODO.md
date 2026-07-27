@@ -16,8 +16,8 @@
 - [ ] header values lowercased, should only be the keys because cgi multipart upload boundaries are case sensitive
 ### smaller issues
 - [x] timeout not responding with 408 code
-- [ ] ClientConnection:414/431 if fill_capacity is exactly 1 it can hang
-- [ ] 413 unreachable on non cgi routes
+- [?] ClientConnection:414/431 if fill_capacity is exactly 1 it can hang
+- [x] 413 unreachable on non cgi routes
 
 ### CGI
 - [ ] env incomplete

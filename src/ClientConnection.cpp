@@ -577,13 +577,16 @@ bool ClientConnection::handle_setup() {
     }
 		_loc = &(_server->get_location(_req.path));
 	}
-  if (_req.method == POST && _loc->get_cgi().is_set == false) {
-    /* Added content size too large check becuase setup post would create a file */
+  if (_req.method == POST) {
+    /* Added content size too large check because setup post would create a file
+     * Only need this check once, since redirection transform the POST into a 
+     * GET request anyway and we discar the body */
     if (_req.content_length > _loc->get_body().max_size) {
 			_req.status = 413;
 			epi_redirect();
 			++redirects;
-    } else if (!setup_post()) {
+    } else if (_loc->get_cgi().is_set == false && !setup_post()) {
+      /* Only static POST requests should get here */
       _req.status = 500;
       epi_redirect();
       ++redirects;
@@ -615,10 +618,6 @@ bool ClientConnection::handle_setup() {
 			++redirects;
 		} else if (!is_method_allowed()) {
 			_req.status = 405; // Method not allowed
-			epi_redirect();
-			++redirects;
-		} else if (_req.content_length > _loc->get_body().max_size) {
-			_req.status = 413;
 			epi_redirect();
 			++redirects;
 		} else if (!is_file_existing()) {
