@@ -114,9 +114,10 @@ void	EpollLoop::run() {
 		time_t	cur_time = time(NULL);
 		for (std::map<int, Connection *>::const_iterator it = _connections.begin();
 			it != _connections.end(); it++) {
-			if (cur_time - it->second->_last_update > it->second->_timeout &&
-				dynamic_cast<ClientConnection *>(it->second) != NULL)
-				del(it->second);
+      ClientConnection  * clicon = dynamic_cast<ClientConnection *>(it->second);
+      if (clicon != NULL && cur_time - clicon->_last_update > clicon->_timeout) {
+        clicon->handle_timeout();
+      }
 		}
 		clear();
 	}

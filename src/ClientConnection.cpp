@@ -355,6 +355,17 @@ void	ClientConnection::update_timestamp() {
 		_last_update = 0;
 }
 
+void ClientConnection::handle_timeout() {
+  if (_state < DISCARD_BODY) {
+    // For reading timeout we want to overwrite the response
+    _req.status = 408;
+    handle_setup();
+    update_timestamp();
+  } else {
+    EpollLoop::get_instance().del(this);
+  }
+}
+
 /**	@brief Checks if a full request line is present and parses it. Once the
  *  parsing is complete set's up the next state.
  *

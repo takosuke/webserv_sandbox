@@ -71,9 +71,22 @@ int	main(int ac, char *av[]) {
 
 	epoll_wait(epollfd, events, 10, -1);
 	send(sfd, "GET / HTTP/1.0\r\n", 18, 0);
-	ev.events = EPOLLHUP | EPOLLRDHUP;
+	ev.events = EPOLLIN | EPOLLHUP | EPOLLRDHUP;
 	epoll_ctl(epollfd, EPOLL_CTL_MOD, sfd, &ev);
-	epoll_wait(epollfd, events, 10, -1);
+  
+  int rdhup = 0;
+  while (!rdhup) {
+    int nfds = epoll_wait(epollfd, events, 10, -1);
+    for (int i = 0; i < nfds; i++) {
+      if (events[i].data.fd == sfd) {
+        char  buf[1024];
+        int readret = read(sfd, buf, 1024);
+        write(1, buf, readret);
+        if (events[i].events & EPOLLRDHUP)
+          rdhup = 1;
+      }
+    }
+  }
 
 	close(epollfd);
 	close(sfd);

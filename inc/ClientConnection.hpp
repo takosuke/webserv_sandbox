@@ -89,4 +89,6 @@ public:
 	~ClientConnection();
 
 	void	handle(uint32_t events);
+
+  void  handle_timeout();
 };
