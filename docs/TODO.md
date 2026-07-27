@@ -8,7 +8,7 @@
 
 - [ ] cgi runtime timeout (check waitpid), finalize_cgi blocks event loop
 - [ ] no content type on responses
-- [ ] scratchbuffer signed/unsigned mixups
+- [x] scratchbuffer signed/unsigned mixups
 - [x] autoindex is redirecting subdir requests to root index (GET idxdir/ returns /index.html not idxdir/index.html)
 - [ ] EINTR unhandled, use-after-del within a batch
 - [ ] setup_cgi fail not handled

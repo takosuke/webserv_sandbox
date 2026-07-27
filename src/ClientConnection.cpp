@@ -738,28 +738,33 @@ void ClientConnection::handle_post_leftover() {
 /**	@brief Sets up the response based on the information saved in `_req`.
  */ 
 bool ClientConnection::setup_res() {
-	EpollLoop::get_instance().mod(this, EPOLLOUT | EPOLLERR | EPOLLHUP);
-	try {
-		_res.add_status_line(HTTP_VERSION_STR, _req.status);
-		if (!_req.internal)
-			_res.add_header_field("Location", _req.path);
-		else
-			_res.add_allowed(_loc);
-		_res.add_date();
-		if (!_req.no_file) {
-			if (set_file(_loc->get_root() + _req.path))
-				_res.add_header_field("Content-Length", get_file_size());
-			else {
-				throw (std::runtime_error("Couldn't open stream."));
-			}
-		}
-		_buf.clear();
-	_res.add_header_end();
-	} catch (std::exception &e) {
-		setup_internal_error();
-		return (false);
-	}
-	return (true);
+    EpollLoop::get_instance().mod(this, EPOLLOUT | EPOLLERR | EPOLLHUP);
+    try {
+        _res.add_status_line(HTTP_VERSION_STR, _req.status);
+        if (!_req.internal)
+            _res.add_header_field("Location", _req.path);
+        else
+            _res.add_allowed(_loc);
+        _res.add_date();
+        if (!_req.no_file) {
+            if (set_file(_loc->get_root() + _req.path)) {
+                _res.add_header_field("Content-Length", get_file_size());
+            } else {
+                throw (std::runtime_error("Couldn't open stream."));
+            }
+            size_t  ext_del = _req.path.find_last_of('.');
+            if (ext_del != std::string::npos) {
+                std::string ext = _req.path.substr(ext_del);
+                _res.add_header_field("Content-Type", _loc->get_mime().get_type(ext));
+            }
+        }
+        _buf.clear();
+        _res.add_header_end();
+    } catch (std::exception &e) {
+        setup_internal_error();
+        return (false);
+    }
+    return (true);
 }
 
 void ClientConnection::buffer_res_headers() {
