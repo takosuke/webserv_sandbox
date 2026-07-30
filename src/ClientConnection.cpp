@@ -577,61 +577,36 @@ bool ClientConnection::handle_setup() {
     }
 		_loc = &(_server->get_location(_req.path));
 	}
-  if (_req.method == POST) {
+	if (_req.method == POST) {
     /* Added content size too large check because setup post would create a file
      * Only need this check once, since redirection transform the POST into a 
      * GET request anyway and we discar the body */
-    if (_req.content_length > _loc->get_body().max_size) {
+		if (_req.content_length > _loc->get_body().max_size) {
 			_req.status = 413;
 			epi_redirect();
 			++redirects;
-    } else if (_loc->get_cgi().is_set == false && !setup_post()) {
+		} else if (_loc->get_cgi().is_set == false && !setup_post()) {
       /* Only static POST requests should get here */
-      _req.status = 500;
-      epi_redirect();
-      ++redirects;
-    }
-  }
-  else
-	/* Default server is set up at initialization so now we can look up the
-	 * Location in a loop for internal redirects.
-	 * After performing a redirection we need to validate the method and
-	 * existence of the file again. We perform this redirection until we hit
-	 * the redirection limit. */
-	while (_req.no_file == false && _req.internal == true && redirects < REDIRECT_LIMIT) {
-		/* Check for existing return field in location */
-		if (_loc->get_redirect().is_set) {
-			const config::redirect &red = _loc->get_redirect();
-			if (red.status_code)
-				_req.status = red.status_code;
-			LOG_DEBUG("return") << "redirection from: " << _req.path << " to " << red.path << std::endl;
-			_req.path = red.path;
-			/* Check if we have a url to an external file */
-			if (config::starts_with_scheme(_req.path)) {
-				_req.no_file = true;
-				_req.internal = false;
-			} else {
-				/* Make sure our paths are prepended by a '/' */
-				if (_req.path[0] != '/')
-					_req.path.insert(0, 1, '/');
-			}
-			++redirects;
-		} else if (!is_method_allowed()) {
-			_req.status = 405; // Method not allowed
+			_req.status = 500;
 			epi_redirect();
 			++redirects;
-		} else if (!is_file_existing()) {
-			/* We check for file existence in all cases, since we only want
-			 * file to be created through a program??? i think??? */
-			_req.status = 404; // Not found
-			epi_redirect();
-			++redirects;
-		} else if (_req.path.size() > 0 && _req.path[_req.path.size() - 1] == '/') {
-			/* If we have an index for directories use it */
-			if (_loc->get_index().is_set == true) {
-				LOG_DEBUG("return") << "redirection from: " << _req.path << " to " << _req.path << _loc->get_index().path << std::endl;
+		}
+	}
+	else 
+		/* Default server is set up at initialization so now we can look up the
+		 * Location in a loop for internal redirects.
+		 * After performing a redirection we need to validate the method and
+		 * existence of the file again. We perform this redirection until we hit
+		 * the redirection limit. */
+		while (_req.no_file == false && _req.internal == true && redirects < REDIRECT_LIMIT) {
+			/* Check for existing return field in location */
+			if (_loc->get_redirect().is_set) {
+				const config::redirect &red = _loc->get_redirect();
+				if (red.status_code)
+					_req.status = red.status_code;
+				LOG_DEBUG("return") << "redirection from: " << _req.path << " to " << red.path << std::endl;
+				_req.path = red.path;
 				/* Check if we have a url to an external file */
-				_req.path += _loc->get_index().path;
 				if (config::starts_with_scheme(_req.path)) {
 					_req.no_file = true;
 					_req.internal = false;
@@ -641,21 +616,46 @@ bool ClientConnection::handle_setup() {
 						_req.path.insert(0, 1, '/');
 				}
 				++redirects;
-			} else if (_loc->get_autoindex().is_set == true) {
-				if (setup_autoindex()) {
-					return (true);
-				} else {
-					_req.status = 500;
-					epi_redirect();
+			} else if (!is_method_allowed()) {
+				_req.status = 405; // Method not allowed
+				epi_redirect();
+				++redirects;
+			} else if (!is_file_existing()) {
+				/* We check for file existence in all cases, since we only want
+				 * file to be created through a program??? i think??? */
+				_req.status = 404; // Not found
+				epi_redirect();
+				++redirects;
+			} else if (_req.path.size() > 0 && _req.path[_req.path.size() - 1] == '/') {
+				/* If we have an index for directories use it */
+				if (_loc->get_index().is_set == true) {
+					LOG_DEBUG("return") << "redirection from: " << _req.path << " to " << _req.path << _loc->get_index().path << std::endl;
+					/* Check if we have a url to an external file */
+					_req.path += _loc->get_index().path;
+					if (config::starts_with_scheme(_req.path)) {
+						_req.no_file = true;
+						_req.internal = false;
+					} else {
+						/* Make sure our paths are prepended by a '/' */
+						if (_req.path[0] != '/')
+							_req.path.insert(0, 1, '/');
+					}
 					++redirects;
+				} else if (_loc->get_autoindex().is_set == true) {
+					if (setup_autoindex()) {
+						return (true);
+					} else {
+						_req.status = 500;
+						epi_redirect();
+						++redirects;
+					}
 				}
+			} else if (is_dir()) {
+				_req.path.push_back('/');
+			} else {
+				break ;
 			}
-		} else if (is_dir()) {
-			_req.path.push_back('/');
-		} else {
-			break ;
 		}
-	}
 	/* Perform one last redirection if we have reached the limit and still have
 	 * a valid path saved that we can check against */
 	if (_req.no_file == false && _req.internal == true && redirects >= REDIRECT_LIMIT) {
