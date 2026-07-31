@@ -1,239 +1,239 @@
-Clojure already installed at /home/takosuke/.local/bin/clojure
+Clojure already installed at /home/gomito/.local/bin/clojure
 mkdir -p conf/generated
 for f in conf/*.conf; do \
-	sed 's|__WWWROOT__|/home/takosuke/42/webserv_sandbox/www|g' $f > conf/generated/$(basename $f); \
+	sed 's|__WWWROOT__|/home/gomito/42/webserv_sandbox/www|g' $f > conf/generated/$(basename $f); \
 done
-cd webserv-tests && PATH="/home/takosuke/.local/bin:/home/takosuke/.local/bin:/home/takosuke/.local/bin:/home/takosuke/.local/bin:/usr/local/bin:/usr/bin:/bin:/usr/local/sbin:/opt/cuda/bin:/usr/lib/jvm/default/bin:/usr/bin/site_perl:/usr/bin/vendor_perl:/usr/bin/core_perl" clojure -M:test
+cd webserv-tests && PATH="/home/gomito/.local/bin:/run/user/1000/fnm_multishells/20927_1785330173188/bin:/home/gomito/gems/bin:/home/gomito/.local/share/gem/ruby/3.4.0/bin:/home/gomito/.local/bin:/run/user/1000/fnm_multishells/20919_1785330173025/bin:/home/gomito/.local/share/fnm:/run/user/1000/fnm_multishells/20916_1785330172991/bin:/home/gomito/.local/share/fnm:/home/gomito/bin/:/run/user/1000/fnm_multishells/1293_1781615638747/bin:/home/gomito/gems/bin:/home/gomito/.local/share/gem/ruby/3.4.0/bin:/home/gomito/.local/bin:/home/gomito/.local/bin:/run/user/1000/fnm_multishells/1287_1781615638286/bin:/home/gomito/.local/share/fnm:/run/user/1000/fnm_multishells/1283_1781615638160/bin:/home/gomito/.local/share/fnm:/usr/local/sbin:/usr/local/bin:/usr/bin:/var/lib/flatpak/exports/bin:/usr/lib/jvm/default/bin:/usr/bin/site_perl:/usr/bin/vendor_perl:/usr/bin/core_perl:/usr/lib/rustup/bin" clojure -M:test
 --- unit (clojure.test) ---------------------------
-webserv-tests.content-type-test
-  test-static-html-has-content-type
-    KNOWN-FAILING: a served .html file carries a text/html Content-Type header[31m FAIL[m[31m FAIL[m
-  test-cgi-without-status-defaults-to-200
-    KNOWN-FAILING: a CGI that omits Status: still yields a valid HTTP 200 status line
-
-webserv-tests.redirect-test
-  test-external-return-redirects
-    external `return 302 <url>` sends a 302 with the Location header (works today)
-  test-internal-return-redirects
-    KNOWN-FAILING: internal `return 301 /index.html` yields the redirect, not 500[31m FAIL[m[31m FAIL[m
-  test-large-header-buffer-honored
-    KNOWN-FAILING: client_header_buffer_size 16384 lets a ~3 KB request line through[31m FAIL[m
-
-webserv-tests.response-format-test
-  test-date-header-present
-    200 response includes a Date header
-  test-content-length-present
-    200 response includes a Content-Length header
-  test-status-line-format
-    200 response status line matches HTTP/x.x 200 <reason>
-  test-body-contains-html
-    Body of /index.html contains an HTML tag
-  test-body-non-empty-for-html
-    Response body for /index.html is not empty
-  test-content-length-is-positive
-    Content-Length for an HTML file is a positive integer
-  test-allow-header-present
-    GET response includes an Allow header listing permitted methods
-
-webserv-tests.cgi-test
-  test-cgi-empty-query-string
-    QUERY_STRING is empty when no query string is provided
-  test-cgi-content-type-forwarded
-    Content-Type header set by the CGI script is forwarded
-  test-cgi-post-method-env
-    REQUEST_METHOD is POST for a POST request
-  test-cgi-body-content
-    Body returned by the CGI script contains expected output
-  test-cgi-request-method-env
-    REQUEST_METHOD env var is set to GET for a GET request
-  test-missing-cgi-script-is-error
-    Requesting a non-existent CGI script produces an error response
-  test-cgi-post-body-forwarded
-    POST body is passed to the CGI script via stdin
-  test-cgi-query-string-forwarded
-    QUERY_STRING env var contains the URL query string
-  test-cgi-executes-and-responds
-    GET on a CGI script produces a response (not a connection close)
-  test-cgi-multi-header-response-intact
-    All headers of a multi-header CGI response reach the client with exact values
-  test-cgi-status-forwarded
-    Status header set by the CGI script is forwarded to the client
-
-webserv-tests.limit-except-test
-  test-post-blocked-on-restricted-location
-    POST on a limit_except GET location returns 405
-  test-delete-blocked-on-restricted-location
-    DELETE on a limit_except GET location returns 405
-  test-get-allowed-on-restricted-location
-    GET on a limit_except GET location is permitted (not 405)
-
-webserv-tests.resilience-test
-  test-oversized-body-half-close-does-not-hang
-    KNOWN-FAILING: an oversized body that is half-closed early is answered or closed, not spun on
-  test-percent-encoded-percent-does-not-loop
-    KNOWN-FAILING: a URI that decodes to a literal % is answered, not looped forever
-  test-double-encoded-percent-does-not-loop
-    KNOWN-FAILING: %2525 (decodes to %25) also terminates
-  test-client-close-mid-response-stays-responsive
-    a client that closes mid-response does not crash the server
-  test-high-bit-percent-escape-stays-responsive
-    a %ff escape does not crash or wedge the server
-  test-half-closed-incomplete-request-does-not-hang
-    KNOWN-FAILING: an incomplete request + half-close is answered or closed, not left hanging
-  test-half-close-server-stays-responsive
-    Server still serves other clients after a half-closed connection
-  test-cgi-lf-only-headers-do-not-hang
-    KNOWN-FAILING: a CGI emitting LF-only header lines is parsed, not hung
-
-webserv-tests.error-response-test
-  test-request-line-missing-uri
-    Request line with only a method token closes connection or returns 4xx
-  test-empty-request
-    Empty request closes connection or returns 4xx
-  test-error-response-has-valid-status-line
-    If the server sends a response to an unknown method it must be well-formed
-  test-unknown-method-foobar-returns-501
-    Unknown method FOOBAR returns 501
-  test-http20-returns-505
-    HTTP/2.0 version string returns 505
-  test-invalid-version-returns-400
-    Garbage version string returns 400
-  test-put-returns-501
-    PUT returns 501
-  test-head-returns-501
-    HEAD returns 501
-  test-garbage-request-line
-    Completely unparseable request line closes connection or returns 4xx
-  test-patch-returns-501
-    PATCH returns 501
-  test-unknown-method-xyzzy-returns-501
-    Unknown method XYZZY returns 501
-  test-options-returns-501
-    OPTIONS returns 501
-  test-version-too-long-returns-400
-    Overlong version string returns 400 or closes connection
-
 webserv-tests.regression-test
-  test-header-without-colon-rejected
-    KNOWN-FAILING: a header line with no colon yields 400, not 200
   test-delete-removes-file
     KNOWN-FAILING: DELETE removes the target file from disk
-  test-cgi-post-body-readable-via-content-length
-    KNOWN-FAILING: a CGI reading CONTENT_LENGTH bytes from stdin sees the body
   test-cgi-content-type-forwarded
     KNOWN-FAILING: CONTENT_TYPE env var is forwarded to the CGI
+  test-chunked-post-unchunked-for-cgi
+    KNOWN-FAILING: a chunked POST body is de-chunked and delivered to the CGI[31m FAIL[m
+  test-header-without-colon-rejected
+    KNOWN-FAILING: a header line with no colon yields 400, not 200
   test-cgi-content-length-forwarded
     KNOWN-FAILING: CONTENT_LENGTH env var is set for a CGI POST
   test-binary-body-matches-content-length
     KNOWN-FAILING: bytes delivered equal the advertised Content-Length
+  test-cgi-post-body-readable-via-content-length
+    KNOWN-FAILING: a CGI reading CONTENT_LENGTH bytes from stdin sees the body
   test-binary-file-served-intact
     KNOWN-FAILING: GET on a binary file returns the whole file, not a NUL-truncated prefix
-  test-chunked-post-unchunked-for-cgi
-    KNOWN-FAILING: a chunked POST body is de-chunked and delivered to the CGI[31m FAIL[m
 
-webserv-tests.parse-error-test
-  test-bogus-minor-version-is-400
-    KNOWN-FAILING: a bogus HTTP minor version (HTTP/1.10) returns 400[31m FAIL[m
-  test-invalid-percent-encoding-is-400
-    KNOWN-FAILING: an invalid %-escape in the URI returns 400
-  test-server-survives-malformed-request-lines
-    Server stays responsive after a batch of malformed request lines
-  test-control-char-in-uri-is-400
-    KNOWN-FAILING: a control character in the URI returns 400
-  test-content-length-trailing-junk-is-400
-    KNOWN-FAILING: a Content-Length with trailing junk returns 400[31m FAIL[m
-  test-bare-method-line-is-400
-    KNOWN-FAILING: a request line with only a method (no URI) returns 400
+webserv-tests.static-index-test
+  test-subdirectory-index-is-served
+    KNOWN-FAILING: GET /idxdir/ serves www/idxdir/index.html, not the root index
+  test-root-index-still-served
+    GET / still serves the root index (control: index directive works at all)
 
-webserv-tests.body-size-test
-  test-normal-get-unaffected
-    GET requests are not affected by the body size limit
-  test-small-body-accepted
-    POST with body under client_max_body_size is not rejected with 413
-  test-oversized-body-rejected
-    POST with body exceeding client_max_body_size (100 bytes) returns 413[31m FAIL[m
+webserv-tests.redirect-test
+  test-large-header-buffer-honored
+    KNOWN-FAILING: client_header_buffer_size 16384 lets a ~3 KB request line through[31m FAIL[m
+  test-internal-return-redirects
+    KNOWN-FAILING: internal `return 301 /index.html` yields the redirect, not 500[31m FAIL[m[31m FAIL[m
+  test-external-return-redirects
+    external `return 302 <url>` sends a 302 with the Location header (works today)
+
+webserv-tests.method-test
+  test-multiple-sequential-gets
+    Server handles multiple sequential GET requests without crashing
+  test-post-does-not-crash-server
+    Server stays alive after a POST request
+  test-delete-does-not-crash-server
+    Server stays alive after a DELETE request
+  test-get-existing-file
+    GET returns 200 for an existing file
+
+webserv-tests.request-line-test
+  test-http11-get
+    Well-formed HTTP/1.1 GET returns 200
+  test-http10-get
+    HTTP/1.0 GET (no Host header required) returns 200
+
+webserv-tests.limit-except-test
+  test-post-blocked-on-restricted-location
+    POST on a limit_except GET location returns 405[31m FAIL[m
+  test-get-allowed-on-restricted-location
+    GET on a limit_except GET location is permitted (not 405)
+  test-delete-blocked-on-restricted-location
+    DELETE on a limit_except GET location returns 405
+
+webserv-tests.response-format-test
+  test-status-line-format
+    200 response status line matches HTTP/x.x 200 <reason>
+  test-allow-header-present
+    GET response includes an Allow header listing permitted methods
+  test-content-length-present
+    200 response includes a Content-Length header
+  test-date-header-present
+    200 response includes a Date header
+  test-body-non-empty-for-html
+    Response body for /index.html is not empty
+  test-content-length-is-positive
+    Content-Length for an HTML file is a positive integer
+  test-body-contains-html
+    Body of /index.html contains an HTML tag
 
 webserv-tests.cgi-robustness-test
-  test-cgi-body-has-no-leading-crlf
-    KNOWN-FAILING: the CGI body is delivered without an injected leading CRLF
   test-oversized-cgi-header-is-forwarded
     KNOWN-FAILING: a CGI header larger than the buffer is forwarded, not dropped[31m FAIL[m[31m FAIL[m
   test-cgi-with-no-output-does-not-spin
     KNOWN-FAILING: a CGI that exits with no output is answered or closed, not spun on
-  test-cgi-lowercase-status-honored
-    KNOWN-FAILING: a lowercase CGI `status:` still produces an HTTP 200 status line
-  test-slow-exiting-cgi-does-not-block-the-loop
-    KNOWN-FAILING: a CGI that lingers after closing stdout must not stall other clients[31m FAIL[m
   test-large-cgi-body-not-truncated
     KNOWN-FAILING: a large CGI body is delivered whole, not cut off at EPOLLHUP
+  test-slow-exiting-cgi-does-not-block-the-loop
+    KNOWN-FAILING: a CGI that lingers after closing stdout must not stall other clients[31m FAIL[m
+  test-cgi-body-has-no-leading-crlf
+    KNOWN-FAILING: the CGI body is delivered without an injected leading CRLF
+  test-cgi-lowercase-status-honored
+    KNOWN-FAILING: a lowercase CGI `status:` still produces an HTTP 200 status line
 
 webserv-tests.virtual-hosts-test
-  test-unknown-host-falls-back-to-default
-    Unrecognised Host header falls back to the default server
   test-static-host-missing-file
     static.local returns an error for a file that only exists in www/ not www/static/
-  test-static-host-serves-its-root
-    static.local serves index.html from www/static/
+  test-unknown-host-falls-back-to-default
+    Unrecognised Host header falls back to the default server
   test-default-host-serves-root
     default.local serves index.html from www/
+  test-static-host-serves-its-root
+    static.local serves index.html from www/static/
 
-webserv-tests.request-line-test
-  test-http10-get
-    HTTP/1.0 GET (no Host header required) returns 200
-  test-http11-get
-    Well-formed HTTP/1.1 GET returns 200
+webserv-tests.error-response-test
+  test-http20-returns-505
+    HTTP/2.0 version string returns 505
+  test-empty-request
+    Empty request closes connection or returns 4xx
+  test-invalid-version-returns-400
+    Garbage version string returns 400
+  test-request-line-missing-uri
+    Request line with only a method token closes connection or returns 4xx
+  test-version-too-long-returns-400
+    Overlong version string returns 400 or closes connection
+  test-unknown-method-foobar-returns-501
+    Unknown method FOOBAR returns 501
+  test-error-response-has-valid-status-line
+    If the server sends a response to an unknown method it must be well-formed
+  test-patch-returns-501
+    PATCH returns 501
+  test-options-returns-501
+    OPTIONS returns 501
+  test-head-returns-501
+    HEAD returns 501
+  test-garbage-request-line
+    Completely unparseable request line closes connection or returns 4xx
+  test-put-returns-501
+    PUT returns 501
+  test-unknown-method-xyzzy-returns-501
+    Unknown method XYZZY returns 501
 
-webserv-tests.method-test
-  test-post-does-not-crash-server
-    Server stays alive after a POST request
-  test-multiple-sequential-gets
-    Server handles multiple sequential GET requests without crashing
-  test-get-existing-file
-    GET returns 200 for an existing file
-  test-delete-does-not-crash-server
-    Server stays alive after a DELETE request
-
-webserv-tests.static-index-test
-  test-subdirectory-index-is-served
-    KNOWN-FAILING: GET /idxdir/ serves www/idxdir/index.html, not the root index[31m FAIL[m
-  test-root-index-still-served
-    GET / still serves the root index (control: index directive works at all)
+webserv-tests.parse-error-test
+  test-bare-method-line-is-400
+    KNOWN-FAILING: a request line with only a method (no URI) returns 400
+  test-content-length-trailing-junk-is-400
+    KNOWN-FAILING: a Content-Length with trailing junk returns 400[31m FAIL[m
+  test-invalid-percent-encoding-is-400
+    KNOWN-FAILING: an invalid %-escape in the URI returns 400
+  test-control-char-in-uri-is-400
+    KNOWN-FAILING: a control character in the URI returns 400
+  test-bogus-minor-version-is-400
+    KNOWN-FAILING: a bogus HTTP minor version (HTTP/1.10) returns 400[31m FAIL[m
+  test-server-survives-malformed-request-lines
+    Server stays responsive after a batch of malformed request lines
 
 webserv-tests.static-files-test
-  test-index-body-contains-doctype
-    Body of /index.html starts with a DOCTYPE or html tag
-  test-index-body-contains-hello-world
-    Body of /index.html contains the expected page text
-  test-missing-file-is-error
-    GET on a non-existent path returns an error status
-  test-dot-segments-normalised
-    GET /static/../index.html resolves to /index.html and returns 200
-  test-static-subdirectory
-    GET /static/index.html returns 200
-  test-css-file
-    GET /static/css/style.css returns 200
   test-root-index
     GET /index.html returns 200
+  test-missing-file-is-error
+    GET on a non-existent path returns an error status
+  test-index-body-contains-hello-world
+    Body of /index.html contains the expected page text
+  test-index-body-contains-doctype
+    Body of /index.html starts with a DOCTYPE or html tag
+  test-css-file
+    GET /static/css/style.css returns 200
+  test-static-subdirectory
+    GET /static/index.html returns 200
+  test-dot-segments-normalised
+    GET /static/../index.html resolves to /index.html and returns 200
 
-Randomized with --seed 649554401
+webserv-tests.content-type-test
+  test-static-html-has-content-type
+    KNOWN-FAILING: a served .html file carries a text/html Content-Type header[31m FAIL[m
+  test-cgi-without-status-defaults-to-200
+    KNOWN-FAILING: a CGI that omits Status: still yields a valid HTTP 200 status line
 
-[31mFAIL[m in webserv-tests.content-type-test/test-static-html-has-content-type (content_type_test.clj:22)
-KNOWN-FAILING: a served .html file carries a text/html Content-Type header
-response is missing a Content-Type header entirely
-expected: (contains? (:headers resp) "content-type")
-  actual: (not (contains? {"allow" "GET, POST, DELETE", "date" "Tue, 21 Jul 2026 13:46:22 GMT", "content-length" "291"} "content-type"))
+webserv-tests.body-size-test
+  test-small-body-accepted
+    POST with body under client_max_body_size is not rejected with 413
+  test-oversized-body-rejected
+    POST with body exceeding client_max_body_size (100 bytes) returns 413
+  test-normal-get-unaffected
+    GET requests are not affected by the body size limit
+
+webserv-tests.cgi-test
+  test-cgi-executes-and-responds
+    GET on a CGI script produces a response (not a connection close)
+  test-cgi-body-content
+    Body returned by the CGI script contains expected output
+  test-cgi-multi-header-response-intact
+    All headers of a multi-header CGI response reach the client with exact values
+  test-cgi-post-body-forwarded
+    POST body is passed to the CGI script via stdin
+  test-cgi-empty-query-string
+    QUERY_STRING is empty when no query string is provided
+  test-cgi-content-type-forwarded
+    Content-Type header set by the CGI script is forwarded
+  test-cgi-query-string-forwarded
+    QUERY_STRING env var contains the URL query string
+  test-cgi-status-forwarded
+    Status header set by the CGI script is forwarded to the client
+  test-missing-cgi-script-is-error
+    Requesting a non-existent CGI script produces an error response
+  test-cgi-request-method-env
+    REQUEST_METHOD env var is set to GET for a GET request
+  test-cgi-post-method-env
+    REQUEST_METHOD is POST for a POST request
+
+webserv-tests.resilience-test
+  test-cgi-lf-only-headers-do-not-hang
+    KNOWN-FAILING: a CGI emitting LF-only header lines is parsed, not hung
+  test-percent-encoded-percent-does-not-loop
+    KNOWN-FAILING: a URI that decodes to a literal % is answered, not looped forever
+  test-half-closed-incomplete-request-does-not-hang
+    KNOWN-FAILING: an incomplete request + half-close is answered or closed, not left hanging
+  test-oversized-body-half-close-does-not-hang
+    KNOWN-FAILING: an oversized body that is half-closed early is answered or closed, not spun on
+  test-high-bit-percent-escape-stays-responsive
+    a %ff escape does not crash or wedge the server
+  test-client-close-mid-response-stays-responsive
+    a client that closes mid-response does not crash the server
+  test-half-close-server-stays-responsive
+    Server still serves other clients after a half-closed connection
+  test-double-encoded-percent-does-not-loop
+    KNOWN-FAILING: %2525 (decodes to %25) also terminates
+
+Randomized with --seed 797540426
+
+[31mFAIL[m in webserv-tests.regression-test/test-chunked-post-unchunked-for-cgi (regression_test.clj:118)
+KNOWN-FAILING: a chunked POST body is de-chunked and delivered to the CGI
+expected: (clojure.string/includes? (:body resp) "BODY=hello world")
+  actual: (not (clojure.string/includes? "" "BODY=hello world"))
 ╭───── Test output ───────────────────────────────────────────────────────
-│   ↳ conf file: base.conf
 │   ↳ conf file: base.conf
 ╰─────────────────────────────────────────────────────────────────────────
 
-[31mFAIL[m in webserv-tests.content-type-test/test-static-html-has-content-type (content_type_test.clj:24)
-KNOWN-FAILING: a served .html file carries a text/html Content-Type header
-expected: (str/includes? (str (get-in resp [:headers "content-type"])) "text/html")
-  actual: (not (str/includes? "" "text/html"))
+[31mFAIL[m in webserv-tests.redirect-test/test-large-header-buffer-honored (redirect_test.clj:53)
+KNOWN-FAILING: client_header_buffer_size 16384 lets a ~3 KB request line through
+expected 404 for a missing path via a 16 KB header buffer, got 414
+Expected:
+  [36m404[0m
+Actual:
+  [31m-404[0m [32m+414[0m
 ╭───── Test output ───────────────────────────────────────────────────────
-│   ↳ conf file: base.conf
-│   ↳ conf file: base.conf
+│   ↳ conf file: redirect_buffer.conf
 ╰─────────────────────────────────────────────────────────────────────────
 
 [31mFAIL[m in webserv-tests.redirect-test/test-internal-return-redirects (redirect_test.clj:28)
@@ -257,60 +257,21 @@ Actual:
 │   ↳ conf file: redirect_buffer.conf
 ╰─────────────────────────────────────────────────────────────────────────
 
-[31mFAIL[m in webserv-tests.redirect-test/test-large-header-buffer-honored (redirect_test.clj:53)
-KNOWN-FAILING: client_header_buffer_size 16384 lets a ~3 KB request line through
-expected 404 for a missing path via a 16 KB header buffer, got 414
+[31mFAIL[m in webserv-tests.limit-except-test/test-post-blocked-on-restricted-location (limit_except_test.clj:15)
+POST on a limit_except GET location returns 405
 Expected:
-  [36m404[0m
+  [36m405[0m
 Actual:
-  [31m-404[0m [32m+414[0m
+  [31m-405[0m [32m+500[0m
 ╭───── Test output ───────────────────────────────────────────────────────
-│   ↳ conf file: redirect_buffer.conf
-╰─────────────────────────────────────────────────────────────────────────
-
-[31mFAIL[m in webserv-tests.regression-test/test-chunked-post-unchunked-for-cgi (regression_test.clj:118)
-KNOWN-FAILING: a chunked POST body is de-chunked and delivered to the CGI
-expected: (clojure.string/includes? (:body resp) "BODY=hello world")
-  actual: (not (clojure.string/includes? "" "BODY=hello world"))
-╭───── Test output ───────────────────────────────────────────────────────
-│   ↳ conf file: base.conf
-╰─────────────────────────────────────────────────────────────────────────
-
-[31mFAIL[m in webserv-tests.parse-error-test/test-bogus-minor-version-is-400 (parse_error_test.clj:52)
-KNOWN-FAILING: a bogus HTTP minor version (HTTP/1.10) returns 400
-Expected:
-  [36m400[0m
-Actual:
-  [31m-400[0m [32m+200[0m
-╭───── Test output ───────────────────────────────────────────────────────
-│   ↳ conf file: base.conf
-╰─────────────────────────────────────────────────────────────────────────
-
-[31mFAIL[m in webserv-tests.parse-error-test/test-content-length-trailing-junk-is-400 (parse_error_test.clj:42)
-KNOWN-FAILING: a Content-Length with trailing junk returns 400
-Expected:
-  [36m400[0m
-Actual:
-  [31m-400[0m [32m+200[0m
-╭───── Test output ───────────────────────────────────────────────────────
-│   ↳ conf file: base.conf
-╰─────────────────────────────────────────────────────────────────────────
-
-[31mFAIL[m in webserv-tests.body-size-test/test-oversized-body-rejected (body_size_test.clj:26)
-POST with body exceeding client_max_body_size (100 bytes) returns 413
-Expected:
-  [36m413[0m
-Actual:
-  [31m-413[0m [32m+405[0m
-╭───── Test output ───────────────────────────────────────────────────────
-│   ↳ conf file: body_size_limit.conf
+│   ↳ conf file: limit_except.conf
 ╰─────────────────────────────────────────────────────────────────────────
 
 [31mFAIL[m in webserv-tests.cgi-robustness-test/test-oversized-cgi-header-is-forwarded (cgi_robustness_test.clj:79)
 KNOWN-FAILING: a CGI header larger than the buffer is forwarded, not dropped
 a 200 status line should be present
 expected: (re-find #"HTTP/\S+ 200" response)
-  actual: (not (re-find #"HTTP/\S+ 200" "HTTP/1.0 502 Bad Gateway\r\nDate: Tue, 21 Jul 2026 13:46:24 GMT\r\n\r\n"))
+  actual: (not (re-find #"HTTP/\S+ 200" "HTTP/1.0 502 Bad Gateway\r\nDate: Wed, 29 Jul 2026 13:11:06 GMT\r\n\r\n"))
 ╭───── Test output ───────────────────────────────────────────────────────
 │   ↳ conf file: base.conf
 │   ↳ conf file: base.conf
@@ -320,7 +281,7 @@ expected: (re-find #"HTTP/\S+ 200" response)
 KNOWN-FAILING: a CGI header larger than the buffer is forwarded, not dropped
 the large X-Big header should reach the client
 expected: (clojure.string/includes? response "BIGHEADERVALUE")
-  actual: (not (clojure.string/includes? "HTTP/1.0 502 Bad Gateway\r\nDate: Tue, 21 Jul 2026 13:46:24 GMT\r\n\r\n" "BIGHEADERVALUE"))
+  actual: (not (clojure.string/includes? "HTTP/1.0 502 Bad Gateway\r\nDate: Wed, 29 Jul 2026 13:11:06 GMT\r\n\r\n" "BIGHEADERVALUE"))
 ╭───── Test output ───────────────────────────────────────────────────────
 │   ↳ conf file: base.conf
 │   ↳ conf file: base.conf
@@ -335,12 +296,31 @@ expected: (server/responsive? 1500)
 │   ↳ conf file: base.conf
 ╰─────────────────────────────────────────────────────────────────────────
 
-[31mFAIL[m in webserv-tests.static-index-test/test-subdirectory-index-is-served (static_index_test.clj:20)
-KNOWN-FAILING: GET /idxdir/ serves www/idxdir/index.html, not the root index
-the directory's own index.html should be served, not the root one
-expected: (clojure.string/includes? (:body resp) "SUBDIR-INDEX-MARKER-9F3A")
-  actual: (not (clojure.string/includes? "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n  <meta charset=\"UTF-8\">\n  <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">\n  <title>Hello World</title>\n</head>\n<body>\n  <div class=\"container\">\n    <h1>Hello, World!</h1>\n    <p>webserv is running.</p>\n  </div>\n</body>\n</html>" "SUBDIR-INDEX-MARKER-9F3A"))
+[31mFAIL[m in webserv-tests.parse-error-test/test-content-length-trailing-junk-is-400 (parse_error_test.clj:42)
+KNOWN-FAILING: a Content-Length with trailing junk returns 400
+Expected:
+  [36m400[0m
+Actual:
+  [31m-400[0m [32m+200[0m
 ╭───── Test output ───────────────────────────────────────────────────────
-│   ↳ conf file: subdir_index.conf
+│   ↳ conf file: base.conf
 ╰─────────────────────────────────────────────────────────────────────────
-[31m89 tests, 113 assertions, 13 failures.[m
+
+[31mFAIL[m in webserv-tests.parse-error-test/test-bogus-minor-version-is-400 (parse_error_test.clj:52)
+KNOWN-FAILING: a bogus HTTP minor version (HTTP/1.10) returns 400
+Expected:
+  [36m400[0m
+Actual:
+  [31m-400[0m [32m+200[0m
+╭───── Test output ───────────────────────────────────────────────────────
+│   ↳ conf file: base.conf
+╰─────────────────────────────────────────────────────────────────────────
+
+[31mFAIL[m in webserv-tests.content-type-test/test-static-html-has-content-type (content_type_test.clj:24)
+KNOWN-FAILING: a served .html file carries a text/html Content-Type header
+expected: (str/includes? (str (get-in resp [:headers "content-type"])) "text/html")
+  actual: (not (str/includes? "text/plain" "text/html"))
+╭───── Test output ───────────────────────────────────────────────────────
+│   ↳ conf file: base.conf
+╰─────────────────────────────────────────────────────────────────────────
+[31m89 tests, 113 assertions, 11 failures.[m

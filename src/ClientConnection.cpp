@@ -754,7 +754,7 @@ bool ClientConnection::setup_res() {
             }
             size_t  ext_del = _req.path.find_last_of('.');
             if (ext_del != std::string::npos) {
-                std::string ext = _req.path.substr(ext_del);
+                std::string ext = _req.path.substr(ext_del + 1);
                 _res.add_header_field("Content-Type", _loc->get_mime().get_type(ext));
             }
         }
