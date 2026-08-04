@@ -109,14 +109,26 @@ void	EpollLoop::run() {
 		// before dereferencing
 		for (int i = 0; i < ready; i++) {
 			Connection *conn = (Connection*)_events[i].data.ptr;
-			conn->handle(_events[i].events);
+			try {
+				conn->handle(_events[i].events);
+			} catch (const std::exception &e) {
+				std::cerr << "connection " << conn->fd << " threw: " << e.what() << std::endl;
+			} catch (...) {
+				std::cerr << "connection " << conn->fd << " threw a custom exception" << std::endl;
+			}
 		}
 		time_t	cur_time = time(NULL);
 		for (std::map<int, Connection *>::const_iterator it = _connections.begin();
 			it != _connections.end(); it++) {
-      ClientConnection  * clicon = dynamic_cast<ClientConnection *>(it->second);
-      if (clicon != NULL && cur_time - clicon->_last_update > clicon->_timeout) {
-        clicon->handle_timeout();
+		ClientConnection  * clicon = dynamic_cast<ClientConnection *>(it->second);
+		if (clicon != NULL && cur_time - clicon->_last_update > clicon->_timeout) {
+			try {
+				clicon->handle_timeout();
+			} catch (const std::exception &e) {
+				std::cerr << "connection " << clicon->fd << " threw: " << e.what() << std::endl;
+			} catch (...) {
+				std::cerr << "connection " << clicon->fd << " threw a custom exception" << std::endl;
+			}
       }
 		}
 		clear();
