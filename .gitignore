@@ -1,8 +1,10 @@
 webserv
-tot
 *.o
 *.d
 
+www/cgi-bin/__pycache__/
+tot
+ 
 conf/generated/
 
 # Test framework
@@ -10,3 +12,4 @@ conf/generated/
 .cpcache/
 .lsp/
 conjure-log-*
+
