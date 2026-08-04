@@ -451,13 +451,13 @@ bool	ClientConnection::handle_req_headers() {
 				_written_body = 0;
 				return (parse_req_headers());
 			}
-			std::transform(headers_line.begin(), headers_line.end(), headers_line.begin(), ::tolower);
 			size_t colon = headers_line.find(":");
 			if (!colon || colon == ScratchBuffer::npos) {
 				_state = REQ_SETUP;
 				return (_req.status = 400, false);
 			}
 			std::string key = headers_line.substr(0, colon);
+			std::transform(key.begin(), key.end(), key.begin(), ::tolower);
 			std::string val = headers_line.substr(colon + 1);
 			size_t start = val.find_first_not_of(" \t");
 			if (start != std::string::npos)
