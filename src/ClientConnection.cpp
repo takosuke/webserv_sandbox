@@ -107,8 +107,8 @@ std::string ClientConnection::_500_str = std::string("HTTP/1.0 500 Internal Serv
  */
 
 ClientConnection::ClientConnection(int sockfd, Http *http_conf, struct sockaddr_in addr)
-	: Connection(sockfd, http_conf), _state(REQ_LINE), _addr(addr),
-	_client_fd(sockfd), _cgi_stdin_fd(-1), _cgi_stdout_fd(-1) {
+	: Connection(sockfd, http_conf), _state(REQ_LINE), _addr(addr), _loc(NULL),
+	_client_fd(sockfd), _cgi_stdin_fd(-1), _cgi_stdout_fd(-1), _cgi_pid(-1), _written_body(0) {
 	_server = &(http->get_default_server(_addr));
 	_timeout = _server->get_header().timeout;
 	_buf.set_capacity(_server->get_header().buffer_size);
