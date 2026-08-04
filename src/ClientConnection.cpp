@@ -20,6 +20,7 @@
 #include "Response.hpp"
 #include "ScratchBuffer.hpp"
 #include "autoindex.hpp"
+#include "utils.hpp"
 
 std::string ClientConnection::_500_str = std::string("HTTP/1.0 500 Internal Server Error\r\n\r\n");
 
@@ -338,6 +339,7 @@ static int parse_portstring(const std::string &portstr) {
 	return (port);
 }
 
+/*
 static bool equals_icase(const std::string &a, const std::string &b) {
 	if (a.size() != b.size())
 		return false;
@@ -347,6 +349,7 @@ static bool equals_icase(const std::string &a, const std::string &b) {
 			return false;
 	return true;
 }
+*/
 
 void	ClientConnection::update_timestamp() {
 	_last_update = time(NULL);

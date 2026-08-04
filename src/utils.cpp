@@ -31,3 +31,13 @@ int		make_server_socket(const config::listen &l) {
 
     return fd;
 }
+
+bool	equals_icase(const std::string &a, const std::string &b) {
+	if (a.size() != b.size())
+		return false;
+	for (std::string::size_type i = 0; i < a.size(); ++i)
+		if (std::tolower(static_cast<unsigned char>(a[i]))
+				!= std::tolower(static_cast<unsigned char>(b[i])))
+			return false;
+	return true;
+}
