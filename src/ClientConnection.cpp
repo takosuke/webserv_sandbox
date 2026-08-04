@@ -497,10 +497,8 @@ bool ClientConnection::parse_req_headers() {
 			std::string	portstr = _req.host.substr(colon + 1);
 			if (_req.hostname.empty() || portstr.empty())
 				return (_req.status = 400, false);
-			int port = parse_portstring(portstr);
-			if (port <= 0)
+			if (parse_portstring(portstr) <= 0)
 				return (_req.status = 400, false);
-			_req.port = port;
 		}
 	}
 	// Parse content length

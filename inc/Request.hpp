@@ -18,7 +18,6 @@ struct Request {
 
 	std::string	host;		// extracted from headers because used frequently -
 	std::string	hostname;
-	int			port;
 
 	int			status;		// current status code fo the request (200, 201, 404, ...)
 	
