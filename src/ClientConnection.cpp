@@ -119,6 +119,8 @@ ClientConnection::~ClientConnection() {
 		close(_cgi_stdin_fd);
 	if (_cgi_stdout_fd != -1)
 		close(_cgi_stdout_fd);
+	if (_cgi_pid > 0)
+		EpollLoop::get_instance().kill_child(_cgi_pid);
 }
 
 void ClientConnection::handle(uint32_t events) {
@@ -491,7 +493,6 @@ bool ClientConnection::parse_req_headers() {
 		std::string::size_type	colon = _req.host.rfind(':');
 		if (colon == std::string::npos) {
 			_req.hostname = _req.host;
-			_req.port = -1;
 		} else {
 			_req.hostname = _req.host.substr(0, colon);
 			std::string	portstr = _req.host.substr(colon + 1);
@@ -863,6 +864,7 @@ bool ClientConnection::setup_cgi() {
 	fcntl(stdout_fd[0], F_SETFL, O_NONBLOCK);
 	_client_fd = fd;
 	_cgi_pid = pid;
+	EpollLoop::get_instance().track_child(pid, CGI_TIMEOUT);
 	_cgi_stdin_fd = stdin_fd[1];
 	_cgi_stdout_fd = stdout_fd[0];
 	_written_body = 0;
@@ -923,7 +925,8 @@ bool ClientConnection::handle_cgi_output(uint32_t events) {
 			if (readret == 0 || _buf.fill_capacity() <= 1) {
 				// Header block incomplete, do 502 instead of spinning on HUP
 				// forever
-				waitpid(_cgi_pid, NULL, 0); // FIXME blocking
+				EpollLoop::get_instance().kill_child(_cgi_pid);
+				_cgi_pid = -1;
 				_res.headers.clear();
 				_res.add_status_line(HTTP_VERSION_STR, 502);
 				_res.add_date();
@@ -1087,7 +1090,7 @@ void ClientConnection::finalize_cgi() {
 		_buf.feed(_stream);
 	_stream.flush();
 	_stream.close();
-	waitpid(_cgi_pid, NULL, 0); // FIXME
+	_cgi_pid = -1;
 
 	_stream.open(_file.c_str(), std::ios::in | std::ios::binary);
 	_res.add_header_end();

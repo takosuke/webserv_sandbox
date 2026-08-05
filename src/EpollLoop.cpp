@@ -9,6 +9,7 @@
 #include <iostream>
 #include <netinet/in.h>
 #include <sys/epoll.h>
+#include <sys/wait.h>
 #include <unistd.h>
 #include <cstring>
 #include <cerrno>
@@ -38,6 +39,10 @@ EpollLoop::EpollLoop() {
 }
 
 EpollLoop::~EpollLoop() {
+	for (std::map<pid_t, Child>::iterator it = _children.begin(); it != _children.end(); ++it) {
+		kill(it->first, SIGKILL);
+		waitpid(it->first, NULL, 0);
+	}
 	for (std::map<int, Connection*>::iterator it = _connections.begin();
 			it != _connections.end(); ++it) 
 	{
@@ -132,6 +137,7 @@ void	EpollLoop::run() {
       }
 		}
 		clear();
+		reap_children();
 	}
 }
 
@@ -142,4 +148,46 @@ void	EpollLoop::delete_conn(Connection *conn) {
 	_connections.erase(conn->fd);
 	close(conn->fd);
 	delete conn; // do we delete it here or wait for destructor
+}
+
+void	EpollLoop::track_child(pid_t pid, time_t timeout) {
+	if (pid <= 0)
+		return ;
+	Child c;
+	c.deadline = time(NULL) + timeout;
+	_children[pid] = c;
+}
+
+// Mark child as not wanted, next sweep signals and reaps it
+void	EpollLoop::kill_child(pid_t pid) {
+	std::map<pid_t, Child>::iterator it = _children.find(pid);
+	if (it == _children.end())
+		return ;
+	it->second.deadline = 0;
+}
+
+void	EpollLoop::reap_children() {
+	time_t now = time(NULL);
+
+	std::map<pid_t, Child>::iterator it = _children.begin();
+	while (it != _children.end()) {
+		// Non-zero means reaped (>0) or already gone (<0) - stop tracking
+		// either way
+		if (waitpid(it->first, NULL, WNOHANG) != 0) {
+			_children.erase(it++);
+			continue ;
+		}
+		if (now >= it->second.deadline) {
+			if (it->second.signalled == false) {
+				LOG_WARN("cgi") << "CGI pid " << it->first << " overran, sending SIGTERM" << std::endl;
+				kill(it->first, SIGTERM);
+				it->second.signalled = true;
+			} else {
+				LOG_WARN("cgi") << "CGI pid " << it->first << " ignored SIGTERM, sending SIGKILL" << std::endl;
+				kill(it->first, SIGKILL);
+			}
+			it->second.deadline = now + CGI_KILL_GRACE;
+		}
+		++it;
+	}
 }
