@@ -18,11 +18,10 @@
 #include "Logger.hpp"
 #include "ClientConnection.hpp"
 
-static bool	sig_int	= false;
+static volatile sig_atomic_t	sig_int	= 0;
 
-void	int_handler(int sig) {
-	sig_int = true;
-	LOG_DEBUG("INFO") << "SIGINT (" << sig <<") recieved. Shutting down" << std::endl;
+void	int_handler(int) {
+	sig_int = 1;
 }
 
 EpollLoop & EpollLoop::get_instance() {
@@ -41,7 +40,8 @@ EpollLoop::EpollLoop() {
 EpollLoop::~EpollLoop() {
 	for (std::map<pid_t, Child>::iterator it = _children.begin(); it != _children.end(); ++it) {
 		kill(it->first, SIGKILL);
-		waitpid(it->first, NULL, 0);
+		while (waitpid(it->first, NULL, 0) < 0 && errno == EINTR)
+			;
 	}
 	for (std::map<int, Connection*>::iterator it = _connections.begin();
 			it != _connections.end(); ++it) 
@@ -96,16 +96,17 @@ void	EpollLoop::clear() {
 }
 
 void	EpollLoop::run() {
-	sig_int = false;
+	sig_int = 0;
 	signal(SIGINT, int_handler);
-	while (sig_int == false) {
+	while (!sig_int) {
 		int ready = epoll_wait(_epoll_fd, _events, MAX_EVENTS, 5);
-		// TODO EINTR not handled
-		// if (ready < 0 && errno == EINTR) continue;
-		if (ready < 0 && sig_int == false) {
-			std::cerr << "epoll_wait() failed" << std::endl; // TODO throw exception
-			// here
-			break;
+		int err = errno;
+		if (ready < 0) {
+			if (err != EINTR && sig_int == false) {
+				std::cerr << "epoll_wait() failed: " << strerror(err) << std::endl;
+				break ;
+			}
+			ready = 0;
 		}
 		// TODO events.data after i can become dangling pointer if kernel
 		// returns events after i in the same epoll_wait batch (possible when
@@ -139,6 +140,8 @@ void	EpollLoop::run() {
 		clear();
 		reap_children();
 	}
+	if (sig_int != 0)
+		LOG_DEBUG("INFO") << "SIGINT (" << sig_int << ") received. Shutting down" << std::endl;
 }
 
 void	EpollLoop::delete_conn(Connection *conn) {
@@ -171,9 +174,10 @@ void	EpollLoop::reap_children() {
 
 	std::map<pid_t, Child>::iterator it = _children.begin();
 	while (it != _children.end()) {
-		// Non-zero means reaped (>0) or already gone (<0) - stop tracking
-		// either way
-		if (waitpid(it->first, NULL, WNOHANG) != 0) {
+		pid_t	ret = waitpid(it->first, NULL, WNOHANG);
+		// >0 means child reaped. ECHILD means it's gone. 
+		// Either way we stop tracking it
+		if (ret > 0 || (ret < 0 && errno == ECHILD)) {
 			_children.erase(it++);
 			continue ;
 		}
