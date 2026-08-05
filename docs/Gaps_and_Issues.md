@@ -62,7 +62,7 @@ In order of severity.
 
 5. **`finalize_cgi()` blocks the event loop in `waitpid(pid, NULL, 0)`** (`ClientConnection.cpp:1089`, plus the copy at `:925` in the 502 branch of `handle_cgi_output` — both marked FIXME). A CGI that closes stdout but keeps running stalls every other client. Needs `WNOHANG` + deferred reap, or `kill` then reap. *(Failing test: `cgi-robustness-test/test-slow-exiting-cgi-does-not-block-the-loop`.)*
 
-6. **EpollLoop: use-after-del within a batch, and `EINTR` unhandled** (`EpollLoop.cpp:98-113`, still in-source TODOs). An event later in the same `epoll_wait` batch can dereference a connection already `del()`'d; a signal during `epoll_wait` `break`s the loop instead of continuing (the `if (ready < 0 && errno == EINTR) continue;` line is still commented out).
+6. **EpollLoop: use-after-del within a batch** (`EpollLoop.cpp:111-124`, still an in-source TODO). An event later in the same `epoll_wait` batch can dereference a connection already `del()`'d — the loop does not re-check `_connections.count(fd)` before dispatching. ~~`EINTR` unhandled~~ — **fixed 2026-08-05**; `epoll_wait`, both `waitpid` sites and the SIGINT handler are written up in `docs/past_issues/EINTR_unhandled.md`.
 
 7. **`setup_cgi()` failure leaves the connection hung forever** (`ClientConnection.cpp:684-687`). On pipe/fork failure `handle_setup` sets `_req.status = 500` and `return (true)` without calling `setup_res()` or `mod()`ing to `EPOLLOUT`; the client waits indefinitely.
 
@@ -160,7 +160,7 @@ Ordered by *grade risk per unit of work*, not by how interesting the bug is. Two
 | 10 | CGI runtime timeout (kill + reap a CGI that overruns) | feature 3 | The classic evaluation probe is an infinite-loop CGI. Pairs naturally with 9. |
 | 11 | Stop discarding the configured timeout after setup | 8 | Either inherit `config::header` into `Location` or drop the reassignment in `handle_setup`. Also the place to wire `client_body_timeout`. Clears 1 failure. |
 | 12 | `setup_cgi()` failure → build a 500 response instead of hanging | 7 | Three lines: call `setup_res()` on the failure path. |
-| 13 | EpollLoop `EINTR` + use-after-del in a batch | 6 | Uncomment the `EINTR continue`; re-check `_connections.count(fd)` before dispatching. Both are latent crashes and both are already flagged in-source. |
+| 13 | EpollLoop use-after-del in a batch | 6 | Re-check `_connections.count(fd)` before dispatching. A latent crash, already flagged in-source. (The `EINTR` half of this row is done — `docs/past_issues/EINTR_unhandled.md`.) |
 | 14 | `kill()` + reap orphaned CGI children on client abort | 9 | Zombies accumulate for the process lifetime; `ps` during an evaluation is a fair question. |
 | 15 | `accept`/`set_nonblocking` failure handling (EMFILE spin, thrown `fcntl`) | 10 | Under fd pressure the server either busy-spins or exits. |
 | 16 | Uninitialised members, `fill_capacity() == 1` window, fd double-close | 11, 16, 17 | Cheap hygiene with real crash/hang tails; batch them into one pass. |

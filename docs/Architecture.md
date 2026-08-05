@@ -65,7 +65,7 @@ SIGINT sets a `sig_int` flag that stops the loop cleanly. `main()` installs `SIG
 - `rearm(conn, events, new_fd)` — **EPOLL_CTL_DEL the old fd, swap `conn->fd` to `new_fd`, and re-ADD with a new mask.** This is how a single `ClientConnection` migrates between watching the client socket, the CGI stdin pipe, and the CGI stdout pipe over its lifetime.
 - `del(conn)` — enqueue for deletion; deregistered, closed, and freed in `clear()` at end of tick
 
-> **Known gaps in the loop:** `epoll_wait` `EINTR` is not handled (commented-out `continue`). An event later in the same batch can dereference a `Connection` already `del()`'d earlier in the batch — the loop does not re-check `_connections.count(fd)` before dispatching. Both are "must not crash" risks flagged in-source.
+> **Known gaps in the loop:** an event later in the same batch can dereference a `Connection` already `del()`'d earlier in the batch — the loop does not re-check `_connections.count(fd)` before dispatching. A "must not crash" risk, flagged in-source. (`epoll_wait` `EINTR` was the other gap here; fixed 2026-08-05 — see `past_issues/EINTR_unhandled.md`.)
 
 ### Connection Hierarchy
 
@@ -202,6 +202,6 @@ What is not there yet, in one line each (details and reproduction steps in `Gaps
 
 - **Features:** chunked transfer-encoding; an upload *storage location* directive; built-in default error pages; a subject-format `README.md`; CGI runtime and body timeouts.
 - **Regressions to fix first:** POST skips the resolution loop (`limit_except` → 500 instead of 405); the mime lookup keeps the extension's dot, so every `Content-Type` is `default_type`.
-- **Hang / resilience class:** `finalize_cgi`'s blocking `waitpid`; `EINTR` and use-after-del in the event loop; `setup_cgi` failure leaving a connection unanswered; no `kill`/reap for orphaned CGI children; `accept`/`set_nonblocking` failure handling; the `fill_capacity() == 1` window.
+- **Hang / resilience class:** `finalize_cgi`'s blocking `waitpid`; use-after-del in the event loop; `setup_cgi` failure leaving a connection unanswered; no `kill`/reap for orphaned CGI children; `accept`/`set_nonblocking` failure handling; the `fill_capacity() == 1` window.
 - **Correctness class:** internal `return` collapsing to 500; dead `client_header_buffer_size`; the post-setup timeout reset; header *values* lowercased; weak `Content-Length`/version validation; `Allow` on every response; duplicate headers dropped; uninitialized members and fd bookkeeping in `ClientConnection`.
 - **Compliance:** `mkstemp` is not on the allowed-functions list (CGI *and* autoindex temp files); the autoindex temp file is never unlinked; `bzero`/`strncpy` vs. "prefer C++ versions"; dead code (`Connection.cpp`, `CgiConnection.*`, `ServerBlock.cpp`, `parse_cgi_headers`).

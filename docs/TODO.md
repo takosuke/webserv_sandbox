@@ -29,7 +29,8 @@ README, the mime dot, the POST regression and the autoindex unlink).*
 - [ ] configured timeout is lost after handle_setup — `config::header` is not
       inherited Server→Location, so every connection reverts to the 60s default
       once the headers are parsed
-- [ ] EINTR unhandled, use-after-del within a batch
+- [x] EINTR unhandled — fixed 2026-08-05, see docs/past_issues/EINTR_unhandled.md
+- [ ] use-after-del within a batch
 - [ ] setup_cgi fail not handled
 - [ ] if POST clients die halfway forked cgi process dont get killed
 - [ ] header values lowercased, should only be the keys because cgi multipart
