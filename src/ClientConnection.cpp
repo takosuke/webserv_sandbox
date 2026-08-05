@@ -828,6 +828,8 @@ bool ClientConnection::setup_cgi() {
 		_req.status = 500;
 		return (false);
 	}
+	fcntl(stdout_fd[0], F_SETFD, FD_CLOEXEC);
+	fcntl(stdout_fd[1], F_SETFD, FD_CLOEXEC);
 
 	int stdin_fd[2];
 	if (pipe(stdin_fd) < 0) {
@@ -836,6 +838,8 @@ bool ClientConnection::setup_cgi() {
 		_req.status = 500;
 		return (false);
 	}
+	fcntl(stdin_fd[0], F_SETFD, FD_CLOEXEC);
+	fcntl(stdin_fd[1], F_SETFD, FD_CLOEXEC);
 
 	pid_t pid = fork();
 	if (pid < 0) {

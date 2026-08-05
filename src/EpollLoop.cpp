@@ -31,7 +31,7 @@ EpollLoop & EpollLoop::get_instance() {
 
 
 EpollLoop::EpollLoop() {
-	_epoll_fd = epoll_create1(0);
+	_epoll_fd = epoll_create1(EPOLL_CLOEXEC);
     if (_epoll_fd < 0) {
 		throw std::runtime_error(std::string("epoll_create1() failed: ") + strerror(errno));
     }

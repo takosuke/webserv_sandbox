@@ -21,6 +21,7 @@ void	ServerConnection::handle(uint32_t events) {
 	int client_fd = accept(fd, (sockaddr*)&client_addr, &client_len);
 	if (client_fd < 0) return; // TODO handle error?
 	set_nonblocking(client_fd);
+	set_cloexec(client_fd);
 	Connection *client_conn = new ClientConnection(client_fd, http, addr);
 
 	EpollLoop::get_instance().add(client_conn);

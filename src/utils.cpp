@@ -15,8 +15,13 @@ void	set_nonblocking(int fd) {
 		throw std::runtime_error(std::string("fcntl F_SETFL failed: ") + strerror(errno));
 }
 
+void	set_cloexec(int fd) { 
+	if (fcntl(fd, F_SETFD, FD_CLOEXEC) < 0)
+		throw std::runtime_error(std::string("fcntl F_SETFD failed: ") + strerror(errno));
+}
+
 int		make_server_socket(const config::listen &l) {
-    int fd = socket(AF_INET, SOCK_STREAM | SOCK_NONBLOCK, 0);
+    int fd = socket(AF_INET, SOCK_STREAM | SOCK_NONBLOCK | SOCK_CLOEXEC, 0);
     if (fd < 0)
         throw std::runtime_error(std::string("socket() failed: ") + strerror(errno));
     int opt = 1;
