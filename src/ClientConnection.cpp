@@ -1029,11 +1029,6 @@ void ClientConnection::handle_post(uint32_t events) {
 		}
 		if (readret > 0)
 			update_timestamp();
-		if (_buf.feed_capacity() > 0) {
-			_state = RESPONSE;
-      setup_res();
-		}
-		return;
 	}
 	size_t before = _buf.writepos;
 	_buf.feed(_stream);
@@ -1043,8 +1038,8 @@ void ClientConnection::handle_post(uint32_t events) {
 	if (_buf.feed_capacity() == 0){
 		_buf.clear();
 		if (_written_body >= _req.content_length) {
-      _state = RESPONSE;
-      setup_res();
+			_state = RESPONSE;
+			setup_res();
 		} else {
 			 _state = REQ_BODY;
 		}
