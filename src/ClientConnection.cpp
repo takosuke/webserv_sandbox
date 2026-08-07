@@ -577,6 +577,13 @@ bool ClientConnection::handle_setup() {
     }
 		_loc = &(_server->get_location(_req.path));
 	}
+	// Do before POST and CGI check because it would change method and send the
+	// wrong status code
+	if (!is_method_allowed()) {
+		_req.status = 405; // Method not allowed
+		epi_redirect();
+		++redirects;
+	}
   if (_req.method == POST) {
     /* Added content size too large check because setup post would create a file
      * Only need this check once, since redirection transform the POST into a 
@@ -592,7 +599,6 @@ bool ClientConnection::handle_setup() {
       ++redirects;
     }
   }
-  else
 	/* Default server is set up at initialization so now we can look up the
 	 * Location in a loop for internal redirects.
 	 * After performing a redirection we need to validate the method and
