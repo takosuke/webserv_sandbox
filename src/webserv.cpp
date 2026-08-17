@@ -55,6 +55,12 @@ int main(int ac, char *av[]) {
 			EpollLoop::get_instance().add(server_conn);
 		}
 
+		for (std::vector<const Server *>::const_iterator srv_it = http.get_servers().begin(); srv_it != http.get_servers().end(); srv_it++) {
+			for (std::vector<const Location *>::const_iterator it = (*srv_it)->get_locations().begin(); it != (*srv_it)->get_locations().end(); it++) {
+				(*it)->get_upload().create_dir();
+			}
+		}
+
 		EpollLoop::get_instance().run();
 	} catch (const std::exception &e) {
 		std::cerr << e.what() << std::endl;

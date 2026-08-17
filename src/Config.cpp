@@ -348,6 +348,7 @@ void config::add_listen(std::vector<config::listen> & listenvec, const std::vect
 		char *	tmp = reinterpret_cast<char *>(&tmpaddr);
 		int		num;
 
+		// TODO: Token type check
 		std::istringstream	stream(tokenit->str);
 		if (std::isdigit(stream.peek())) {
 			for (int i = 0; i < 4; i++) {
@@ -439,6 +440,96 @@ bool operator==(const config::listen & lhs, const config::listen & rhs) {
 	return (lhs.port == rhs.port &&
 		lhs.addr == rhs.addr &&
 		lhs.backlog == rhs.backlog);
+}
+
+/* CONFIG :: UPLOAD ***********************************************************/
+
+#include <sys/stat.h>
+#include <dirent.h>
+
+config::upload::upload()
+	: directory("upload"), location(""), create_path(false) {
+
+}
+
+void config::upload::create_dir() const {
+	DIR	*tmp = opendir(directory.c_str());
+	if (tmp != NULL) {
+		// Directory exists
+		closedir(tmp);
+	} else if (errno == ENOENT) {
+		// Directory doesn't exist -> Create directory
+		if (mkdir(directory.c_str(), 0777) != 0) {
+			throw (std::runtime_error("couldn't create directory '" + directory + "'"));
+		}
+	} else {
+		throw (std::runtime_error("couldn't validate existence of directory '" + directory + "'"));
+	}
+
+}
+
+config::upload::upload(config::upload const & other) {
+	*this = other;
+}
+
+config::upload::~upload() {
+
+}
+
+config::upload & config::upload::operator=(config::upload const & other) {
+	if (this == &other)
+		return (*this);
+	directory = other.directory;
+	location = other.location;
+	create_path = other.create_path;
+	return (*this);
+}
+
+void config::add_upload_directory(config::upload & upload, const std::vector<Token> & tokens) {
+	try {
+		check_parameter_count(2, 3, tokens.size());
+
+		std::vector<Token>::const_iterator	tokenit = tokens.begin();
+
+		if (tokenit->type != Token::path && tokenit->type != Token::string) {
+			throw (std::runtime_error("expected directory path as first parameter"));
+		}
+
+		upload.directory = tokenit->str;
+		DIR	*tmp = opendir(upload.directory.c_str());
+		if (tmp != NULL) {
+			// Directory exists
+			closedir(tmp);
+		} else if (errno == ENOENT) {
+			// Directory doesn't exist -> Create directory
+			if (mkdir(upload.directory.c_str(), 0777) != 0) {
+				throw (std::runtime_error("couldn't create directory '" + upload.directory + "'"));
+			}
+		} else {
+			throw (std::runtime_error("couldn't validate existence of directory '" + upload.directory + "'"));
+		}
+
+		++tokenit;
+		if (tokenit->type != Token::path && tokenit->type != Token::string) {
+			throw (std::runtime_error("expected path or string as second parameter"));
+		}
+		upload.location = tokenit->str;
+
+		++tokenit;
+		if (tokenit != tokens.end()) {
+			if (tokenit->type != Token::string) {
+				throw (std::runtime_error("expected string as third parameter"));
+			}
+			if (tokenit->str != "create_path") {
+				throw (std::runtime_error("expected 'create_path' as third parameter"));
+			}
+
+			upload.create_path = true;
+		}
+
+	} catch (std::exception & e) {
+		throw (std::runtime_error(std::string("[upload directory] ") + e.what()));
+	}
 }
 
 /* CONFIG :: MIME *************************************************************/
@@ -1033,6 +1124,7 @@ Location & Location::operator=(const Location & other) {
 	errorpages = other.errorpages;
   index = other.index;
   autoindex = other.autoindex;
+	upload = other.upload;
 	copy_deep_container(locations, other.locations);
 	return (*this);
 }
@@ -1142,6 +1234,8 @@ void Location::from_directive(const BodyDirective & directive) {
 				config::add_cgi_param(cgi, it->parameters);
 			} else if (it->name == "limit_except") {
 				config::add_limit_except(limit, it->parameters);
+			} else if (it->name == "upload_directory") {
+				config::add_upload_directory(upload, it->parameters);
 			} else {
 				throw (std::runtime_error(std::string("invalid directive: ") + it->name));
 			}
@@ -1189,6 +1283,7 @@ void Location::from_server(const Server & server) {
 	errorpages = server.get_errorpages();
   index = server.get_index();
   autoindex = server.get_autoindex();
+	upload = server.get_upload();
 }
 
 const Location & Location::get_location(const std::string & uri) const {
@@ -1266,6 +1361,7 @@ Server & Server::operator=(const Server & other) {
 	errorpages = other.errorpages;
   index = other.index;
   autoindex = other.autoindex;
+	upload = other.upload;
 	copy_deep_container(locations, other.locations);
 	return (*this);
 }
@@ -1367,6 +1463,8 @@ void Server::from_directive(const BodyDirective & directive) {
 				config::add_listen(listen, it->parameters);
 			} else if (it->name == "server_name") {
 				config::add_server_name(names, it->parameters);
+			} else if (it->name == "upload_directory") {
+				config::add_upload_directory(upload, it->parameters);
 			} else {
 				throw (std::runtime_error(std::string("invalid directive: ") + it->name));
 			}
@@ -1429,6 +1527,7 @@ void Server::from_http(const Http & http) {
 	errorpages = http.get_errorpages();
   index = http.get_index();
   autoindex = http.get_autoindex();
+	upload = http.get_upload();
 }
 
 const Location & Server::get_location(const std::string & uri) const {
@@ -1573,6 +1672,7 @@ Http & Http::operator=(const Http & other) {
 	ports = other.ports;
   index = other.index;
   autoindex = other.autoindex;
+	upload = other.upload;
 	copy_deep_container(servers, other.servers);
 	return (*this);
 }
@@ -1672,6 +1772,8 @@ void Http::from_directive(const BodyDirective & directive) {
 				was_set.autoindex = true;
 			} else if (it->name == "error_page") {
 				config::add_error_page(errorpages, it->parameters);
+			} else if (it->name == "upload_directory") {
+				config::add_upload_directory(upload, it->parameters);
 			} else {
 				throw (std::runtime_error(std::string("invalid directive: ") + it->name));
 			}

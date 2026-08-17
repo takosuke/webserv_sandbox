@@ -161,6 +161,23 @@ namespace config {
 
 	void add_listen(std::vector<config::listen> & listenvec, const std::vector<Token> & tokens);
 
+	struct upload {
+	public:
+		std::string	directory;
+		std::string	location;
+		bool				create_path;
+
+		upload();
+		upload(upload const & other);
+		~upload();
+
+		upload & operator=(upload const & other);
+
+		void	create_dir() const;
+	};
+
+	void add_upload_directory(config::upload & upload, const std::vector<Token> & tokens);
+
 	/** Every location and server should be able to have their own mime/type map.
 	 * So we just need a class to hold these types that also allows us to copy them
 	 * over for other objects that inherit their config from the original one.
@@ -379,6 +396,7 @@ private:
 	config::cgi			cgi;
 	config::index		index;
 	config::autoindex	autoindex;
+	config::upload	upload;
 
 	std::vector<const Location *>	locations;
 
@@ -412,6 +430,7 @@ public:
 	void	set_index(const config::index & other) { index = other; };
 	void	set_index(const config::autoindex & other) { autoindex = other; };
 	void	set_locations(const std::vector<const Location *> & other) { locations = other; };
+	void	set_upload(const config::upload & other) { upload = other; };
 
 	const std::string		& get_path() const { return (path); };
 	const std::string		& get_root() const { return (root); };
@@ -426,6 +445,7 @@ public:
 	const config::autoindex	& get_autoindex() const { return (autoindex); };
 	const config::cgi		& get_cgi() const { return (cgi); };
 	const std::vector<const Location *>	& get_locations() const { return (locations); };
+	const config::upload	& get_upload() const { return (upload); };
 };
 
 std::ostream & operator<<(std::ostream & out, const Location & loc);
@@ -447,6 +467,7 @@ private:
 	config::errors				errorpages;
 	config::index				index;
 	config::autoindex			autoindex;
+	config::upload	upload;
 
 	std::vector<const Location *> locations;
 
@@ -477,6 +498,7 @@ public:
 	void	set_index(const config::index & other) { index = other;  };
 	void	set_autoindex(const config::autoindex & other) { autoindex = other;  };
 	void	set_locations(const std::vector<const Location *> & other) { copy_deep_container(locations, other); };
+	void	set_upload(const config::upload & other) { upload = other; };
 
 	const std::string					& get_root() const { return (root); };
 	const std::vector<std::string>		& get_names() const { return (names); };
@@ -489,6 +511,7 @@ public:
 	const config::index					& get_index() const { return (index); };
 	const config::autoindex				& get_autoindex() const { return (autoindex); };
 	const std::vector<const Location *>			& get_locations() const { return (locations); };
+	const config::upload	& get_upload() const { return (upload); };
 };
 
 std::ostream & operator<<(std::ostream & out, const Server & server);
@@ -539,6 +562,7 @@ private:
 	config::errors	errorpages;
 	config::index				index;
 	config::autoindex			autoindex;
+	config::upload	upload;
 
 	std::map<struct sockaddr_in, Port>		ports;
 	std::vector<const Server *>	servers;
@@ -567,6 +591,7 @@ public:
 	void	set_index(const config::index & other) { index = other; };
 	void	set_autoindex(const config::autoindex & other) { autoindex = other; };
 	void	set_servers(const std::vector<const Server *> & other) { copy_deep_container(servers, other); };
+	void	set_upload(const config::upload & other) { upload = other; };
 
 	const std::string			& get_root() const { return (root); };
 	const config::header		& get_header() const { return (header); };
@@ -576,8 +601,9 @@ public:
 	const config::errors		& get_errorpages() const { return (errorpages); };
 	const config::index			& get_index() const { return (index); };
 	const config::autoindex			& get_autoindex() const { return (autoindex); };
-	const std::vector<const Server *>			& get_server() const { return (servers); };
+	const std::vector<const Server *>			& get_servers() const { return (servers); };
 	const std::map<struct sockaddr_in, Port>	& get_ports() const { return (ports); };
+	const config::upload	& get_upload() const { return (upload); };
 };
 
 std::ostream & operator<<(std::ostream & out, const Http & http);

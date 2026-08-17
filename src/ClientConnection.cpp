@@ -592,11 +592,18 @@ bool ClientConnection::handle_setup() {
 			_req.status = 413;
 			epi_redirect();
 			++redirects;
-    } else if (_loc->get_cgi().is_set == false && !setup_post()) {
-      /* Only static POST requests should get here */
-      _req.status = 500;
-      epi_redirect();
-      ++redirects;
+    } else if (_loc->get_cgi().is_set == false) {
+			if (!setup_post()) {
+				/* Only static POST requests should get here */
+				_req.status = 500;
+				epi_redirect();
+				++redirects;
+			} else {
+				/* setup_post can potentially have appended to a small file and cleared everything to setup RESPONSE */
+				_state = REQ_BODY;
+				handle_post_leftover();
+				return (true);
+			}
     }
   }
 	/* Default server is set up at initialization so now we can look up the
@@ -701,12 +708,6 @@ bool ClientConnection::handle_setup() {
 		}
 		*/
 	}
-  if (_req.method == POST) {
-    /* setup_post can potentially have appended to a small file and cleared everything to setup RESPONSE */
-    _state = REQ_BODY;
-    handle_post_leftover();
-    return (true);
-  }
 	if (_req.status == 413) { // Content Too Large
     _written_body = _buf.feed_capacity(); // We treat the rest in the buffer as written
 		_state = DISCARD_BODY;
@@ -716,8 +717,27 @@ bool ClientConnection::handle_setup() {
 	return (true);
 }
 
+#include <sys/types.h>
+#include <dirent.h>
+
 bool ClientConnection::setup_post() {
-  if (set_file(_loc->get_root() + _req.path, std::ios_base::out | std::ios_base::app) == false)
+	config::upload const & upload = _loc->get_upload();
+	if (upload.create_path == true) {
+		if (size_t dir_end = _req.path.find_last_of('/') != std::string::npos) {
+			std::string	sub_dir = _req.path.substr(0, dir_end);
+			DIR	*tmp = opendir(sub_dir.c_str());
+			if (tmp != NULL) {
+				// Directory exists
+				closedir(tmp);
+			} else if (errno == ENOENT) {
+				// Directory doesn't exist -> Create directory
+				if (mkdir(sub_dir.c_str(), 0777) != 0) {
+					return (false);
+				}
+			}
+		}
+	}
+  if (set_file(_loc->get_upload().directory + _req.path, std::ios_base::out | std::ios_base::app) == false)
     return (false);
   return (true);
 }
@@ -752,7 +772,7 @@ bool ClientConnection::setup_res() {
         else
             _res.add_allowed(_loc);
         _res.add_date();
-        if (!_req.no_file) {
+        if (!_req.no_file && _req.method != POST) {
             if (set_file(_loc->get_root() + _req.path)) {
                 _res.add_header_field("Content-Length", get_file_size());
             } else {
@@ -764,6 +784,9 @@ bool ClientConnection::setup_res() {
                 _res.add_header_field("Content-Type", _loc->get_mime().get_type(ext));
             }
         }
+				if (_req.method == POST) {
+					_res.add_header_field("Location", _req.host + "/" + _loc->get_upload().location + _req.path);
+				}
         _buf.clear();
         _res.add_header_end();
     } catch (std::exception &e) {
