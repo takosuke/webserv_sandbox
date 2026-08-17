@@ -628,6 +628,7 @@ bool ClientConnection::handle_setup() {
 				if (_req.path[0] != '/')
 					_req.path.insert(0, 1, '/');
 			}
+			_loc = &(_server->get_location(_req.path));
 			++redirects;
 		} else if (!is_method_allowed()) {
 			_req.status = 405; // Method not allowed
@@ -780,7 +781,7 @@ bool ClientConnection::setup_res() {
             }
             size_t  ext_del = _req.path.find_last_of('.');
             if (ext_del != std::string::npos) {
-                std::string ext = _req.path.substr(ext_del);
+                std::string ext = _req.path.substr(ext_del + 1);
                 _res.add_header_field("Content-Type", _loc->get_mime().get_type(ext));
             }
         }

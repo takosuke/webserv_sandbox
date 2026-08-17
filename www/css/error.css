@@ -1,0 +1,24 @@
+body {
+  background: #282828
+}
+
+header > .error {
+	background: #504945;
+	display: flex;
+	height: 120px;
+	align-items: center;
+	justify-content: left;
+	font: bold calc(1em + 2 * (100vs - 120px) / 100) "gf_Space_Mono variant0";
+	color: #b8bb26;
+}
+
+header > h1 {
+	margin-bottom: 0;
+  padding-left: 20px;
+}
+
+body .container {
+  padding: 20px;
+	font: bold 12 "gf_Space_Mono variant0";
+  color: #ebdbb2;
+}

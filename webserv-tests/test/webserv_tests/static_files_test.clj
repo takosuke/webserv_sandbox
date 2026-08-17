@@ -15,8 +15,8 @@
     (is (= 200 (:status (server/http-get "/static/index.html"))))))
 
 (deftest test-css-file
-  (testing "GET /static/css/style.css returns 200"
-    (is (= 200 (:status (server/http-get "/static/css/style.css"))))))
+  (testing "GET /style.css returns 200"
+    (is (= 200 (:status (server/http-get "/style.css"))))))
 
 ;; ---- file not found ----
 

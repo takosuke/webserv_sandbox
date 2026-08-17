@@ -39,4 +39,4 @@
   (testing "Server handles multiple sequential GET requests without crashing"
     (is (= [200 200 200]
            (mapv #(:status (server/http-get %))
-                 ["/index.html" "/static/index.html" "/static/css/style.css"])))))
+                 ["/index.html" "/static/index.html" "/style.css"])))))
