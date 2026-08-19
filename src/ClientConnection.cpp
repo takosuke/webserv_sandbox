@@ -184,8 +184,8 @@ void ClientConnection::handle(uint32_t events) {
 			handle_setup();
     // Aren't we doing this in the cgi_setup??
 		// if (_state == REQ_BODY && _buf.feed_capacity() > 0) {
-		// 	_state = CGI_TRANSMIT_BODY;
-		// 	EpollLoop::get_instance().rearm(this, EPOLLOUT | EPOLLERR | EPOLLHUP, _cgi_stdin_fd);
+		//	_state = CGI_TRANSMIT_BODY;
+		//	EpollLoop::get_instance().rearm(this, EPOLLOUT | EPOLLERR | EPOLLHUP, _cgi_stdin_fd);
 		// }
 	} else if (events & EPOLLOUT) {
 		if (_state == RESPONSE) {
@@ -579,7 +579,6 @@ bool ClientConnection::handle_setup() {
     }
 		_loc = &(_server->get_location(_req.path));
 	}
-//<<<<<<< HEAD
 	// Do before POST and CGI check because it would change method and send the
 	// wrong status code
 	if (!is_method_allowed()) {
@@ -673,10 +672,10 @@ bool ClientConnection::handle_setup() {
 	}
 	_timeout = _loc->get_header().timeout;
 	/* Possible states:
-	 * 	a:	We found a valid file within the redirect limit
-	 * 	b:	We found an external link withing the redirect limit
-	 * 	c:	We did not have a file set for this error and need to return a
-	 * 		Response without a body */
+	 *	a:	We found a valid file within the redirect limit
+	 *	b:	We found an external link withing the redirect limit
+	 *	c:	We did not have a file set for this error and need to return a
+	 *		Response without a body */
 	/*	We want to either start initializing the response or continue to
 	 *	send a body to the cgi.
 	 */ 
@@ -704,12 +703,12 @@ bool ClientConnection::handle_setup() {
 		}
 		*/
 	}
-  if (_req.method == POST) {
-    /* setup_post can potentially have appended to a small file and cleared everything to setup RESPONSE */
-    _state = REQ_BODY;
-    handle_post_leftover();
-    return (true);
-  }
+	if (_req.method == POST) {
+		/* setup_post can potentially have appended to a small file and cleared everything to setup RESPONSE */
+		_state = REQ_BODY;
+		handle_post_leftover();
+		return (true);
+	}
 	if (_req.status == 413) { // Content Too Large
     _written_body = _buf.feed_capacity(); // We treat the rest in the buffer as written
 		_state = DISCARD_BODY;
@@ -720,28 +719,28 @@ bool ClientConnection::handle_setup() {
 }
 
 bool ClientConnection::setup_post() {
-  if (set_file(_loc->get_root() + _req.path, std::ios_base::out | std::ios_base::app) == false)
-    return (false);
-  return (true);
+	if (set_file(_loc->get_root() + _req.path, std::ios_base::out | std::ios_base::app) == false)
+		return (false);
+	return (true);
 }
 
 /* Sends the remaining bytes in the buffer to the file after setup is completed */
 void ClientConnection::handle_post_leftover() {
-  _written_body = 0;
-  size_t before = _buf.writepos;
-  _buf.feed(_stream);
-  if (_buf.writepos > before)
-    update_timestamp();
-  _written_body += _buf.writepos - before;
-  if (_buf.feed_capacity() == 0){
-    _buf.clear();
-    if (_written_body >= _req.content_length) {
-      _state = RESPONSE;
-      setup_res();
-    } else {
-      _state = REQ_BODY;
-    }
-  }
+	_written_body = 0;
+	size_t before = _buf.writepos;
+	_buf.feed(_stream);
+	if (_buf.writepos > before)
+		update_timestamp();
+	_written_body += _buf.writepos - before;
+	if (_buf.feed_capacity() == 0){
+		_buf.clear();
+		if (_written_body >= _req.content_length) {
+			_state = RESPONSE;
+			setup_res();
+		} else {
+			_state = REQ_BODY;
+		}
+	}
 }
 
 /**	@brief Sets up the response based on the information saved in `_req`.
@@ -1175,7 +1174,7 @@ bool ClientConnection::handle_response() {
 		_buf.clear();
 		fill_res_buffer();
 	}
- 	if (_res.headers.size() == 0 && (!_stream.is_open() || _stream.eof()) && _buf.feed_capacity() == 0)
+	if (_res.headers.size() == 0 && (!_stream.is_open() || _stream.eof()) && _buf.feed_capacity() == 0)
 		return (false);
 	return (_buf.feed(fd) > 0);
 }
