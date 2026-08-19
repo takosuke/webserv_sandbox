@@ -20,6 +20,7 @@
 #include "Response.hpp"
 #include "ScratchBuffer.hpp"
 #include "autoindex.hpp"
+#include "utils.hpp"
 
 std::string ClientConnection::_500_str = std::string("HTTP/1.0 500 Internal Server Error\r\n\r\n");
 
@@ -106,8 +107,8 @@ std::string ClientConnection::_500_str = std::string("HTTP/1.0 500 Internal Serv
  */
 
 ClientConnection::ClientConnection(int sockfd, Http *http_conf, struct sockaddr_in addr)
-	: Connection(sockfd, http_conf), _state(REQ_LINE), _addr(addr),
-	_client_fd(sockfd), _cgi_stdin_fd(-1), _cgi_stdout_fd(-1) {
+	: Connection(sockfd, http_conf), _state(REQ_LINE), _addr(addr), _loc(NULL),
+	_client_fd(sockfd), _cgi_stdin_fd(-1), _cgi_stdout_fd(-1), _cgi_pid(-1), _written_body(0) {
 	_server = &(http->get_default_server(_addr));
 	_timeout = _server->get_header().timeout;
 	_buf.set_capacity(_server->get_header().buffer_size);
@@ -118,6 +119,8 @@ ClientConnection::~ClientConnection() {
 		close(_cgi_stdin_fd);
 	if (_cgi_stdout_fd != -1)
 		close(_cgi_stdout_fd);
+	if (_cgi_pid > 0)
+		EpollLoop::get_instance().kill_child(_cgi_pid);
 }
 
 void ClientConnection::handle(uint32_t events) {
@@ -338,6 +341,7 @@ static int parse_portstring(const std::string &portstr) {
 	return (port);
 }
 
+/*
 static bool equals_icase(const std::string &a, const std::string &b) {
 	if (a.size() != b.size())
 		return false;
@@ -347,6 +351,7 @@ static bool equals_icase(const std::string &a, const std::string &b) {
 			return false;
 	return true;
 }
+*/
 
 void	ClientConnection::update_timestamp() {
 	_last_update = time(NULL);
@@ -451,13 +456,13 @@ bool	ClientConnection::handle_req_headers() {
 				_written_body = 0;
 				return (parse_req_headers());
 			}
-			std::transform(headers_line.begin(), headers_line.end(), headers_line.begin(), ::tolower);
 			size_t colon = headers_line.find(":");
 			if (!colon || colon == ScratchBuffer::npos) {
 				_state = REQ_SETUP;
 				return (_req.status = 400, false);
 			}
 			std::string key = headers_line.substr(0, colon);
+			std::transform(key.begin(), key.end(), key.begin(), ::tolower);
 			std::string val = headers_line.substr(colon + 1);
 			size_t start = val.find_first_not_of(" \t");
 			if (start != std::string::npos)
@@ -488,16 +493,13 @@ bool ClientConnection::parse_req_headers() {
 		std::string::size_type	colon = _req.host.rfind(':');
 		if (colon == std::string::npos) {
 			_req.hostname = _req.host;
-			_req.port = -1;
 		} else {
 			_req.hostname = _req.host.substr(0, colon);
 			std::string	portstr = _req.host.substr(colon + 1);
 			if (_req.hostname.empty() || portstr.empty())
 				return (_req.status = 400, false);
-			int port = parse_portstring(portstr);
-			if (port <= 0)
+			if (parse_portstring(portstr) <= 0)
 				return (_req.status = 400, false);
-			_req.port = port;
 		}
 	}
 	// Parse content length
@@ -577,6 +579,7 @@ bool ClientConnection::handle_setup() {
     }
 		_loc = &(_server->get_location(_req.path));
 	}
+//<<<<<<< HEAD
 	// Do before POST and CGI check because it would change method and send the
 	// wrong status code
 	if (!is_method_allowed()) {
@@ -584,21 +587,21 @@ bool ClientConnection::handle_setup() {
 		epi_redirect();
 		++redirects;
 	}
-  if (_req.method == POST) {
+	if (_req.method == POST) {
     /* Added content size too large check because setup post would create a file
      * Only need this check once, since redirection transform the POST into a 
      * GET request anyway and we discar the body */
-    if (_req.content_length > _loc->get_body().max_size) {
+		if (_req.content_length > _loc->get_body().max_size) {
 			_req.status = 413;
 			epi_redirect();
 			++redirects;
-    } else if (_loc->get_cgi().is_set == false && !setup_post()) {
+		} else if (_loc->get_cgi().is_set == false && !setup_post()) {
       /* Only static POST requests should get here */
-      _req.status = 500;
-      epi_redirect();
-      ++redirects;
-    }
-  }
+			_req.status = 500;
+			epi_redirect();
+			++redirects;
+		}
+	}
 	/* Default server is set up at initialization so now we can look up the
 	 * Location in a loop for internal redirects.
 	 * After performing a redirection we need to validate the method and
@@ -626,42 +629,42 @@ bool ClientConnection::handle_setup() {
 			_req.status = 405; // Method not allowed
 			epi_redirect();
 			++redirects;
-		} else if (!is_file_existing()) {
-			/* We check for file existence in all cases, since we only want
-			 * file to be created through a program??? i think??? */
-			_req.status = 404; // Not found
-			epi_redirect();
-			++redirects;
-		} else if (_req.path.size() > 0 && _req.path[_req.path.size() - 1] == '/') {
-			/* If we have an index for directories use it */
-			if (_loc->get_index().is_set == true) {
-				LOG_DEBUG("return") << "redirection from: " << _req.path << " to " << _req.path << _loc->get_index().path << std::endl;
-				/* Check if we have a url to an external file */
-				_req.path += _loc->get_index().path;
-				if (config::starts_with_scheme(_req.path)) {
-					_req.no_file = true;
-					_req.internal = false;
-				} else {
-					/* Make sure our paths are prepended by a '/' */
-					if (_req.path[0] != '/')
-						_req.path.insert(0, 1, '/');
-				}
+			} else if (!is_file_existing()) {
+				/* We check for file existence in all cases, since we only want
+				 * file to be created through a program??? i think??? */
+				_req.status = 404; // Not found
+				epi_redirect();
 				++redirects;
-			} else if (_loc->get_autoindex().is_set == true) {
-				if (setup_autoindex()) {
-					return (true);
-				} else {
-					_req.status = 500;
-					epi_redirect();
+			} else if (_req.path.size() > 0 && _req.path[_req.path.size() - 1] == '/') {
+				/* If we have an index for directories use it */
+				if (_loc->get_index().is_set == true) {
+					LOG_DEBUG("return") << "redirection from: " << _req.path << " to " << _req.path << _loc->get_index().path << std::endl;
+					/* Check if we have a url to an external file */
+					_req.path += _loc->get_index().path;
+					if (config::starts_with_scheme(_req.path)) {
+						_req.no_file = true;
+						_req.internal = false;
+					} else {
+						/* Make sure our paths are prepended by a '/' */
+						if (_req.path[0] != '/')
+							_req.path.insert(0, 1, '/');
+					}
 					++redirects;
+				} else if (_loc->get_autoindex().is_set == true) {
+					if (setup_autoindex()) {
+						return (true);
+					} else {
+						_req.status = 500;
+						epi_redirect();
+						++redirects;
+					}
 				}
+			} else if (is_dir()) {
+				_req.path.push_back('/');
+			} else {
+				break ;
 			}
-		} else if (is_dir()) {
-			_req.path.push_back('/');
-		} else {
-			break ;
 		}
-	}
 	/* Perform one last redirection if we have reached the limit and still have
 	 * a valid path saved that we can check against */
 	if (_req.no_file == false && _req.internal == true && redirects >= REDIRECT_LIMIT) {
@@ -760,7 +763,7 @@ bool ClientConnection::setup_res() {
             }
             size_t  ext_del = _req.path.find_last_of('.');
             if (ext_del != std::string::npos) {
-                std::string ext = _req.path.substr(ext_del);
+                std::string ext = _req.path.substr(ext_del + 1);
                 _res.add_header_field("Content-Type", _loc->get_mime().get_type(ext));
             }
         }
@@ -832,6 +835,8 @@ bool ClientConnection::setup_cgi() {
 		_req.status = 500;
 		return (false);
 	}
+	fcntl(stdout_fd[0], F_SETFD, FD_CLOEXEC);
+	fcntl(stdout_fd[1], F_SETFD, FD_CLOEXEC);
 
 	int stdin_fd[2];
 	if (pipe(stdin_fd) < 0) {
@@ -840,6 +845,8 @@ bool ClientConnection::setup_cgi() {
 		_req.status = 500;
 		return (false);
 	}
+	fcntl(stdin_fd[0], F_SETFD, FD_CLOEXEC);
+	fcntl(stdin_fd[1], F_SETFD, FD_CLOEXEC);
 
 	pid_t pid = fork();
 	if (pid < 0) {
@@ -868,6 +875,7 @@ bool ClientConnection::setup_cgi() {
 	fcntl(stdout_fd[0], F_SETFL, O_NONBLOCK);
 	_client_fd = fd;
 	_cgi_pid = pid;
+	EpollLoop::get_instance().track_child(pid, CGI_TIMEOUT);
 	_cgi_stdin_fd = stdin_fd[1];
 	_cgi_stdout_fd = stdout_fd[0];
 	_written_body = 0;
@@ -928,7 +936,8 @@ bool ClientConnection::handle_cgi_output(uint32_t events) {
 			if (readret == 0 || _buf.fill_capacity() <= 1) {
 				// Header block incomplete, do 502 instead of spinning on HUP
 				// forever
-				waitpid(_cgi_pid, NULL, 0); // FIXME blocking
+				EpollLoop::get_instance().kill_child(_cgi_pid);
+				_cgi_pid = -1;
 				_res.headers.clear();
 				_res.add_status_line(HTTP_VERSION_STR, 502);
 				_res.add_date();
@@ -1087,7 +1096,7 @@ void ClientConnection::finalize_cgi() {
 		_buf.feed(_stream);
 	_stream.flush();
 	_stream.close();
-	waitpid(_cgi_pid, NULL, 0); // FIXME
+	_cgi_pid = -1;
 
 	_stream.open(_file.c_str(), std::ios::in | std::ios::binary);
 	_res.add_header_end();

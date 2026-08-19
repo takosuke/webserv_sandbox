@@ -1,4 +1,5 @@
 #include "Config.hpp"
+#include "utils.hpp"
 
 #include <stdexcept>
 #include <sys/socket.h>
@@ -715,8 +716,9 @@ bool config::starts_with_scheme(const std::string & uri) {
 	};
 	for (int i = 0; i < 14; i++) {
 		size_t	schemelen = schemestrs[i].size();
-		if (uri.compare(0, schemelen, schemestrs[i]) == 0
-			&& uri.compare(schemelen, 3, "://") == 0) {
+		if (uri.size() >= schemelen
+			&& uri.compare(schemelen, 3, "://") == 0
+			&& equals_icase(uri.substr(0, schemelen), schemestrs[i])) {
 			return (true);
 		}
 	}

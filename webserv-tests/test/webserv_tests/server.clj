@@ -1,6 +1,8 @@
 (ns webserv-tests.server
   (:import [java.net Socket ConnectException]
-           [java.io File]))
+           [java.io File]
+           ;; Java 9+, so newer than Clojure's default java.lang imports.
+           [java.lang ProcessHandle]))
 
 (def ^:private binary  "../webserv")
 (def ^:private conf-dir "../conf/generated/")
@@ -50,21 +52,118 @@
   (see webserv-tests.report) and available to tests if needed."
   nil)
 
+(def ^:dynamic *server-proc*
+  "The webserv Process the current fixture launched. Bound by make-fixture so
+  tests can inspect the server from the outside — its child processes and its
+  open file descriptors (see server-pid / child-pids / open-fd-count)."
+  nil)
+
 (defn make-fixture
   "clojure.test fixture: starts webserv with conf-name, waits up to 5 s for
-  port 8080 to accept connections, runs the tests with *conf-name* bound, then
-  stops the server. The binding lets the failure reporter print the conf file
-  under each failed test (see webserv-tests.report)."
+  port 8080 to accept connections, runs the tests with *conf-name* and
+  *server-proc* bound, then stops the server. The conf binding lets the failure
+  reporter print the conf file under each failed test (see
+  webserv-tests.report)."
   [conf-name]
   (fn [run-tests]
     (let [proc (start! conf-name)]
-      (binding [*conf-name* conf-name]
+      (binding [*conf-name* conf-name
+                *server-proc* proc]
         (try
           (wait-for-port-open 8080 5000)
           (run-tests)
           (finally
             (stop! proc)
             (wait-for-port-free 8080 3000)))))))
+
+;; --- process inspection ---
+;;
+;; Read straight out of /proc. That is Linux-only, which this project already
+;; is (epoll), and it avoids shelling out to ps — whose own command line can
+;; match the pattern being searched for.
+
+(defn server-pid
+  "Pid of the webserv process the fixture started."
+  []
+  (.pid ^Process *server-proc*))
+
+(defn- read-proc
+  "Contents of a /proc file, or nil if it is gone or unreadable.
+
+  Not slurp: slurp sizes its buffer from InputStream.available(), which procfs
+  answers with 0 or an outright EINVAL, so slurp throws 'Invalid argument' on
+  files that read back perfectly through a plain Reader."
+  [path]
+  (try
+    (with-open [r (java.io.BufferedReader. (java.io.FileReader. ^String path))]
+      (clojure.string/join "\n" (line-seq r)))
+    (catch Exception _ nil)))
+
+(defn child-pids
+  "Pids of webserv's direct children — i.e. forked CGI processes that have not
+  been reaped yet. Zombies are included: a child stays here until waitpid()
+  collects it, which is exactly what makes this useful for leak tests."
+  []
+  (let [pid (server-pid)]
+    (->> (or (read-proc (str "/proc/" pid "/task/" pid "/children")) "")
+         (clojure.string/trim)
+         (#(clojure.string/split % #"\s+"))
+         (remove clojure.string/blank?)
+         (mapv #(Long/parseLong %)))))
+
+(defn- proc-state
+  "Single-letter state of pid from /proc/<pid>/stat ('Z' for a zombie), or nil
+  if the process is gone. The comm field is parenthesised and may itself
+  contain spaces, so parsing starts after its closing paren."
+  [pid]
+  (when-let [stat (read-proc (str "/proc/" pid "/stat"))]
+    (let [after (subs stat (inc (.lastIndexOf stat ")")))]
+      (first (clojure.string/split (clojure.string/triml after) #"\s+")))))
+
+(defn zombie-pids
+  "Children of webserv sitting in state Z — forked, exited, never reaped."
+  []
+  (filterv #(= "Z" (proc-state %)) (child-pids)))
+
+(defn open-fd-count
+  "How many file descriptors webserv currently holds. Compared before and after
+  a burst of requests, this catches sockets and pipes that are never closed."
+  []
+  (count (or (.list (File. (str "/proc/" (server-pid) "/fd"))) [])))
+
+(defn wait-until
+  "Poll pred every 50 ms until it returns truthy or timeout-ms elapses. Returns
+  the truthy value, or nil on timeout. Lets a test assert on a settled state
+  without hard-coding a sleep long enough for the slowest machine."
+  [timeout-ms pred]
+  (let [deadline (+ (System/currentTimeMillis) timeout-ms)]
+    (loop []
+      (or (pred)
+          (when (< (System/currentTimeMillis) deadline)
+            (Thread/sleep 50)
+            (recur))))))
+
+(defn kill-stray-children!
+  "SIGKILL every process webserv still owns, and wait for them to go.
+
+  stop! ends the server with .destroyForcibly, i.e. SIGKILL, so ~EpollLoop
+  never runs and never gets to kill the children it is tracking. Any CGI still
+  alive at that moment is orphaned — and because the forked child inherits
+  every open descriptor (nothing sets FD_CLOEXEC), it keeps the *listen socket*
+  open too. The port therefore stays bound after the server is gone and the
+  next fixture cannot bind it, so one namespace that leaves a CGI running takes
+  down every namespace after it.
+
+  Any namespace whose tests can leave a long-running CGI behind must call this
+  while the server is still alive — see reap-strays in cgi-lifecycle-test."
+  []
+  (let [pids (child-pids)]
+    (doseq [pid pids]
+      (let [handle (ProcessHandle/of (long pid))]
+        (when (.isPresent handle)
+          (.destroyForcibly ^ProcessHandle (.get handle)))))
+    (wait-until 5000 #(empty? (child-pids)))
+    pids))
 
 ;; --- shared HTTP helpers ---
 
@@ -117,6 +216,20 @@
           ;; uncaught exception.
           (catch java.net.SocketException _
             {:response (String. (.toByteArray baos) "ISO-8859-1") :timed-out false}))))))
+
+(defn abort-request
+  "Send payload, wait linger-ms so the server can act on it, then close the
+  socket hard without reading a byte — a client that walks away mid-request.
+  Returns nil. Used to check that whatever the server forked on our behalf is
+  still cleaned up once nobody is waiting for the answer."
+  [host port payload linger-ms]
+  (with-open [sock (Socket. host port)]
+    (.setSoLinger sock true 0)          ; RST rather than a graceful FIN
+    (let [out (.getOutputStream sock)]
+      (.write out (.getBytes payload "UTF-8"))
+      (.flush out))
+    (Thread/sleep linger-ms))
+  nil)
 
 (defn responsive?
   "Send a fresh, well-formed GET /index.html on a new connection with a read

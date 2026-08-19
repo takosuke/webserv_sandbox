@@ -12,6 +12,10 @@
 # define REDIRECT_LIMIT 5
 #endif
 
+#ifndef CGI_TIMEOUT
+# define CGI_TIMEOUT 10
+#endif
+
 #define AUTOINDEX_LOCATION "./autoindex"
 
 class ClientConnection : public Connection {
