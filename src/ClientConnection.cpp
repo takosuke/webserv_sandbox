@@ -1129,6 +1129,7 @@ bool ClientConnection::setup_autoindex() {
 			_res.add_allowed(_loc);
 		_res.add_date();
 		_res.add_header_field("Content-Length", get_file_size());
+		_res.add_header_field("Content-Type", "text/html");
 		_buf.clear();
 		_res.add_header_end();
 	} catch (std::exception &e) {
