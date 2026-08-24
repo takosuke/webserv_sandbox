@@ -1,0 +1,6 @@
+{
+  "server": "webserv",
+  "purpose": "exercises the application/json entry in the types block",
+  "methods": ["GET", "POST", "DELETE"],
+  "sockets": ["127.0.0.1:8080", "127.0.0.1:8081"]
+}

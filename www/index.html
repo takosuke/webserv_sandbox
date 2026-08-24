@@ -3,15 +3,94 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Hello World</title>
+  <title>ARN AND MARIO's WEBSERV</title>
+  <link rel="icon" href="/favicon.ico">
+  <link rel="stylesheet" href="/static/css/style.css">
+  <style>
+    body { display: block; padding: 2rem 1rem; }
+    .container { text-align: left; max-width: 52rem; margin: 0 auto; }
+    .container > h1 { text-align: center; }
+    .crew { display: flex; gap: 1rem; justify-content: center; margin: 1.5rem 0; }
+    .crew figure { margin: 0; text-align: center; }
+    .crew img { width: 180px; border-radius: 6px; display: block; }
+    .crew figcaption { font-size: .85rem; color: #555; margin-top: .35rem; }
+    h2 { font-size: 1.05rem; margin: 1.75rem 0 .4rem; }
+    ul { list-style: none; padding: 0; }
+    li { padding: .3rem 0; border-bottom: 1px solid #f0f0f0; }
+    li a { font-family: monospace; }
+    li span { color: #555; font-size: .9rem; }
+    code { background: #f6f6f6; padding: .1rem .3rem; border-radius: 3px; }
+    #js-probe { display: block; margin-top: 1.5rem; font-size: .85rem;
+                color: #999; text-align: center; }
+    #js-probe.ok { color: #2a7; }
+  </style>
 </head>
 <body>
   <div class="container">
     <h1>WELCOME TO ARN AND MARIO's WEBSERV</h1>
-      <img src="static/img/marcampo.jpg" style="width: 300px;" />
-      <img src="static/img/abronner.jpg" style="width: 300px;" />
-    <p>webserv is running.</p>
-      <a href="parapara/index.html" />Sample Website</a>
+    <p style="text-align:center">webserv is running. Every link below exercises
+       a different part of <code>conf/showcase.conf</code>.</p>
+
+    <div class="crew">
+      <figure>
+        <img src="/static/img/marcampo.jpg" alt="marcampo">
+        <figcaption>marcampo</figcaption>
+      </figure>
+      <figure>
+        <img src="/static/img/abronner.jpg" alt="abronner">
+        <figcaption>abronner</figcaption>
+      </figure>
+    </div>
+
+    <h2>Static files and the MIME map</h2>
+    <ul>
+      <li><a href="/static/">/static/</a> <span>— a second document tree</span></li>
+      <li><a href="/static/css/style.css">/static/css/style.css</a> <span>— text/css</span></li>
+      <li><a href="/static/image.png">/static/image.png</a> <span>— image/png</span></li>
+      <li><a href="/static/img/marcampo.jpg">/static/img/marcampo.jpg</a> <span>— image/jpeg</span></li>
+      <li><a href="/static/data/demo.json">/static/data/demo.json</a> <span>— application/json</span></li>
+      <li><a href="/big.txt">/big.txt</a> <span>— text/plain, and a large read</span></li>
+    </ul>
+
+    <h2>Directory handling</h2>
+    <ul>
+      <li><a href="/autoindex/">/autoindex/</a> <span>— generated listing (<code>autoindex true</code>)</span></li>
+      <li><a href="/idxdir/">/idxdir/</a> <span>— per-location <code>index</code></span></li>
+      <li><a href="/directory/">/directory/</a> <span>— <code>index youpi.bad_extension</code>, the 42 tester fixture</span></li>
+    </ul>
+
+    <h2>CGI</h2>
+    <ul>
+      <li><a href="/forms.html">/forms.html</a> <span>— GET and POST forms against the scripts</span></li>
+      <li><a href="/cgi-bin/greet.py?name=evaluator">/cgi-bin/greet.py</a> <span>— a plain 200 from a script</span></li>
+      <li><a href="/cgi-bin/envdump.py">/cgi-bin/envdump.py</a> <span>— the environment, incl. <code>cgi_param</code></span></li>
+      <li><a href="/cgi-bin/echo.py?a=1&amp;b=2">/cgi-bin/echo.py?a=1&amp;b=2</a> <span>— method, query and body as text</span></li>
+      <li><a href="/cgi-bin/upload.py">/cgi-bin/upload.py</a> <span>— upload form and handler</span></li>
+      <li><a href="/directory/youpi.bla">/directory/youpi.bla</a> <span>— CGI matched by <code>\ .bla</code> suffix</span></li>
+    </ul>
+
+    <h2>Methods and uploads</h2>
+    <ul>
+      <li><a href="/uploads/">/uploads/</a> <span>— POST writes here, DELETE removes</span></li>
+      <li><a href="/readonly/">/readonly/</a> <span>— <code>limit_except GET</code> + <code>autoindex</code>; DELETE answers 405</span></li>
+    </ul>
+
+    <h2>Redirects and errors</h2>
+    <ul>
+      <li><a href="/ext">/ext</a> <span>— 302 to another host</span></li>
+      <li><a href="/old">/old</a> <span>— internal <code>return</code> (known bug: answers 500)</span></li>
+      <li><a href="/nope">/nope</a> <span>— 404 error page</span></li>
+      <li><a href="/quiet/nope">/quiet/nope</a> <span>— same page, forced to 200 by <code>error_page … =200</code></span></li>
+    </ul>
+
+    <h2>Other sockets</h2>
+    <ul>
+      <li><a href="http://127.0.0.1:8081/">127.0.0.1:8081</a> <span>— second port, its own root</span></li>
+      <li><span>virtual host: <code>curl -H 'Host: static.local' http://127.0.0.1:8080/</code></span></li>
+    </ul>
+
+    <span id="js-probe">/static/js/hub.js has not run</span>
   </div>
+  <script src="/static/js/hub.js"></script>
 </body>
 </html>

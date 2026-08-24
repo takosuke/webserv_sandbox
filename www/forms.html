@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Forms &middot; webserv</title>
+  <link rel="stylesheet" href="/static/css/style.css">
+  <style>
+    body { display: block; padding: 2rem; }
+    .container { text-align: left; max-width: 44rem; margin: 0 auto; }
+    form { border: 1px solid #e4e4e4; border-radius: 6px;
+           padding: 1rem 1.25rem; margin: 1rem 0; }
+    label { display: block; font-size: .9rem; color: #555; margin-bottom: .3rem; }
+    input[type=text], textarea { width: 100%; padding: .4rem;
+           border: 1px solid #ccc; border-radius: 4px; font-family: monospace; }
+    textarea { min-height: 5rem; }
+    button { margin-top: .75rem; padding: .45rem 1rem; border: 0;
+             border-radius: 4px; background: #222; color: #fff; cursor: pointer; }
+    h2 { font-size: 1.05rem; margin-top: 1.75rem; }
+    code { background: #f6f6f6; padding: .1rem .3rem; border-radius: 3px; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Forms</h1>
+    <p>Each form below sends a real request to a CGI script, so the browser
+       shows what the server actually forwarded.</p>
+
+    <h2>GET &rarr; query string</h2>
+    <form action="/cgi-bin/greet.py" method="get">
+      <label for="get-name">name (arrives as <code>QUERY_STRING</code>)</label>
+      <input id="get-name" type="text" name="name" value="evaluator">
+      <button type="submit">GET /cgi-bin/greet.py</button>
+    </form>
+
+    <h2>POST &rarr; request body</h2>
+    <form action="/cgi-bin/greet.py" method="post">
+      <label for="post-name">name (arrives on the script's stdin)</label>
+      <input id="post-name" type="text" name="name" value="evaluator">
+      <button type="submit">POST /cgi-bin/greet.py</button>
+    </form>
+
+    <h2>POST &rarr; raw echo</h2>
+    <p><code>echo.py</code> answers in <code>text/plain</code> with the method,
+       the query string and the body exactly as received.</p>
+    <form action="/cgi-bin/echo.py" method="post">
+      <label for="echo-body">body</label>
+      <textarea id="echo-body" name="message">hello from the browser</textarea>
+      <button type="submit">POST /cgi-bin/echo.py</button>
+    </form>
+
+    <h2>The environment the script sees</h2>
+    <p><code>envdump.py</code> lists every meta-variable, including the
+       <code>cgi_param</code> entries set in the config
+       (<code>APP_ENV</code>, <code>SECRET_KEY</code>).</p>
+    <form action="/cgi-bin/envdump.py" method="get">
+      <label for="env-q">an arbitrary query string to look for in the table</label>
+      <input id="env-q" type="text" name="probe" value="42">
+      <button type="submit">GET /cgi-bin/envdump.py</button>
+    </form>
+
+    <h2>File upload</h2>
+    <p><code>upload.py</code> serves its own form and writes into
+       <code>www/uploads/</code>.</p>
+    <p><a href="/cgi-bin/upload.py">open the upload form</a></p>
+
+    <p><a href="/">back to the start page</a></p>
+  </div>
+</body>
+</html>
