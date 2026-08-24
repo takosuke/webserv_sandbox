@@ -1,0 +1,274 @@
+/* ===============================================================
+   style.css — this is the file to hack on.
+   Everything is plain CSS, no build step, no preprocessor.
+
+   Layout of this file:
+     1. Variables   <- change colours / fonts / spacing here first
+     2. Base
+     3. Header + navigation
+     4. Page content
+     5. Cards + images
+     6. Footer
+     7. Small screens
+   =============================================================== */
+
+
+/* ---------------------------------------------------------------
+   1. Variables
+   Change these six or seven values and the whole site changes.
+   --------------------------------------------------------------- */
+:root {
+	--ink:        #C2E39F;   /* body text                 */
+	--paper:      #C09FE3;   /* page background           */
+	--panel:      #E39FC2;   /* cards, header, footer     */
+  --text-bg:    #E29FE3;
+	--accent:     #9FE3C0;   /* links, underlines, bars   */
+	--accent-two: #2b8a8a;   /* second accent, hovers     */
+	--muted:      #6f6a75;   /* captions, dates           */
+	--line:       #dcd5c9;   /* hairline borders          */
+
+	--font-body: Georgia, "Times New Roman", serif;
+	--font-ui:   "Helvetica Neue", Helvetica, Arial, sans-serif;
+
+	--measure: 68ch;         /* max width of a text column */
+	--gap:     1.5rem;       /* the one spacing unit       */
+	--radius:  6px;
+}
+
+
+/* ---------------------------------------------------------------
+   2. Base
+   --------------------------------------------------------------- */
+body {
+	background: var(--paper);
+	color: var(--ink);
+	font-family: var(--font-body);
+	font-size: 18px;
+	line-height: 1.6;
+}
+
+a {
+	color: var(--accent);
+	text-decoration-thickness: 1px;
+	text-underline-offset: 3px;
+}
+
+a:hover { color: var(--accent-two); }
+
+h1, h2, h3 {
+	font-family: var(--font-ui);
+	line-height: 1.2;
+}
+
+h1 { font-size: 2.4rem; }
+h2 { font-size: 1.4rem; margin-top: calc(var(--gap) * 1.5); }
+
+p + p { margin-top: var(--gap); }
+
+code {
+	font-family: monospace;
+	background: rgba(0, 0, 0, 0.06);
+	padding: 0.1em 0.35em;
+	border-radius: 3px;
+}
+
+
+/* ---------------------------------------------------------------
+   3. Header + navigation
+   --------------------------------------------------------------- */
+.site-header {
+	background: var(--panel);
+	border-bottom: 3px solid var(--accent);
+}
+
+.site-header .inner {
+	max-width: 960px;
+	margin: 0 auto;
+	padding: var(--gap);
+	display: flex;
+	flex-wrap: wrap;
+	align-items: baseline;
+	justify-content: space-between;
+	gap: var(--gap);
+}
+
+.site-title {
+	font-family: var(--font-ui);
+	font-size: 1.1rem;
+	font-weight: 700;
+	letter-spacing: 0.08em;
+	text-transform: uppercase;
+	text-decoration: none;
+	color: var(--ink);
+}
+
+.nav ul {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 1rem;
+	font-family: var(--font-ui);
+	font-size: 0.85rem;
+}
+
+.nav a {
+	text-decoration: none;
+	color: var(--muted);
+	padding-bottom: 2px;
+	border-bottom: 2px solid transparent;
+}
+
+.nav a:hover { color: var(--ink); border-bottom-color: var(--line); }
+
+/* The current page gets class="current" on its own nav link. */
+.nav a.current {
+	color: var(--ink);
+	border-bottom-color: var(--accent);
+}
+
+
+/* ---------------------------------------------------------------
+   4. Page content
+   --------------------------------------------------------------- */
+main {
+	max-width: 640px;
+	margin: 0 auto;
+	padding: calc(var(--gap) * 2) var(--gap);
+	background: var(--text-bg);
+}
+
+.page-head { margin-bottom: calc(var(--gap) * 1.5); }
+
+.meta {
+	font-family: var(--font-ui);
+	font-size: 0.8rem;
+	letter-spacing: 0.08em;
+	text-transform: uppercase;
+	color: var(--muted);
+	margin-bottom: 0.4rem;
+}
+
+.lead {
+	font-size: 1.15rem;
+	color: var(--muted);
+	max-width: var(--measure);
+	margin-top: 0.6rem;
+}
+
+.prose { max-width: var(--measure); }
+
+.prose ul, .prose ol {
+	margin-top: var(--gap);
+	padding-left: 1.4rem;
+}
+
+.prose li { margin-bottom: 0.4rem; }
+
+blockquote {
+	border-left: 3px solid var(--accent);
+	padding-left: var(--gap);
+	margin: var(--gap) 0;
+	font-style: italic;
+	color: var(--muted);
+}
+
+
+/* ---------------------------------------------------------------
+   5. Cards + images
+   The .grid turns any list of .card into a responsive grid.
+   Drop your images into img/ and point the <img src> at them.
+   --------------------------------------------------------------- */
+.grid {
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+	gap: var(--gap);
+	margin-top: var(--gap);
+}
+
+.card {
+	background: var(--panel);
+	border: 1px solid var(--line);
+	border-radius: var(--radius);
+	padding: var(--gap);
+}
+
+.card h3 {
+	font-size: 1rem;
+	margin-bottom: 0.3rem;
+}
+
+.card p {
+	font-size: 0.9rem;
+	color: var(--muted);
+}
+
+figure { margin: calc(var(--gap) * 1.5) 0; }
+
+figure img {
+	border-radius: var(--radius);
+	border: 5px solid var(--line);
+  width: 100%;
+}
+
+figcaption {
+	font-family: var(--font-ui);
+	font-size: 0.8rem;
+	color: var(--muted);
+	margin-top: 0.5rem;
+}
+
+/* Placeholder box — delete these rules once real images are in. */
+.placeholder {
+	background: repeating-linear-gradient(
+		45deg,
+		var(--line),
+		var(--line) 10px,
+		var(--panel) 10px,
+		var(--panel) 20px
+	);
+	border: 1px dashed var(--muted);
+	border-radius: var(--radius);
+	min-height: 220px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	font-family: var(--font-ui);
+	font-size: 0.8rem;
+	color: var(--muted);
+	text-align: center;
+	padding: var(--gap);
+}
+
+
+/* ---------------------------------------------------------------
+   6. Footer
+   --------------------------------------------------------------- */
+.site-footer {
+	background: var(--panel);
+	border-top: 1px solid var(--line);
+	margin-top: calc(var(--gap) * 3);
+}
+
+.site-footer .inner {
+	max-width: 960px;
+	margin: 0 auto;
+	padding: var(--gap);
+	font-family: var(--font-ui);
+	font-size: 0.8rem;
+	color: var(--muted);
+	display: flex;
+	flex-wrap: wrap;
+	justify-content: space-between;
+	gap: 0.5rem;
+}
+
+
+/* ---------------------------------------------------------------
+   7. Small screens
+   --------------------------------------------------------------- */
+@media (max-width: 620px) {
+	body { font-size: 17px; }
+	h1 { font-size: 1.8rem; }
+
+	.site-header .inner { flex-direction: column; gap: 0.75rem; }
+	.nav ul { gap: 0.75rem; }
+}
