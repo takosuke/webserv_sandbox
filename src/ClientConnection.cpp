@@ -1184,6 +1184,8 @@ bool ClientConnection::setup_autoindex() {
 			_res.add_allowed(_loc);
 		_res.add_date();
 		_res.add_header_field("Content-Length", get_file_size());
+		if (std::remove(_file.c_str()) != 0)
+			LOG_WARN("autoindex") << "Couldn't remove temp file " << _file << std::endl;
 		_res.add_header_field("Content-Type", "text/html");
 		_buf.clear();
 		_res.add_header_end();
