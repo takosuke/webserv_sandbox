@@ -919,7 +919,14 @@ bool ClientConnection::setup_cgi() {
 		dup2(stdout_fd[1], STDOUT_FILENO);
 		close(stdout_fd[0]);
 		close(stdout_fd[1]);
-		char *argv[] = { (char*)interp.c_str(), (char*)script.c_str(), NULL };
+		std::string	base = script;
+		size_t		slash = script.find_last_of('/');
+		if (slash != std::string::npos) { 
+			if (chdir(script.substr(0, slash).c_str()) != 0)
+				exit(1);
+			base = script.substr(slash + 1);
+		}
+		char *argv[] = { (char*)interp.c_str(), (char*)base.c_str(), NULL };
 		execve(interp.c_str(), argv, &envp[0]);
 		exit(1);
 	}
