@@ -1,6 +1,7 @@
 #include <iostream>
 #include <cstdlib>
 #include <csignal>
+#include <stdexcept>
 #include "ServerConnection.hpp"
 //#include "ServerBlock.hpp"
 #include "EpollLoop.hpp"
@@ -30,14 +31,15 @@ int main(int ac, char *av[]) {
 		else if (s == "WARN") Logger::instance().setLevel(LOG_WARN);
 		else if (s == "ERROR") Logger::instance().setLevel(LOG_ERROR);
 	}
-	Grouper grouper(config_path);
-	if (!grouper.group()) {
-		std::cerr << "Failed to parse config" << std::endl;
-		return 1;
-	}
-
     // Create the epoll instance
 	try {
+		Grouper grouper(config_path);
+		if (!grouper.group()) {
+			std::cerr << "Failed to parse config" << std::endl;
+			return 1;
+		}
+		if (grouper.main.body_directives.empty())
+			throw (std::runtime_error("config file has no http { } block"));
 		Http http(grouper.main.body_directives[0]);
 		const std::map<struct sockaddr_in, Port> &ports = http.get_ports();
 
