@@ -13,6 +13,7 @@
 #include <stdexcept>
 #include <algorithm>
 #include <sstream>
+#include <cctype>
 #include <arpa/inet.h>
 
 #include "Config.hpp"
@@ -883,6 +884,17 @@ bool ClientConnection::setup_cgi() {
 	{
 		LOG_DEBUG("cgi") << "content-type= " << ct->second << std::endl;
 		env_strings.push_back("CONTENT_TYPE=" + ct->second);
+	}
+	for (std::map<std::string, std::string>::const_iterator it = _req.headers.begin();
+			it != _req.headers.end(); ++it) {
+		if (it->first == "content-length" || it->first == "content-type")
+			continue;
+		std::string		key("HTTP_");
+		for (size_t i = 0; i < it->first.size(); ++i) {
+			char c = it->first[i];
+			key += (c == '-') ? '_'
+				: static_cast<char>(std::toupper(static_cast<unsigned char>(c)));
+		}
 	}
 
 	const std::vector<std::pair<std::string, std::string> > &params =
