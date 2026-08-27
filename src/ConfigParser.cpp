@@ -4,6 +4,7 @@
 #include <iostream>
 #include <string>
 #include <stack>
+#include <stdexcept>
 
 /* TOKEN **********************************************************************/
 
@@ -186,8 +187,12 @@ void Lexer::load(std::string const & filename) {
 	this->filename = filename;
 	std::cout << "[Lexer] Opening file: " << this->filename << std::endl;
 	stream.open(filename.c_str(), std::ios_base::in);
+	if (!stream.is_open())
+		throw (std::runtime_error("cannot open config file " + filename));
 	nline = 0;
 	getline();
+	if (stream.fail() && !stream.eof())
+		throw (std::runtime_error("cannot read config file " + filename));
 }
 
 bool Lexer::add_lex(int precedence, TokenLex * lex) {
