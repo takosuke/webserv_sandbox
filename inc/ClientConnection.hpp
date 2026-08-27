@@ -16,8 +16,6 @@
 # define CGI_TIMEOUT 10
 #endif
 
-#define AUTOINDEX_LOCATION "./autoindex"
-
 class ClientConnection : public Connection {
 private:
 	ClientConnection() : Connection() { }; // make private to be uncallable
@@ -62,14 +60,14 @@ private:
 
 	bool	parse_req_headers();
 	bool	setup_res();
-  bool  setup_post();
+	bool	setup_post();
 	bool	setup_cgi();
 	bool	setup_autoindex();
 
 	void	handle_cgi_input(uint32_t events);
 	bool	handle_cgi_output(uint32_t events);
-  void  handle_post(uint32_t events);
-  void  handle_post_leftover();
+	void	handle_post(uint32_t events);
+	void	handle_post_leftover();
 	void	finalize_cgi();
 
 	bool	set_file(const std::string &path, std::ios_base::openmode mode = std::ios_base::in | std::ios_base::out);
@@ -93,5 +91,5 @@ public:
 
 	void	handle(uint32_t events);
 
-  void  handle_timeout();
+	void	handle_timeout();
 };
