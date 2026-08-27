@@ -30,13 +30,17 @@ int Response::init_reason_phrase_map() {
 		reason_phrase_map.insert(std::pair<int, std::string>(404, "Not Found"));
 		reason_phrase_map.insert(std::pair<int, std::string>(405, "Method Not Allowed"));
 		reason_phrase_map.insert(std::pair<int, std::string>(408, "Request Timeout"));
+		reason_phrase_map.insert(std::pair<int, std::string>(411, "Length Required"));
+		reason_phrase_map.insert(std::pair<int, std::string>(414, "URI Too Long"));
 		reason_phrase_map.insert(std::pair<int, std::string>(413, "Content Too Large"));
 		reason_phrase_map.insert(std::pair<int, std::string>(422, "Unprocessable Content"));
+		reason_phrase_map.insert(std::pair<int, std::string>(431, "Request Header Fields Too Large"));
 		reason_phrase_map.insert(std::pair<int, std::string>(500, "Internal Server Error"));
 		reason_phrase_map.insert(std::pair<int, std::string>(501, "Not Implemented"));
 		reason_phrase_map.insert(std::pair<int, std::string>(502, "Bad Gateway"));
 		reason_phrase_map.insert(std::pair<int, std::string>(503, "Service Unavailable"));
-		reason_phrase_map.insert(std::pair<int, std::string>(505, "HTTP Version Not SUpported"));
+		reason_phrase_map.insert(std::pair<int, std::string>(504, "Gateway Timeout"));
+		reason_phrase_map.insert(std::pair<int, std::string>(505, "HTTP Version Not Supported"));
 	} catch (std::exception & e) {
 		LOG_ERROR("Failed to initialize Reason Phrase Map");
 		return (0);
