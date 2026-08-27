@@ -12,9 +12,9 @@ conf/generated/
 .cpcache/
 .lsp/
 conjure-log-*
-timeout_body_probe.txt
-upload_big_probe.txt
-upload_small_probe.txt
+webserv-tests/upload/timeout_body_probe.txt
+webserv-tests/upload/upload_big_probe.txt
+webserv-tests/upload/upload_small_probe.txt
 
 # blablabla
 conversations/
