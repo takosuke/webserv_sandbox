@@ -12,6 +12,7 @@ conf/generated/
 .cpcache/
 .lsp/
 conjure-log-*
+./webserv-tests/upload/*
 webserv-tests/upload/timeout_body_probe.txt
 webserv-tests/upload/upload_big_probe.txt
 webserv-tests/upload/upload_small_probe.txt

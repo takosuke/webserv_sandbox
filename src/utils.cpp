@@ -22,20 +22,20 @@ void	set_cloexec(int fd) {
 }
 
 int		make_server_socket(const config::listen &l) {
-    int fd = socket(AF_INET, SOCK_STREAM | SOCK_NONBLOCK | SOCK_CLOEXEC, 0);
-    if (fd < 0)
-        throw std::runtime_error(std::string("socket() failed: ") + strerror(errno));
-    int opt = 1;
-    setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt));
+	int fd = socket(AF_INET, SOCK_STREAM | SOCK_NONBLOCK | SOCK_CLOEXEC, 0);
+	if (fd < 0)
+		throw std::runtime_error(std::string("socket() failed: ") + strerror(errno));
+	int opt = 1;
+	setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt));
 
-    const sockaddr_in &addr = l.get_sockaddr();
-    if (bind(fd, (sockaddr*)&addr, sizeof(addr)) == -1)
-        throw std::runtime_error(std::string("bind() failed: ") + strerror(errno));
+	const sockaddr_in &addr = l.get_sockaddr();
+	if (bind(fd, (sockaddr*)&addr, sizeof(addr)) == -1)
+		throw std::runtime_error(std::string("bind() failed: ") + strerror(errno));
 
-    if (::listen(fd, l.backlog) == -1)
-        throw std::runtime_error(std::string("listen() failed: ") + strerror(errno));
+	if (::listen(fd, l.backlog) == -1)
+		throw std::runtime_error(std::string("listen() failed: ") + strerror(errno));
 
-    return fd;
+	return fd;
 }
 
 bool	equals_icase(const std::string &a, const std::string &b) {
