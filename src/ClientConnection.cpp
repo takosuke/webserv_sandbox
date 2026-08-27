@@ -127,10 +127,10 @@ ClientConnection::~ClientConnection() {
 
 void ClientConnection::handle(uint32_t events) {
 	if (_state == REQ_BODY || _state == CGI_TRANSMIT_BODY) {
-    if (_loc->get_cgi().is_set)
-      handle_cgi_input(events);
-    else
-      handle_post(events);
+		if (_loc->get_cgi().is_set)
+			handle_cgi_input(events);
+		else
+			handle_post(events);
 		return;
 	}
 	if (_state == CGI_HEADERS || _state == CGI_BODY) {
@@ -184,11 +184,6 @@ void ClientConnection::handle(uint32_t events) {
 				_state = REQ_SETUP;
 		if (_state == REQ_SETUP)
 			handle_setup();
-    // Aren't we doing this in the cgi_setup??
-		// if (_state == REQ_BODY && _buf.feed_capacity() > 0) {
-		//	_state = CGI_TRANSMIT_BODY;
-		//	EpollLoop::get_instance().rearm(this, EPOLLOUT | EPOLLERR | EPOLLHUP, _cgi_stdin_fd);
-		// }
 	} else if (events & EPOLLOUT) {
 		if (_state == RESPONSE) {
 			if (!handle_response())
@@ -343,18 +338,6 @@ static int parse_portstring(const std::string &portstr) {
 	return (port);
 }
 
-/*
-static bool equals_icase(const std::string &a, const std::string &b) {
-	if (a.size() != b.size())
-		return false;
-	for (std::string::size_type i = 0; i < a.size(); ++i)
-		if (std::tolower(static_cast<unsigned char>(a[i]))
-				!= std::tolower(static_cast<unsigned char>(b[i])))
-			return false;
-	return true;
-}
-*/
-
 void	ClientConnection::update_timestamp() {
 	_last_update = time(NULL);
 	// Failsafe set to 0 so it compares as a timeout for sure
@@ -363,14 +346,14 @@ void	ClientConnection::update_timestamp() {
 }
 
 void ClientConnection::handle_timeout() {
-  if (_state < DISCARD_BODY) {
-    // For reading timeout we want to overwrite the response
-    _req.status = 408;
-    handle_setup();
-    update_timestamp();
-  } else {
-    EpollLoop::get_instance().del(this);
-  }
+	if (_state < DISCARD_BODY) {
+		// For reading timeout we want to overwrite the response
+		_req.status = 408;
+		handle_setup();
+		update_timestamp();
+	} else {
+		EpollLoop::get_instance().del(this);
+	}
 }
 
 /**	@brief Checks if a full request line is present and parses it. Once the
@@ -576,8 +559,8 @@ bool ClientConnection::handle_setup() {
 	} else {
 		_req.status = 200;
 		if (_req.method == POST) {
-        _req.status = 201; // POST
-    }
+		_req.status = 201; // POST
+		}
 		_loc = &(_server->get_location(_req.path));
 	}
 	// Do before POST and CGI check because it would change method and send the
@@ -596,19 +579,19 @@ bool ClientConnection::handle_setup() {
 			epi_redirect();
 			++redirects;
     } else if (_loc->get_cgi().is_set == false) {
-			if (!setup_post()) {
-				/* Only static POST requests should get here */
-				_req.status = 500;
-				epi_redirect();
-				++redirects;
-			} else {
-				/* setup_post can potentially have appended to a small file and cleared everything to setup RESPONSE */
-				_state = REQ_BODY;
-				handle_post_leftover();
-				return (true);
-			}
-    }
-  }
+		if (!setup_post()) {
+			/* Only static POST requests should get here */
+			_req.status = 500;
+			epi_redirect();
+			++redirects;
+		} else {
+			/* setup_post can potentially have appended to a small file and cleared everything to setup RESPONSE */
+			_state = REQ_BODY;
+			handle_post_leftover();
+			return (true);
+		}
+	}
+}
 	/* Default server is set up at initialization so now we can look up the
 	 * Location in a loop for internal redirects.
 	 * After performing a redirection we need to validate the method and
@@ -732,9 +715,9 @@ bool ClientConnection::setup_post() {
 			}
 		}
 	}
-  if (set_file(_loc->get_upload().directory + _req.path, std::ios_base::out | std::ios_base::app) == false)
-    return (false);
-  return (true);
+	if (set_file(_loc->get_upload().directory + _req.path, std::ios_base::out | std::ios_base::app) == false)
+		return (false);
+	return (true);
 }
 
 /* Sends the remaining bytes in the buffer to the file after setup is completed */
@@ -759,36 +742,36 @@ void ClientConnection::handle_post_leftover() {
 /**	@brief Sets up the response based on the information saved in `_req`.
  */ 
 bool ClientConnection::setup_res() {
-    EpollLoop::get_instance().mod(this, EPOLLOUT | EPOLLERR | EPOLLHUP);
-    try {
-        _res.add_status_line(HTTP_VERSION_STR, _req.status);
-        if (!_req.internal)
-            _res.add_header_field("Location", _req.path);
-        else
-            _res.add_allowed(_loc);
-        _res.add_date();
-        if (!_req.no_file && _req.method != POST) {
-            if (set_file(_loc->get_root() + _req.path)) {
-                _res.add_header_field("Content-Length", get_file_size());
-            } else {
-                throw (std::runtime_error("Couldn't open stream."));
-            }
-            size_t  ext_del = _req.path.find_last_of('.');
-            if (ext_del != std::string::npos) {
-                std::string ext = _req.path.substr(ext_del + 1);
-                _res.add_header_field("Content-Type", _loc->get_mime().get_type(ext));
-            }
-        }
-				if (_req.method == POST) {
-					_res.add_header_field("Location", _req.host + "/" + _loc->get_upload().location + _req.path);
-				}
-        _buf.clear();
-        _res.add_header_end();
-    } catch (std::exception &e) {
-        setup_internal_error();
-        return (false);
-    }
-    return (true);
+	EpollLoop::get_instance().mod(this, EPOLLOUT | EPOLLERR | EPOLLHUP);
+	try {
+		_res.add_status_line(HTTP_VERSION_STR, _req.status);
+		if (!_req.internal)
+			_res.add_header_field("Location", _req.path);
+		else
+			_res.add_allowed(_loc);
+		_res.add_date();
+		if (!_req.no_file && _req.method != POST) {
+			if (set_file(_loc->get_root() + _req.path)) {
+				_res.add_header_field("Content-Length", get_file_size());
+			} else {
+				throw (std::runtime_error("Couldn't open stream."));
+			}
+			size_t  ext_del = _req.path.find_last_of('.');
+			if (ext_del != std::string::npos) {
+				std::string ext = _req.path.substr(ext_del + 1);
+				_res.add_header_field("Content-Type", _loc->get_mime().get_type(ext));
+			}
+		}
+		if (_req.method == POST) {
+			_res.add_header_field("Location", _req.host + "/" + _loc->get_upload().location + _req.path);
+		}
+		_buf.clear();
+		_res.add_header_end();
+	} catch (std::exception &e) {
+		setup_internal_error();
+		return (false);
+	}
+	return (true);
 }
 
 void ClientConnection::buffer_res_headers() {
@@ -923,7 +906,7 @@ bool ClientConnection::setup_cgi() {
 	_written_body = 0;
 	if (_req.method == POST && _req.content_length > 0) {
 		_state = CGI_TRANSMIT_BODY;
-    EpollLoop::get_instance().rearm(this, EPOLLOUT | EPOLLERR | EPOLLHUP, _cgi_stdin_fd);
+		EpollLoop::get_instance().rearm(this, EPOLLOUT | EPOLLERR | EPOLLHUP, _cgi_stdin_fd);
 	} else {
 		close(_cgi_stdin_fd);
 		_cgi_stdin_fd = -1;
