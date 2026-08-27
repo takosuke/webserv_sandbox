@@ -3,7 +3,6 @@
 #include <csignal>
 #include <stdexcept>
 #include "ServerConnection.hpp"
-//#include "ServerBlock.hpp"
 #include "EpollLoop.hpp"
 #include "utils.hpp"
 
@@ -11,14 +10,6 @@
 #include "Logger.hpp"
 
 int main(int ac, char *av[]) {
-	// Should be getting these from parsing the config file
-//	ServerBlock block_1(8080, "localhost", "/var/www/");
-//	ServerBlock block_2(8081, "localhost", "/var/www/");
-	// maybe they don't need to be pointers
-	//std::vector<ServerBlock*> server_blocks;
-	//server_blocks.push_back(&block_1);
-	//server_blocks.push_back(&block_2);
-	// Arns config thing
 	// Ignoring SIGPIPE so that POST calls to broken CGI scripts don't bring the
 	// server down
 	signal(SIGPIPE, SIG_IGN);

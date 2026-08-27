@@ -23,8 +23,6 @@ SRCS	+= ClientConnection.cpp
 
 SRCS	+= EpollLoop.cpp
 
-SRCS	+= ServerBlock.cpp
-
 SRCS	+= Request.cpp
 SRCS	+= Response.cpp
 SRCS	+= ScratchBuffer.cpp
