@@ -3,7 +3,6 @@
 #include <stdint.h>
 
 class ServerConnection : public Connection {
-		// TODO constructors, destructors etc
 	public:
 		ServerConnection() : Connection() { };
 

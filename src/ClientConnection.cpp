@@ -469,7 +469,6 @@ bool	ClientConnection::handle_req_headers() {
 			size_t start = val.find_first_not_of(" \t");
 			if (start != std::string::npos)
 				val = val.substr(start);
-			// FIXME duplicate headers are being silently dropped
 			_req.headers.insert(std::make_pair(key, val));
 			_buf.erase(0, pos + 2);
 			pos = _buf.find("\r\n");
@@ -715,27 +714,7 @@ bool ClientConnection::handle_setup() {
 		if (!setup_cgi()) 
 			_req.status = 500;
 		return (true);
-		/*
-		if (setup_cgi()) {
-			_state = REQ_BODY;
-			return (true);
-		} else {
-			_req.status = 500;
-			_state = RESPONSE;
-		}
-		*/
 	}
-	/*
-<<<<<<< HEAD
-	if (_req.method == POST) {
-		// setup_post can potentially have appended to a small file and cleared everything to setup RESPONSE
-		_state = REQ_BODY;
-		handle_post_leftover();
-		return (true);
-	}
-=======
->>>>>>> origin/upload-directive
-*/
 	if (_req.status == 413) { // Content Too Large
     _written_body = _buf.feed_capacity(); // We treat the rest in the buffer as written
 		_state = DISCARD_BODY;
@@ -749,13 +728,6 @@ bool ClientConnection::handle_setup() {
 #include <dirent.h>
 
 bool ClientConnection::setup_post() {
-	/*
-<<<<<<< HEAD
-	if (set_file(_loc->get_root() + _req.path, std::ios_base::out | std::ios_base::app) == false)
-		return (false);
-	return (true);
-=======
-*/
 	config::upload const & upload = _loc->get_upload();
 	if (upload.create_path == true) {
 		if (size_t dir_end = _req.path.find_last_of('/') != std::string::npos) {
@@ -775,7 +747,6 @@ bool ClientConnection::setup_post() {
   if (set_file(_loc->get_upload().directory + _req.path, std::ios_base::out | std::ios_base::app) == false)
     return (false);
   return (true);
-//>>>>>>> origin/upload-directive
 }
 
 /* Sends the remaining bytes in the buffer to the file after setup is completed */

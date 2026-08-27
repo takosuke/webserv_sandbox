@@ -3,11 +3,9 @@
 #include <sys/epoll.h>
 #include <unistd.h>
 
-#include "Config.hpp"
 #include "ServerConnection.hpp"
 #include "ClientConnection.hpp"
 #include "EpollLoop.hpp"
-#include "Logger.hpp"
 #include "utils.hpp"
 
 void	ServerConnection::handle(uint32_t events) {
@@ -19,7 +17,7 @@ void	ServerConnection::handle(uint32_t events) {
 	sockaddr_in client_addr;
 	socklen_t	client_len = sizeof(client_addr);
 	int client_fd = accept(fd, (sockaddr*)&client_addr, &client_len);
-	if (client_fd < 0) return; // TODO handle error?
+	if (client_fd < 0) return;
 	set_nonblocking(client_fd);
 	set_cloexec(client_fd);
 	Connection *client_conn = new ClientConnection(client_fd, http, addr);

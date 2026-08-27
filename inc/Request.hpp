@@ -7,7 +7,6 @@
 struct Request {
 	Request();
 
-	// TODO beginning underscores for consistency?
 	HttpMethod	method;
 	std::string	uri;		// raw: "http://site/images/42.gif?val=43"
 	std::string	path;		// decoded: "images/42.gif"

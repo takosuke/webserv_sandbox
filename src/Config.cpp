@@ -349,7 +349,6 @@ void config::add_listen(std::vector<config::listen> & listenvec, const std::vect
 		char *	tmp = reinterpret_cast<char *>(&tmpaddr);
 		int		num;
 
-		// TODO: Token type check
 		std::istringstream	stream(tokenit->str);
 		if (std::isdigit(stream.peek())) {
 			for (int i = 0; i < 4; i++) {
@@ -746,7 +745,6 @@ bool config::errors::has_page(int error_code) const {
 	return (it != _pagemap.end());
 }
 
-/** TODO: check if it should really return the default page */
 const config::errorpageinfo & config::errors::get_page(int error_code) const {
 	std::map<int, config::errorpageinfo>::const_iterator it = _pagemap.find(error_code);
 
