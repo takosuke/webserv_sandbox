@@ -13,6 +13,7 @@
 #include <stdexcept>
 #include <algorithm>
 #include <sstream>
+#include <arpa/inet.h>
 
 #include "Config.hpp"
 #include "EpollLoop.hpp"
@@ -851,18 +852,27 @@ void ClientConnection::fill_res_buffer() {
 bool ClientConnection::setup_cgi() {
 	const std::string	&interp = _loc->get_cgi().pass;
 	const std::string	&script = _loc->get_root() + _req.path;
-	// TODO missing:
-	// REMOTE_ADDR, SERVER_PORT, SCRIPT_NAME, SERVER_SOFTWARE, HTTP_* esp.
-	// HTTP_COOKIE
-	// REDIRECT_STATUS=200 for php
 	std::vector<std::string> env_strings;
 	env_strings.push_back("GATEWAY_INTERFACE=CGI/1.1");
 	env_strings.push_back("SERVER_PROTOCOL=" + _req.version);
 	env_strings.push_back("REQUEST_METHOD=" + string_from_method(_req.method));
 	env_strings.push_back("SCRIPT_FILENAME=" + _loc->get_root() + _req.path);
-	env_strings.push_back("PATH_INFO=" + _req.path);
+	env_strings.push_back("SCRIPT_NAME=" + _req.path);
+	env_strings.push_back("PATH_INFO=");
 	env_strings.push_back("QUERY_STRING=" + _req.query);
 	env_strings.push_back("SERVER_NAME=" + _req.hostname);
+	env_strings.push_back("SERVER_SOFTWARE=webserv/1.0");
+	env_strings.push_back("REDIRECT_STATUS=200");
+
+	std::ostringstream		port_oss;
+	port_oss << ntohs(_addr.sin_port);
+	env_strings.push_back("SERVER_PORT=" + port_oss.str());
+
+	struct sockaddr_in		peer;
+	socklen_t				peer_len = sizeof(peer);
+	if (getpeername(fd, (struct sockaddr *)&peer, &peer_len) == 0)
+		env_strings.push_back(std::string("REMOTE_ADDR=") + inet_ntoa(peer.sin_addr));
+
 	if (_req.method == POST && _req.content_length > 0) {
 		std::ostringstream oss;
 		oss << _req.content_length;
