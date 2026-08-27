@@ -1077,7 +1077,7 @@ void config::add_server_name(std::vector<std::string> & names, const std::vector
 		it != tokens.end(); it++) {
 			if (it->type != Token::string)
 				throw (std::runtime_error("non string parameter provided"));
-			names.push_back(it->str);
+			names.push_back(to_lower(it->str));
 		}
 	} catch (std::exception & e) {
 		throw (std::runtime_error(std::string("[server_name] ") + e.what()));

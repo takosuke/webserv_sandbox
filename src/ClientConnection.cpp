@@ -567,7 +567,7 @@ bool ClientConnection::handle_setup() {
 
 	/* Get appropriate virtual server if a Host header field was given */
 	if (!_req.hostname.empty())
-		_server = &(http->get_server(_addr, _req.hostname));
+		_server = &(http->get_server(_addr, to_lower(_req.hostname)));
 	if (_req.status != 0) {
 		_loc = &(_server->get_location("/"));
 		epi_redirect();

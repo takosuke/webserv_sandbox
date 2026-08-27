@@ -3,6 +3,7 @@
 #include <stdexcept>
 #include <string>
 #include <cstring>
+#include <cctype>
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <iostream>
@@ -45,4 +46,12 @@ bool	equals_icase(const std::string &a, const std::string &b) {
 				!= std::tolower(static_cast<unsigned char>(b[i])))
 			return false;
 	return true;
+}
+
+std::string	to_lower(const std::string &s) {
+	std::string out(s);
+
+	for (size_t i = 0; i < out.size(); ++i)
+		out[i] = static_cast<char>(std::tolower(static_cast<unsigned char>(out[i])));
+	return (out);
 }
