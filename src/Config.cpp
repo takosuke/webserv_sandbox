@@ -473,7 +473,6 @@ config::upload::upload(config::upload const & other) {
 }
 
 config::upload::~upload() {
-
 }
 
 config::upload & config::upload::operator=(config::upload const & other) {
@@ -1122,8 +1121,8 @@ Location & Location::operator=(const Location & other) {
 	mime = other.mime;
 	redirect = other.redirect;
 	errorpages = other.errorpages;
-  index = other.index;
-  autoindex = other.autoindex;
+	index = other.index;
+	autoindex = other.autoindex;
 	upload = other.upload;
 	copy_deep_container(locations, other.locations);
 	return (*this);
@@ -1281,8 +1280,8 @@ void Location::from_server(const Server & server) {
 	output = server.get_output();
 	mime = server.get_mime();
 	errorpages = server.get_errorpages();
-  index = server.get_index();
-  autoindex = server.get_autoindex();
+	index = server.get_index();
+	autoindex = server.get_autoindex();
 	upload = server.get_upload();
 }
 
@@ -1359,8 +1358,8 @@ Server & Server::operator=(const Server & other) {
 	output = other.output;
 	mime = other.mime;
 	errorpages = other.errorpages;
-  index = other.index;
-  autoindex = other.autoindex;
+	index = other.index;
+	autoindex = other.autoindex;
 	upload = other.upload;
 	copy_deep_container(locations, other.locations);
 	return (*this);
@@ -1473,8 +1472,8 @@ void Server::from_directive(const BodyDirective & directive) {
 		if (listen.size() == 0)
 			listen.push_back(config::listen());
 
-		/* simple stack to sttore all future locations and only create them after
-		 * all other directives are porcessed */
+		/* simple stack to store all future locations and only create them after
+		 * all other directives are processed */
 		std::vector<const BodyDirective *>	location_direc;
 
 		for (std::vector<BodyDirective>::const_iterator it = directive.body_directives.begin();
@@ -1525,8 +1524,8 @@ void Server::from_http(const Http & http) {
 	output = http.get_output();
 	mime = http.get_mime();
 	errorpages = http.get_errorpages();
-  index = http.get_index();
-  autoindex = http.get_autoindex();
+	index = http.get_index();
+	autoindex = http.get_autoindex();
 	upload = http.get_upload();
 }
 
@@ -1670,8 +1669,8 @@ Http & Http::operator=(const Http & other) {
 	mime = other.mime;
 	errorpages = other.errorpages;
 	ports = other.ports;
-  index = other.index;
-  autoindex = other.autoindex;
+	index = other.index;
+	autoindex = other.autoindex;
 	upload = other.upload;
 	copy_deep_container(servers, other.servers);
 	return (*this);
