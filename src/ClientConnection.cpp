@@ -595,17 +595,6 @@ bool ClientConnection::handle_setup() {
 			_req.status = 413;
 			epi_redirect();
 			++redirects;
-			/*
-<<<<<<< HEAD
-		} else if (_loc->get_cgi().is_set == false && !setup_post()) {
-      // Only static POST requests should get here
-			_req.status = 500;
-			epi_redirect();
-			++redirects;
-		}
-	}
-=======
-	*/
     } else if (_loc->get_cgi().is_set == false) {
 			if (!setup_post()) {
 				/* Only static POST requests should get here */
@@ -620,7 +609,6 @@ bool ClientConnection::handle_setup() {
 			}
     }
   }
-//>>>>>>> origin/upload-directive
 	/* Default server is set up at initialization so now we can look up the
 	 * Location in a loop for internal redirects.
 	 * After performing a redirection we need to validate the method and
