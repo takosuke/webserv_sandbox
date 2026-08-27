@@ -70,7 +70,6 @@ private:
 	bool	handle_cgi_output(uint32_t events);
   void  handle_post(uint32_t events);
   void  handle_post_leftover();
-	void	parse_cgi_headers(size_t sep);
 	void	finalize_cgi();
 
 	bool	set_file(const std::string &path, std::ios_base::openmode mode = std::ios_base::in | std::ios_base::out);

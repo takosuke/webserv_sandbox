@@ -1103,36 +1103,6 @@ void ClientConnection::handle_post(uint32_t events) {
 	}
 } 
 
-void ClientConnection::parse_cgi_headers(size_t sep) {
-	std::vector<std::pair<std::string, std::string> > cgi_headers;
-	size_t start = 0;
-	size_t end;
-	_req.status = 200;
-	
-	while ((end = _buf.find("\r\n", start)) < sep) {
-		std::string line(_buf.data + start, end - start);
-		size_t colon = line.find(':');
-		if (colon != std::string::npos) {
-			std::string key = line.substr(0, colon);
-			std::string val = line.substr(colon + 1);
-			size_t trim = val.find_first_not_of(" \t");
-			if (trim != std::string::npos)
-				val = val.substr(trim);
-			if (key == "Status")
-				_req.status = std::atoi(val.c_str());
-			else
-				cgi_headers.push_back(std::make_pair(key, val));
-		}
-		start = end + 2;
-	}
-
-	_res.add_status_line(HTTP_VERSION_STR, _req.status);
-	for (size_t i = 0; i < cgi_headers.size(); ++i)
-		_res.add_header_field(cgi_headers[i].first, cgi_headers[i].second);
-
-	_buf.erase(0, sep + 4);
-}
-
 void ClientConnection::finalize_cgi() {
 	if (_buf.feed_capacity() > 0)
 		_buf.feed(_stream);
