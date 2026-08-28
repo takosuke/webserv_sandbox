@@ -452,11 +452,11 @@ Token NumberLex::construct() const {
 	switch (*(end - 1)) {
 		case 'k':
 			token.type = Token::memory;
-			token.num *= 1000;
+			token.num *= 1024;
 			break ;
 		case 'm':
 			token.type = Token::memory;
-			token.num *= 1000000;
+			token.num *= 1048576;
 			break ;
 		case 's':
 			token.type = Token::time;

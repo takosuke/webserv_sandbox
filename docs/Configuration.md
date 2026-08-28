@@ -9,10 +9,10 @@ parser, the contexts it is valid in, its parameters, defaults, and behaviour.
 - [Value syntax](#value-syntax)
 - [Inheritance](#inheritance)
 - [Context blocks](#context-blocks)
-  - [`http`](#http)
-  - [`server`](#server)
-  - [`location`](#location)
-  - [`types`](#types)
+  - [http](#http)
+  - [server](#server)
+  - [location](#location)
+  - [types](#types)
 - [Directive reference](#directive-reference)
   - [Connection & networking](#connection--networking)
   - [Request limits & timeouts](#request-limits--timeouts)
@@ -62,19 +62,19 @@ values with a unit suffix:
 
 | Suffix | Meaning       | Example | Resolves to        |
 |--------|---------------|---------|--------------------|
-| `k`    | kilobytes     | `16k`   | `16000` bytes      |
-| `m`    | megabytes     | `1m`    | `1000000` bytes    |
+| `k`    | kibibytes     | `16k`   | `16384` bytes      |
+| `m`    | mibibytes     | `1m`    | `1048576` bytes    |
 | `s`    | seconds       | `30s`   | `30` seconds       |
 | `h`    | hours         | `1h`    | `3600` seconds     |
 | (none) | raw number    | `1024`  | `1024`             |
 
 Notes:
 
-- Size suffixes use decimal (1000), **not** binary (1024) multipliers.
+- Size suffixes use binary (1024) multipliers.
 - A bare number is accepted anywhere a size or time is expected; it is taken
-  as bytes or seconds respectively.
+as bytes or seconds respectively.
 - Directives that expect a size accept `number` or `memory` tokens; directives
-  that expect a duration accept `number` or `time` tokens.
+that expect a duration accept `number` or `time` tokens.
 
 ---
 

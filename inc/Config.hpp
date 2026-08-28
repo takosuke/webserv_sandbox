@@ -39,10 +39,6 @@ namespace config {
 		 * If a client does not transmit the entire header within this time,
 		 * the request is terminated with the 408 (Request Time-out) Error. */
 		long unsigned int	timeout;
-		/** Sets the number of large buffers for client request headers */
-		long unsigned int	nlbuffers;
-		/** Sets the size of large buffers for client request headers */
-		long unsigned int	lbuffer_size;
 
 		header();
 		header(const header & other);
@@ -53,7 +49,6 @@ namespace config {
 
 	void add_client_header_buffer_size(config::header & header, const std::vector<Token> & tokens);
 	void add_client_header_timeout(config::header & header, const std::vector<Token> & tokens);
-	void add_large_client_header_buffers(config::header & header, const std::vector<Token> & tokens);
 
 	/** Struct to hold information about a client requests body */
 	struct body {
@@ -86,8 +81,6 @@ namespace config {
 	public:
 		/** The size of the buffers used to reading from the disk */
 		unsigned long int	buffer_size;
-		/** The number of buffers available to read from the disk */
-		unsigned long int	nbuffers;
 
 		output();
 		output(const output & other);
@@ -96,7 +89,7 @@ namespace config {
 		output & operator=(const output & other);
 	};
 
-	void add_output_buffers(config::output & output, const std::vector<Token> & tokens);
+	void add_output_buffer(config::output & output, const std::vector<Token> & tokens);
 
 	/** Struct to hold information about allowed HTTP methods */
 	struct limit {
@@ -255,7 +248,7 @@ namespace config {
 		errorpageinfo & operator=(const errorpageinfo & other);
 	};
 
-#define DEFAULT_ERROR_PAGE "error_page.html"
+#define DEFAULT_ERROR_PAGE "404.html"
 #define DEFAULT_ERROR_CODE 404
 
 	bool starts_with_scheme(const std::string & uri);
