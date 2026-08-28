@@ -1,9 +1,12 @@
 #!/usr/bin/env python3
-# Emits one header whose value is far larger than the scratch buffer (default
-# 1024). buffer_res_headers() only copies a header when fill_capacity() exceeds
-# its size, so an oversized header is never placed; handle_response then writes
-# 0 bytes and closes the connection mid-response. A compliant server (and nginx)
-# forwards large headers fine. Used by cgi_robustness_test's big-header probe.
+# Emits one header whose value (~3 KB) is far larger than the default 1024-byte
+# client_header_buffer_size. buffer_res_headers() only places a header when
+# fill_capacity() exceeds its size, so under that default it never fits and the
+# request is answered 502 — the same call nginx makes, which treats an upstream
+# header past its buffer as an invalid response. The limit is configurable, so
+# with a big enough buffer the identical header is forwarded intact. Both sides
+# are pinned: cgi_robustness_test (base.conf, 1024) and cgi_header_buffer_test
+# (cgi_big_header.conf, 8192).
 import sys
 
 marker = "BIGHEADERVALUE" + ("Z" * 3000)

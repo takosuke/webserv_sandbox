@@ -3,9 +3,9 @@
   Architecture.md \"Additional issues found by source review\"). These probe the
   CGI output path in ClientConnection: a blocking waitpid that stalls the whole
   event loop, EPOLLHUP truncation of large bodies, a CGI that exits before
-  emitting headers (100% CPU spin), an oversized CGI header that wedges the
-  response, case-sensitive Status matching, and a stray CRLF leaking into the
-  body.
+  emitting headers (100% CPU spin), a CGI header block that overflows the
+  configured buffer, case-sensitive Status matching, and a stray CRLF leaking
+  into the body.
 
   Each assertion targets the *desired* behavior and is KNOWN-FAILING until the
   bug is fixed. Several of these requests can stall or spin the server, so —
@@ -64,21 +64,24 @@
           "an empty-output CGI must not leave the connection hanging"))))
 
 ;; ---------------------------------------------------------------------------
-;; A CGI header larger than the scratch buffer wedges the response
+;; A CGI header larger than the configured buffer is rejected, not spun on
 ;; ---------------------------------------------------------------------------
-;; big_header.py emits an ~3 KB header value. buffer_res_headers only copies a
-;; header when fill_capacity() exceeds its size, so it can never be placed and
-;; handle_response writes 0 bytes and closes.
+;; big_header.py emits an ~3 KB X-Big value. buffer_res_headers only places a
+;; header when fill_capacity() exceeds its size, so under base.conf's 1024-byte
+;; client_header_buffer_size it can never be placed. Rather than spin on the
+;; level-triggered EPOLLHUP, handle_cgi_output answers 502 — the same call nginx
+;; makes ("if it exceeds the buffer size, the response is considered invalid").
+;; The limit is configurable, so the other side of it — a header that does fit —
+;; is covered by cgi_header_buffer_test.clj.
 
-(deftest test-oversized-cgi-header-is-forwarded
-  (testing "KNOWN-FAILING: a CGI header larger than the buffer is forwarded, not dropped"
+(deftest test-cgi-header-over-buffer-is-502-not-a-hang
+  (testing "a CGI header exceeding client_header_buffer_size yields 502, not a hang"
     (let [{:keys [response timed-out]}
           (server/raw-request-timeout "127.0.0.1" 8080
             "GET /cgi-bin/big_header.py HTTP/1.0\r\nHost: 127.0.0.1\r\n\r\n" 2000)]
       (is (not timed-out) "the response must complete, not wedge")
-      (is (re-find #"HTTP/\S+ 200" response) "a 200 status line should be present")
-      (is (clojure.string/includes? response "BIGHEADERVALUE")
-          "the large X-Big header should reach the client"))))
+      (is (re-find #"HTTP/\S+ 502" response)
+          "an over-buffer CGI header block must be reported as a bad gateway"))))
 
 ;; ---------------------------------------------------------------------------
 ;; CGI Status header matched case-insensitively

@@ -1,26 +1,23 @@
 (ns webserv-tests.upload-test
   "Non-CGI POST (file upload) regression tests.
 
-  The subject requires that 'clients must be able to upload files'. The server
-  implements this: handle_setup() calls setup_post(), which opens
-  <root><path> in append mode, handle_post_leftover() flushes the body bytes
-  that already sat in the scratch buffer, and handle_post() is supposed to keep
-  draining the socket into the file until content_length bytes have been
-  written.
+  The subject requires that 'clients must be able to upload files'. handle_setup()
+  calls setup_post(), which opens <upload_directory><path> in append mode,
+  handle_post_leftover() flushes the body bytes already sitting in the scratch
+  buffer, and handle_post() drains the rest of the socket into the file until
+  content_length bytes have been written.
 
-  It does not. The _state == REQ_BODY branch of handle_post() reads from the
-  socket and then does
+  Both sizes are covered on purpose. The small body fits in a single
+  client_header_buffer_size buffer and is fully written by handle_post_leftover
+  alone; the large one cannot, so it only lands intact if handle_post() keeps
+  feeding _stream across several reads. That second path was broken once — it
+  jumped straight to the response and a 5 KB upload jumped to ~1 KB with the
+  client still getting a 201 — so the large-body case stays as a regression
+  guard.
 
-      if (_buf.feed_capacity() > 0) { _state = RESPONSE; setup_res(); }
-
-  i.e. it jumps to the response instead of feeding the buffer to the file. The
-  half of handle_post() that actually writes to _stream is only reachable from
-  CGI_TRANSMIT_BODY, which a static POST never enters. Net effect: only the
-  bytes that happened to be in the buffer when setup finished ever reach disk —
-  a 5 KB upload lands as ~1 KB and the client still gets 201.
-
-  The small-body test is the control: it passes today and isolates the defect to
-  bodies that do not fit in a single client_header_buffer_size buffer."
+  Note the append mode: a repeated POST to the same URI grows the file rather
+  than replacing it, which is why every test starts from a guaranteed-absent
+  probe via with-clean-probe."
   (:require [clojure.test :refer [deftest is testing use-fixtures]]
             [webserv-tests.server :as server])
   (:import [java.io File]))
@@ -31,7 +28,9 @@
 ;; read and the truncation is unambiguous.
 (def ^:private big-size 5000)
 
-(defn- probe-file [name] (File. (str "../www/" name)))
+;; upload.conf sets `upload_directory __WWWROOT__/upload upload`, so a POST to
+;; /<name> is written to www/upload/<name> and served back from /upload/<name>.
+(defn- probe-file [name] (File. (str "../www/upload/" name)))
 
 (defn- post-file
   "POST body to /<name> and return the parsed response. The upload path opens
@@ -55,7 +54,7 @@
          (finally (when (.exists f') (.delete f'))))))
 
 (deftest test-small-upload-reaches-disk
-  (testing "a POST body smaller than the request buffer is written to disk in full (control)"
+  (testing "a POST body smaller than the request buffer is written to disk in full"
     (with-clean-probe "upload_small_probe.txt"
       (fn [name]
         (let [body (apply str (repeat 64 "a"))
@@ -68,7 +67,7 @@
               "every byte of a single-buffer body should reach disk"))))))
 
 (deftest test-large-upload-is-not-truncated
-  (testing "KNOWN-FAILING: a POST body larger than one buffer is written to disk in full"
+  (testing "a POST body larger than one buffer is written to disk in full"
     (with-clean-probe "upload_big_probe.txt"
       (fn [name]
         (let [body (apply str (repeat big-size "A"))
@@ -81,5 +80,5 @@
           ;; Reading it back over HTTP shows the same truncation from the
           ;; client's side, and fails even if the on-disk check is ever
           ;; satisfied by a partial flush that happens after the response.
-          (is (= big-size (:content-length (server/http-get-bytes (str "/" name))))
+          (is (= big-size (:content-length (server/http-get-bytes (str "/upload/" name))))
               "the uploaded file must serve back at its full length"))))))

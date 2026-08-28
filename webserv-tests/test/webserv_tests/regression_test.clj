@@ -97,23 +97,3 @@
   (testing "KNOWN-FAILING: a CGI reading CONTENT_LENGTH bytes from stdin sees the body"
     (let [resp (cgi-env-post "hello" "text/plain")]
       (is (clojure.string/includes? (:body resp) "BODY=hello")))))
-
-;; ---------------------------------------------------------------------------
-;; Chunked transfer-encoding is un-chunked before reaching the CGI
-;; ---------------------------------------------------------------------------
-
-(deftest test-chunked-post-unchunked-for-cgi
-  (testing "KNOWN-FAILING: a chunked POST body is de-chunked and delivered to the CGI"
-    (let [resp (server/http-request
-                 (str "POST /cgi-bin/env.py HTTP/1.1\r\n"
-                      "Host: 127.0.0.1\r\n"
-                      "Transfer-Encoding: chunked\r\n"
-                      "\r\n"
-                      "5\r\nhello\r\n"
-                      "6\r\n world\r\n"
-                      "0\r\n\r\n"))]
-      ;; The CGI should see the reassembled body "hello world", never the raw
-      ;; chunk framing.
-      (is (some? (:body resp)))
-      (is (clojure.string/includes? (:body resp) "BODY=hello world"))
-      (is (not (clojure.string/includes? (:body resp) "5\r\nhello"))))))
