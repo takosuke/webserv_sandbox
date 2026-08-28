@@ -23,6 +23,10 @@ class EpollLoop
 		void	run();
 		void	track_child(pid_t pid, time_t timeout);
 		void	kill_child(pid_t pid);
+		void	release_reserve_fd();
+		void	reclaim_reserve_fd();
+
+		int		_reserve_fd;
 
 	private:
 		struct Child {

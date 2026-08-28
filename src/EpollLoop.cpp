@@ -14,6 +14,7 @@
 #include <cstring>
 #include <cerrno>
 #include <csignal>
+#include <fcntl.h>
 
 #include "Logger.hpp"
 #include "ClientConnection.hpp"
@@ -35,6 +36,8 @@ EpollLoop::EpollLoop() {
     if (_epoll_fd < 0) {
 		throw std::runtime_error(std::string("epoll_create1() failed: ") + strerror(errno));
     }
+	/* Held only to be surrendered when accept() hits EMFILE. */
+	_reserve_fd = open("/dev/null", O_RDONLY | O_CLOEXEC);
 }
 
 EpollLoop::~EpollLoop() {
@@ -50,6 +53,8 @@ EpollLoop::~EpollLoop() {
 		delete it->second;
 	}
     close(_epoll_fd);
+	if (_reserve_fd != -1)
+		close(_reserve_fd);
 }
 
 void	EpollLoop::add(Connection *conn) {
@@ -185,4 +190,16 @@ void	EpollLoop::reap_children() {
 		}
 		++it;
 	}
+}
+
+void	EpollLoop::release_reserve_fd() {
+	if (_reserve_fd != -1) {
+		close(_reserve_fd);
+		_reserve_fd = -1;
+	}
+}
+
+void	EpollLoop::reclaim_reserve_fd() {
+	if (_reserve_fd == -1)
+		_reserve_fd = open("/dev/null", O_RDONLY | O_CLOEXEC);
 }
