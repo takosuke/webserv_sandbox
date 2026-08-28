@@ -1121,10 +1121,13 @@ Location & Location::operator=(const Location & other) {
 	path = other.path;
 	is_prefix = other.is_prefix;
 	root = other.root;
+	header = other.header;
 	body = other.body;
+	output = other.output;
 	mime = other.mime;
 	redirect = other.redirect;
 	errorpages = other.errorpages;
+	cgi = other.cgi;
 	index = other.index;
 	autoindex = other.autoindex;
 	upload = other.upload;
@@ -1280,6 +1283,7 @@ void Location::from_directive(const BodyDirective & directive) {
 
 void Location::from_server(const Server & server) {
 	root = server.get_root();
+	header = server.get_header();
 	body = server.get_body();
 	output = server.get_output();
 	mime = server.get_mime();
