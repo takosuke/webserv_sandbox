@@ -762,7 +762,7 @@ bool ClientConnection::setup_res() {
 		_res.add_status_line(HTTP_VERSION_STR, _req.status);
 		if (!_req.internal)
 			_res.add_header_field("Location", _req.path);
-		else
+		if (_req.status == 405)
 			_res.add_allowed(_loc);
 		_res.add_date();
 		if (!_req.no_file && _req.method != POST) {
@@ -1157,7 +1157,7 @@ bool ClientConnection::setup_autoindex() {
 		_res.add_status_line(HTTP_VERSION_STR, _req.status);
 		if (!_req.internal)
 			_res.add_header_field("Location", _req.path);
-		else
+		if (_req.status == 405)
 			_res.add_allowed(_loc);
 		_res.add_date();
 		_res.add_header_field("Content-Length", get_file_size());
