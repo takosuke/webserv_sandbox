@@ -395,7 +395,7 @@ bool	ClientConnection::handle_req_line() {
 					return (_req.status = 505, false);
 				else if (!((_req.version.compare(0, 8, "HTTP/1.1") == 0
 						|| _req.version.compare(0, 8, "HTTP/1.0") == 0)
-					&& _req.version.find_first_not_of('0', 8) == std::string::npos))
+							&& _req.version.size() == 8))
 					return (_req.status = 400, false);
 
 				_req.uri = req_line.substr(sp1 + 1, sp2 - sp1 - 1);
