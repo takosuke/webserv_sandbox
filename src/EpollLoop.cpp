@@ -49,7 +49,6 @@ EpollLoop::~EpollLoop() {
 	for (std::map<int, Connection*>::iterator it = _connections.begin();
 			it != _connections.end(); ++it) 
 	{
-		close(it->second->fd);
 		delete it->second;
 	}
     close(_epoll_fd);
