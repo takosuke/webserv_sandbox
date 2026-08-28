@@ -4,27 +4,19 @@
 
   EpollLoop::run() sweeps every connection each tick and calls
   handle_timeout(), which answers 408 while the connection is still reading.
-  That works — for the request-line/header phase, where _timeout still holds
-  the value ClientConnection's ctor copied from the *server's* config::header.
-
-  handle_setup() then ends with
-
-      _timeout = _loc->get_header().timeout;
-
-  and config::header is never inherited into a Location: Location::from_server()
-  copies root/body/output/mime/errorpages/index/autoindex but not header, and
-  Location::operator= drops it too (the parser also rejects
-  client_header_timeout inside a location block, so there is no way to set it
-  there either). Every connection therefore silently reverts to the built-in
-  60 s default the moment its headers are parsed — a client that stalls
-  mid-body holds a connection, an fd and a half-written upload for a minute,
-  whatever the config says.
-
   Both tests run against timeout_body.conf, which sets client_header_timeout
-  and client_body_timeout to 2 s. The header test is the control (passes
-  today); the body test is the defect. Neither may half-close the write side:
-  an EOF is detected on its own and would answer regardless of any timeout —
-  the point is a client that stays connected and silent."
+  and client_body_timeout to 2 s, and both cover phases that run *before*
+  handle_setup() reassigns _timeout from the resolved Location — the header
+  phase uses the value ClientConnection's ctor copied from the server, and a
+  static POST returns from handle_setup before that reassignment.
+
+  Neither test can therefore see whether config::header is inherited
+  Server -> Location; header-inheritance-test covers that separately, via a CGI
+  POST, which is the path that does reach the reassignment.
+
+  Neither may half-close the write side: an EOF is detected on its own and
+  would answer regardless of any timeout — the point is a client that stays
+  connected and silent."
   (:require [clojure.test :refer [deftest is testing use-fixtures]]
             [webserv-tests.server :as server])
   (:import [java.io ByteArrayOutputStream File]
@@ -79,8 +71,8 @@
           "a read-side timeout should produce 408 Request Timeout"))))
 
 (deftest test-stalled-body-times-out
-  (testing "KNOWN-FAILING: a client that stops mid-body is timed out too, not held for the 60 s default"
-    (let [probe (File. "../www/timeout_body_probe.txt")]
+  (testing "a client that stops mid-body is timed out, not held for the 60 s default"
+    (let [probe (File. "../www/upload/timeout_body_probe.txt")]
       (when (.exists probe) (.delete probe))
       (try
         (let [{:keys [response timed-out elapsed-ms]}
@@ -91,8 +83,8 @@
                              deadline-ms)]
           (is (not timed-out)
               (str "the connection was still open after " elapsed-ms
-                   " ms; handle_setup() resets _timeout to the location's "
-                   "60 s default because config::header is not inherited"))
+                   " ms; a stalled body must be timed out at the configured "
+                   "client_body_timeout, not held for the 60 s default"))
           (is (or (empty? response) (= 408 (server/status-code response)))
               "closing is acceptable, 408 Request Timeout is better; a 2xx is not"))
         (finally
