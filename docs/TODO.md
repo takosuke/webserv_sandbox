@@ -1,71 +1,92 @@
-*Updated 2026-07-29 (`bug-hunt-2`). Detail, evidence and a phased fix order for
-every line: `docs/Gaps_and_Issues.md` (see §4 Priority order — start with the
-README, the mime dot, the POST regression and the autoindex unlink).*
+*Updated 2026-08-28. Detail, evidence and a phased fix order for every line:
+`docs/Gaps_and_Issues.md` (see §4 Priority order — start with the README and the
+`config::header` inheritance).*
 
-*Out of scope, confirmed with the evaluators: chunked transfer-encoding, and the
-`mkstemp` allowed-functions objection.*
+*Suite standing: `make test` → **103 tests, 145 assertions, 0 failures**.
+A green suite does not mean the list below is empty — fd exhaustion and config
+startup paths are not reachable from kaocha and are verified by `sweep.sh` /
+`spin.sh` instead.*
+
+*Out of scope, confirmed with the evaluators: chunked transfer-encoding (its
+test has been removed) and the `mkstemp` allowed-functions objection.*
 
 # FEATURES
 
-- [~] File Uploads (non CGI post) — writes to disk and answers 201, but bodies
-      over one buffer are truncated (only the setup leftover is written) and
-      there is no upload-storage-location directive
-- [ ] README.md in the subject's format
-- [ ] built in error pages (no body at all when no `error_page` matches)
+- [x] File uploads (non-CGI POST) — full-length writes, `upload_directory`
+      storage location, replace semantics with 201 on create / 204 on replace
+- [x] Built-in error pages — generated in-process, no filesystem dependency
+- [x] CGI receives the full request (`HTTP_*`, `SERVER_PORT`, `REMOTE_ADDR`,
+      `SCRIPT_NAME`, `SERVER_SOFTWARE`) and runs in the script's directory
+- [ ] README.md in the subject's format — **gates the evaluation**; note
+      `./webserv` with no argument now exits 1, so document
+      `./webserv conf/base.conf` or change the default path
+- [ ] CGI selection by file extension (`.php`-style rules) — issue 30
 - [-] chunked transfer-encoding — not required
 
 # ISSUES
 
-### regressions (new this snapshot)
+### open
 
-- [ ] POST skips the whole resolution loop: no limit_except (405 → 500), no
-      file-existence check, no return/index/autoindex, 500 on a directory
-- [ ] Content-Type always falls back to default_type — the extension lookup
-      keeps the '.', the mime map is keyed without it (`substr(ext_del + 1)`)
+- [ ] `config::header` not inherited Server→Location, and `Location::operator=`
+      drops `cgi`/`header`/`output` — issues 8/31. The configured body timeout
+      only works because the static-POST branch returns before the
+      `_timeout = _loc->get_header().timeout` reassignment. Any deep copy of a
+      `Location` also loses its `cgi_pass`.
+- [ ] `ClientConnection` hang window when `fill_capacity()` is exactly 1 —
+      issue 11; six read guards use `> 1`, the 414/431 guards use `<= 0`
+- [ ] `bzero`/`strncpy` should be `std::memset`/`std::memcpy` — issue 22
+- [ ] `tester` is a tracked 7 MB binary; `$(ODIR)` should be an order-only
+      prerequisite — issue 24
 
-### big ones
+### decided — not defects
 
-- [ ] cgi runtime timeout (check waitpid), finalize_cgi blocks event loop
-- [ ] configured timeout is lost after handle_setup — `config::header` is not
-      inherited Server→Location, so every connection reverts to the 60s default
-      once the headers are parsed
-- [x] EINTR unhandled — fixed 2026-08-05, see docs/past_issues/EINTR_unhandled.md
-- [ ] use-after-del within a batch
-- [ ] setup_cgi fail not handled
-- [ ] if POST clients die halfway forked cgi process dont get killed
-- [ ] header values lowercased, should only be the keys because cgi multipart
-      upload boundaries are case sensitive
-- [x] scratchbuffer signed/unsigned mixups
-- [x] autoindex is redirecting subdir requests to root index
-- [x] no content type on responses (header is emitted now — value still wrong,
-      see regressions above)
+- [-] `autoindex` takes `true|false`, not `on|off` — deliberate. The subject
+      only says "take inspiration from" nginx and permits other rules; the
+      convention is documented and a wrong value gives a clear error. If this
+      ever changes, `Configuration.md` changes in the same commit.
+- [-] Duplicate request headers are first-wins (nginx behaviour); only `Host`
+      rejects duplicates, because only `Host` has an RFC MUST — issue 20
+- [-] Oversized CGI header block → 502 — matches nginx, and the limit is
+      `client_header_buffer_size`, so a big enough buffer forwards it. Both
+      sides pinned by green tests — issue 18
 
-### smaller issues
+### retired — previous snapshots were wrong
 
-- [ ] autoindex leaks a /tmp/autoindex_* file per request (never unlinked) and
-      sends no Content-Type — `autoindex_test.clj`
-- [ ] internal `return <code> <path>` still collapses to 500
-- [ ] client_header_buffer_size dead — set_capacity() never assigns capacity
-- [ ] Content-Length trailing junk and HTTP/1.10 accepted (should be 400)
-- [ ] Allow header sent on every response, belongs on 405 only
-- [ ] autoindex takes true/false, not nginx's on/off
-- [?] ClientConnection:414/431 if fill_capacity is exactly 1 it can hang
-- [x] timeout not responding with 408 code (send-side only; receive-side still
-      just cuts the connection)
-- [x] 413 unreachable on non cgi routes
+- [-] EpollLoop use-after-del in a batch (issue 6) — `del()` defers into
+      `_deletion_queue`, drained by `clear()` after the batch. No dangling
+      pointer exists; at worst a connection that gave up is dispatched again.
+- [-] fd leak on mid-CGI teardown (issue 17) — there was no leak. Pre- and
+      post-fix binaries measure identically; the earlier claim came from
+      sampling inside the 10 s `CGI_TIMEOUT` window. The real bug was a
+      double-close, now fixed.
+- [-] 5 ms `epoll_wait` tick cost (issue 23) — idle CPU measures 0 ticks over
+      3 s. The 99% CPU was entirely the EMFILE spin.
 
-### CGI
+### closed this cycle
 
-- [ ] env incomplete
-- [ ] oversized CGI header block answered with 502 instead of forwarded
-- [x] timeouts (see above)
+- [x] Config robustness: missing/unreadable/empty/garbage file, no listener,
+      out-of-range port — all seven exit 1 with a diagnostic (issues 25, 33)
+- [x] `setup_cgi()` failure now answers 500 instead of hanging (issue 7)
+- [x] EMFILE accept spin: 99% CPU → 0%, plus the fd leak on throw (issue 10)
+- [x] fd ownership moved into the destructors, double-close removed (issue 17)
+- [x] `Allow` on 405 only (issue 19)
+- [x] HTTP/1.1 without `Host`, and duplicate `Host`, return 400 (issue 32)
+- [x] `Content-Length` trailing junk and `HTTP/1.10` return 400 (issue 14)
+- [x] `client_header_buffer_size` is live — `set_capacity()` assigns (issue 13)
+- [x] Case-insensitive `Host` matching restored (issue 26)
+- [x] Reason phrases for 411/414/431/504, `SUpported` typo (issue 29)
+- [x] Dead code and merge-conflict markers removed (issue 24)
 
-### housekeeping
+# TEST COVERAGE GAPS
 
-- [x] www/ and conf/ assets tracked in git
-- [-] mkstemp not on the allowed-functions list — cleared, it's allowed
-- [ ] dead code: Connection.cpp, CgiConnection.{cpp,hpp}, ServerBlock.cpp,
-      parse_cgi_headers(); stale ./autoindex binary + aindex/; untracked
-      minimal_serv.cpp, webserv_epoll.cpp, parser/
-- [ ] Makefile: `$(ODIR)` should be an order-only prerequisite (race no longer
-      reproduces, but the form is still wrong); dead clang-detect ifeq
+Everything below passes by hand but has no test:
+
+- [ ] config robustness — shell out to `./webserv <bad file>` under a timeout;
+      seven cases already scripted. **Cheapest remaining win.**
+- [ ] default error page body and `Content-Length` agreement — the mismatch was
+      a real bug during implementation
+- [ ] CGI env completeness and working directory — `www/cgi-bin/envdump.py`
+      already renders everything needed
+- [ ] case-insensitive `Host`, 411/414/431 reason phrases
+- [-] issues 7 and 10 — need fd starvation; keep `sweep.sh` / `spin.sh` instead,
+      kaocha cannot set an rlimit on the server process
