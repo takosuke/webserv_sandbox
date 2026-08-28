@@ -34,6 +34,9 @@ int main(int ac, char *av[]) {
 		Http http(grouper.main.body_directives[0]);
 		const std::map<struct sockaddr_in, Port> &ports = http.get_ports();
 
+		if (ports.empty())
+			throw(std::runtime_error("config defines no listening socket"));
+
 		for (std::map<struct sockaddr_in, Port>::const_iterator it = ports.begin();
 				it != ports.end(); ++it)
 		{
