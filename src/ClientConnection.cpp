@@ -491,10 +491,13 @@ bool ClientConnection::parse_req_headers() {
 	// Parse content length
 	it = _req.headers.find("content-length");
 	if (it != _req.headers.end()) {
+		if (it->second.empty()
+				|| it->second.find_first_not_of("0123456789") != std::string::npos)
+			return (_req.status = 400, false);
 		std::istringstream iss(it->second);
 		iss >> _req.content_length;
 		if (iss.fail())
-			return (_req.status = 500, false);
+			return (_req.status = 400, false);
 	}
 	else if (_req.method == POST)
 		return (_req.status = 411, false); // Length required
