@@ -24,3 +24,8 @@ void	ServerConnection::handle(uint32_t events) {
 
 	EpollLoop::get_instance().add(client_conn);
 }
+
+ServerConnection::~ServerConnection() {
+	if (fd != -1)
+		close(fd);
+}

@@ -141,7 +141,6 @@ void	EpollLoop::delete_conn(Connection *conn) {
 	std::cout << "Client fd=" << conn->fd << " disconnected\n";
 	epoll_ctl(_epoll_fd, EPOLL_CTL_DEL, conn->fd, NULL);
 	_connections.erase(conn->fd);
-	close(conn->fd);
 	delete conn; // do we delete it here or wait for destructor
 }
 

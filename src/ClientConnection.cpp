@@ -117,12 +117,14 @@ ClientConnection::ClientConnection(int sockfd, Http *http_conf, struct sockaddr_
 }
 
 ClientConnection::~ClientConnection() {
+	if (_cgi_pid > 0)
+		EpollLoop::get_instance().kill_child(_cgi_pid);
 	if (_cgi_stdin_fd != -1)
 		close(_cgi_stdin_fd);
 	if (_cgi_stdout_fd != -1)
 		close(_cgi_stdout_fd);
-	if (_cgi_pid > 0)
-		EpollLoop::get_instance().kill_child(_cgi_pid);
+	if (_client_fd != -1)
+		close(_client_fd);
 }
 
 void ClientConnection::handle(uint32_t events) {
@@ -837,6 +839,7 @@ bool ClientConnection::setup_cgi() {
 			key += (c == '-') ? '_'
 				: static_cast<char>(std::toupper(static_cast<unsigned char>(c)));
 		}
+		env_strings.push_back(key + "=" + it->second);
 	}
 
 	const std::vector<std::pair<std::string, std::string> > &params =
