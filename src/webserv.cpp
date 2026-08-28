@@ -46,7 +46,7 @@ int main(int ac, char *av[]) {
 			server_conn->fd   = make_server_socket(l);
 			server_conn->http = &http;
 			server_conn->addr = l.get_sockaddr();
-			std::cout << "Listening on port " << l.port << "...\n";
+			std::cout << "Listening on port " << l.port << "..." << std::endl;
 
 			EpollLoop::get_instance().add(server_conn);
 		}

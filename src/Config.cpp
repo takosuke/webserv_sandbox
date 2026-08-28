@@ -380,6 +380,10 @@ void config::add_listen(std::vector<config::listen> & listenvec, const std::vect
 			stream >> listen.port;
 			if (stream.bad())
 				throw (std::runtime_error("istream error reading port"));
+			if (stream.fail())
+				throw (std::runtime_error("port is not a number"));
+			if (listen.port == 0 || listen.port > 65535)
+				throw (std::runtime_error("port out of range (1 - 65535)"));
 		}
 		++tokenit;
 

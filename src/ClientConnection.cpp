@@ -454,7 +454,11 @@ bool	ClientConnection::handle_req_headers() {
 			size_t start = val.find_first_not_of(" \t");
 			if (start != std::string::npos)
 				val = val.substr(start);
-			_req.headers.insert(std::make_pair(key, val));
+			if (!_req.headers.insert(std::make_pair(key, val)).second
+					&& key == "host") {
+				_state = REQ_SETUP;
+				return (_req.status = 400, false);
+			}
 			_buf.erase(0, pos + 2);
 			pos = _buf.find("\r\n");
 		} catch ( std::exception & e) {
@@ -475,6 +479,10 @@ bool ClientConnection::parse_req_headers() {
 	it = _req.headers.find("host");
 	if (it != _req.headers.end())
 		_req.host = it->second;
+	/* RFX 9112 3.2 - a server must respond with 400 to a HTTP/1.1 request
+	 * without host header */
+	if (_req.host.empty() && _req.version == "HTTP/1.1")
+		return (_req.status = 400, false);
 	if (!_req.host.empty()) {
 		std::string::size_type	colon = _req.host.rfind(':');
 		if (colon == std::string::npos) {
