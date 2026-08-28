@@ -45,8 +45,11 @@
       (is (clojure.string/includes? (:body resp) "<html")))))
 
 ;; ---- allow header ----
+;; RFC 9110 15.5.6 requires Allow on a 405 and nowhere else in what this server
+;; emits. The positive case lives in limit-except-test, which has the
+;; limit_except location needed to provoke a 405.
 
-(deftest test-allow-header-present
-  (testing "GET response includes an Allow header listing permitted methods"
+(deftest test-allow-header-absent-on-success
+  (testing "a 200 response carries no Allow header — it belongs on 405"
     (let [resp (server/http-get "/index.html")]
-      (is (contains? (:headers resp) "allow")))))
+      (is (not (contains? (:headers resp) "allow"))))))
