@@ -42,8 +42,6 @@ std::string string_from_method(const HttpMethod & method) {
 config::header::header() {
 	buffer_size = 1024;
 	timeout = 60;
-	nlbuffers = 4;
-	lbuffer_size = 8192;
 }
 
 config::header::header(const header & other) {
@@ -57,8 +55,6 @@ config::header & config::header::operator=(const header & other) {
 		return (*this);
 	buffer_size = other.buffer_size;
 	timeout = other.timeout;
-	nlbuffers = other.nlbuffers;
-	lbuffer_size = other.lbuffer_size;
 	return (*this);
 }
 
@@ -88,27 +84,9 @@ void config::add_client_header_timeout(config::header & header, const std::vecto
 	}
 }
 
-void config::add_large_client_header_buffers(config::header & header, const std::vector<Token> & tokens) {
-	try {
-		check_parameter_count(1, 2, tokens.size());
-
-		if (tokens[0].type != Token::number)
-			throw (std::runtime_error("expected number parameter"));
-		header.nlbuffers = tokens[0].num;
-
-		if (tokens[1].type != Token::number && tokens[1].type != Token::memory)
-			throw (std::runtime_error("expected number/memory parameter"));
-		header.lbuffer_size = tokens[1].num;
-	} catch (std::exception & e) {
-		throw (std::runtime_error(std::string("[large_client_header_buffers] ") + e.what()));
-	}
-}
-
 std::ostream & operator<<(std::ostream & out, const config::header & header) {
 	out << "header { buffer_size: " << header.buffer_size <<
-		", timeout: " << header.timeout <<
-		", large_buffers: " << header.nlbuffers <<
-		", large_buffer_size: " << header.lbuffer_size << " }";
+		", timeout: " << header.timeout << " }";
 	return (out);
 }
 
@@ -180,8 +158,7 @@ std::ostream & operator<<(std::ostream & out, const config::body & body) {
 /* CONFIG :: OUTPUT ***********************************************************/
 
 config::output::output() {
-	buffer_size = 32000;
-	nbuffers = 2;
+	buffer_size = 32768;
 }
 
 config::output::output(const config::output & other) {
@@ -196,29 +173,23 @@ config::output & config::output::operator=(const config::output & other) {
 	if (this == &other)
 		return (*this);
 	buffer_size = other.buffer_size;
-	nbuffers = other.nbuffers;
 	return (*this);
 }
 
-void config::add_output_buffers(config::output & output, const std::vector<Token> & tokens) {
+void config::add_output_buffer(config::output & output, const std::vector<Token> & tokens) {
 	try {
-		check_parameter_count(2, 2, tokens.size());
+		check_parameter_count(1, 1, tokens.size());
 
-		if (tokens[0].type != Token::number)
-			throw (std::runtime_error("expected number parameter"));
+		if (tokens[0].type != Token::number && tokens[0].type != Token::memory)
+			throw (std::runtime_error("expected number/memory parameter"));
 		output.buffer_size = tokens[0].num;
-
-		if (tokens[1].type != Token::number)
-			throw (std::runtime_error("expected number parameter"));
-		output.nbuffers = tokens[1].num;
 	} catch (std::exception & e) {
-		throw (std::runtime_error(std::string("[output_buffers] ") + e.what()));
+		throw (std::runtime_error(std::string("[output_buffer] ") + e.what()));
 	}
 }
 
 std::ostream & operator<<(std::ostream & out, const config::output & output) {
-	out << "output { buffer_size: " << output.buffer_size <<
-		", buffers: " << output.nbuffers << " }";
+	out << "output { buffer_size: " << output.buffer_size << " }";
 	return (out);
 }
 
@@ -448,7 +419,7 @@ bool operator==(const config::listen & lhs, const config::listen & rhs) {
 #include <dirent.h>
 
 config::upload::upload()
-	: directory("upload"), location(""), create_path(false) {
+	: directory("upload"), location("upload"), create_path(false) {
 
 }
 
@@ -1141,6 +1112,7 @@ void Location::from_directive(const BodyDirective & directive) {
 		bool	cgi_pass;
 		bool	index;
 		bool	autoindex;
+		bool	output;
 	}	was_set;
 	was_set.root = false;
 	was_set.body_buffer_size = false;
@@ -1152,6 +1124,7 @@ void Location::from_directive(const BodyDirective & directive) {
 	was_set.cgi_pass = false;
 	was_set.index = false;
 	was_set.autoindex= false;
+	was_set.output = true;
 
 	/* Here to be in scope during try for proper deletin in case of a throw */
 	Location *	loc = NULL;
@@ -1236,12 +1209,17 @@ void Location::from_directive(const BodyDirective & directive) {
 				config::add_limit_except(limit, it->parameters);
 			} else if (it->name == "upload_directory") {
 				config::add_upload_directory(upload, it->parameters);
+			} else if (it->name == "output_buffer") {
+				if (was_set.default_type)
+					throw (std::runtime_error("multiple output_buffer directives"));
+				config::add_output_buffer(output, it->parameters);
+				was_set.output = true;
 			} else {
 				throw (std::runtime_error(std::string("invalid directive: ") + it->name));
 			}
 		}
 
-		/* simple stack to sttore all future locations and only create them after
+		/* simple stack to store all future locations and only create them after
 		 * all other directives are porcessed */
 		std::vector<const BodyDirective *>	location_direc;
 
@@ -1371,7 +1349,6 @@ void Server::from_directive(const BodyDirective & directive) {
 		bool	root;
 		bool	header_buffer_size;
 		bool	header_timeout;
-		bool	large_header_buffers;
 		bool	body_buffer_size;
 		bool	body_timeout;
 		bool	body_max;
@@ -1379,11 +1356,11 @@ void Server::from_directive(const BodyDirective & directive) {
 		bool	error_page;
 		bool	index;
 		bool	autoindex;
+		bool	output;
 	}	was_set;
 	was_set.root = false;
 	was_set.header_buffer_size = false;
 	was_set.header_timeout = false;
-	was_set.large_header_buffers = false;
 	was_set.body_buffer_size = false;
 	was_set.body_timeout = false;
 	was_set.body_max = false;
@@ -1391,6 +1368,7 @@ void Server::from_directive(const BodyDirective & directive) {
 	was_set.error_page = false;
 	was_set.index = false;
 	was_set.autoindex = false;
+	was_set.output = false;
 
 	/* Here to be in scope during try for proper deletin in case of a throw */
 	Location *	loc = NULL;
@@ -1414,11 +1392,6 @@ void Server::from_directive(const BodyDirective & directive) {
 					throw (std::runtime_error("multiple client_header_timeput directives"));
 				config::add_client_header_timeout(header, it->parameters);
 				was_set.header_timeout = true;
-			} else if (it->name == "large_client_header_buffers") {
-				if (was_set.large_header_buffers)
-					throw (std::runtime_error("multiple large_client_header_buffers directives"));
-				config::add_large_client_header_buffers(header, it->parameters);
-				was_set.large_header_buffers = true;
 			} else if (it->name == "client_body_buffer_size") {
 				if (was_set.body_buffer_size)
 					throw (std::runtime_error("multiple client_body_buffer_size directives"));
@@ -1465,6 +1438,11 @@ void Server::from_directive(const BodyDirective & directive) {
 				config::add_server_name(names, it->parameters);
 			} else if (it->name == "upload_directory") {
 				config::add_upload_directory(upload, it->parameters);
+			} else if (it->name == "output_buffer") {
+				if (was_set.default_type)
+					throw (std::runtime_error("multiple output_buffer directives"));
+				config::add_output_buffer(output, it->parameters);
+				was_set.output = true;
 			} else {
 				throw (std::runtime_error(std::string("invalid directive: ") + it->name));
 			}
@@ -1646,7 +1624,7 @@ const Server & Port::get_server_by_name(const std::string & name) const {
 /* HTTP ***********************************************************************/
 
 Http::Http() {
-	
+	root = "html";
 }
 
 Http::Http(const Http & other) {
@@ -1689,24 +1667,24 @@ void Http::from_directive(const BodyDirective & directive) {
 		bool	root;
 		bool	header_buffer_size;
 		bool	header_timeout;
-		bool	large_header_buffers;
 		bool	body_buffer_size;
 		bool	body_timeout;
 		bool	body_max;
 		bool	default_type;
 		bool	index;
 		bool	autoindex;
+		bool	output;
 	}	was_set;
 	was_set.root = false;
 	was_set.header_buffer_size = false;
 	was_set.header_timeout = false;
-	was_set.large_header_buffers = false;
 	was_set.body_buffer_size = false;
 	was_set.body_timeout = false;
 	was_set.body_max = false;
 	was_set.default_type = false;
 	was_set.index = false;
 	was_set.autoindex = false;
+	was_set.output = false;
 
 	/* Here to be in scope during the catch statement for deleting in case of a throw */
 	Server *	server = NULL;
@@ -1730,11 +1708,6 @@ void Http::from_directive(const BodyDirective & directive) {
 					throw (std::runtime_error("multiple client_header_timeput directives"));
 				config::add_client_header_timeout(header, it->parameters);
 				was_set.header_timeout = true;
-			} else if (it->name == "large_client_header_buffers") {
-				if (was_set.large_header_buffers)
-					throw (std::runtime_error("multiple large_client_header_buffers directives"));
-				config::add_large_client_header_buffers(header, it->parameters);
-				was_set.large_header_buffers = true;
 			} else if (it->name == "client_body_buffer_size") {
 				if (was_set.body_buffer_size)
 					throw (std::runtime_error("multiple client_body_buffer_size directives"));
@@ -1774,6 +1747,11 @@ void Http::from_directive(const BodyDirective & directive) {
 				config::add_error_page(errorpages, it->parameters);
 			} else if (it->name == "upload_directory") {
 				config::add_upload_directory(upload, it->parameters);
+			} else if (it->name == "output_buffer") {
+				if (was_set.default_type)
+					throw (std::runtime_error("multiple output_buffer directives"));
+				config::add_output_buffer(output, it->parameters);
+				was_set.output = true;
 			} else {
 				throw (std::runtime_error(std::string("invalid directive: ") + it->name));
 			}
