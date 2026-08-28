@@ -687,8 +687,11 @@ bool ClientConnection::handle_setup() {
 		}
 	}
 	if (_req.no_file == false && _req.internal == true && _loc->get_cgi().is_set == true) {
-		if (!setup_cgi()) 
+		if (!setup_cgi()) {
 			_req.status = 500;
+			epi_redirect();
+			setup_res();
+		}
 		return (true);
 	}
 	if (_req.status == 413) { // Content Too Large
