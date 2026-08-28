@@ -116,3 +116,15 @@ void Response::add_date() {
 		throw (std::runtime_error("couldn't create 'Date' header string"));
 	add_header_field("Date", buf);
 }
+
+std::string Response::default_error_page(int code) {
+	const std::string		&reason = get_reason_phrase(code);
+	std::ostringstream		oss;
+
+	oss << "<!DOCTYPE html>\r\n<html>\r\n"
+		<< "<head><title>" << code << " " << reason << "</title></head>\r\n"
+		<< "<body>\r\n<center><h1>" << code << " " << reason << "<h1></center>\r\n"
+		<< "<hr><center>webserv/1.0</center>\r\n</body>\r\n</html>\r\n";
+
+	return (oss.str());
+}

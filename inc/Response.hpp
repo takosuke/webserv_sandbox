@@ -65,4 +65,6 @@ public:
 	void	add_allowed(const Location *loc);
 	void	add_date();
 	void	add_header_end();
+
+	static std::string	default_error_page(int code);
 };

@@ -706,8 +706,9 @@ bool ClientConnection::handle_setup() {
 bool ClientConnection::setup_post() {
 	config::upload const & upload = _loc->get_upload();
 	if (upload.create_path == true) {
-		if (size_t dir_end = _req.path.find_last_of('/') != std::string::npos) {
-			std::string	sub_dir = _req.path.substr(0, dir_end);
+		size_t dir_end = _req.path.find_last_of('/');
+		if (dir_end != std::string::npos && dir_end != 0) {
+			std::string	sub_dir = upload.directory + _req.path.substr(0, dir_end);
 			DIR	*tmp = opendir(sub_dir.c_str());
 			if (tmp != NULL) {
 				// Directory exists
@@ -720,7 +721,14 @@ bool ClientConnection::setup_post() {
 			}
 		}
 	}
-	if (set_file(_loc->get_upload().directory + _req.path, std::ios_base::out | std::ios_base::app) == false)
+
+	const std::string	target = upload.directory + _req.path;
+	/* RFC 9110 9.3.3: 201 only when the POST actually creates a resource;
+	* replacing an existing one is 204. Decide before opening, because after
+	* the truncating open the file always exists. */
+	struct stat			st;
+	_req.status = (stat(target.c_str(), &st) == 0) ? 204 : 201;
+	if (set_file(target, std::ios_base::out | std::ios_base::trunc) == false)
 		return (false);
 	return (true);
 }
@@ -766,9 +774,19 @@ bool ClientConnection::setup_res() {
 				std::string ext = _req.path.substr(ext_del + 1);
 				_res.add_header_field("Content-Type", _loc->get_mime().get_type(ext));
 			}
+		} else if (_req.no_file && _req.status >= 400) {
+			const std::string	body = Response::default_error_page(_req.status);
+			_res.add_header_field("Content-Length", body.size());
+			_res.add_header_field("Content-Type", "text/html");
+			_buf.clear();
+			_res.add_header_end();
+			_res.headers.push_back(body);
+			return (true);
 		}
 		if (_req.method == POST) {
-			_res.add_header_field("Location", _req.host + "/" + _loc->get_upload().location + _req.path);
+			const std::string	&up = _loc->get_upload().location;
+			_res.add_header_field("Location", 
+					up.empty() ? _req.path : "/" + up + _req.path);
 		}
 		_buf.clear();
 		_res.add_header_end();
