@@ -109,7 +109,7 @@ std::string ClientConnection::_500_str = std::string("HTTP/1.0 500 Internal Serv
  */
 
 ClientConnection::ClientConnection(int sockfd, Http *http_conf, struct sockaddr_in addr)
-	: Connection(sockfd, http_conf), _state(REQ_LINE), _addr(addr), _loc(NULL),
+	: Connection(sockfd, http_conf), _state(REQ_LINE), _addr(addr), _loc(NULL), _res_body_sent(0),
 	_client_fd(sockfd), _cgi_stdin_fd(-1), _cgi_stdout_fd(-1), _cgi_pid(-1), _written_body(0) {
 	_server = &(http->get_default_server(_addr));
 	_timeout = _server->get_header().timeout;
@@ -756,6 +756,8 @@ void ClientConnection::handle_post_leftover() {
  */ 
 bool ClientConnection::setup_res() {
 	EpollLoop::get_instance().mod(this, EPOLLOUT | EPOLLERR | EPOLLHUP);
+	_res_body.clear();
+	_res_body_sent = 0;
 	try {
 		_res.add_status_line(HTTP_VERSION_STR, _req.status);
 		if (!_req.internal)
@@ -775,13 +777,10 @@ bool ClientConnection::setup_res() {
 				_res.add_header_field("Content-Type", _loc->get_mime().get_type(ext));
 			}
 		} else if (_req.no_file && _req.status >= 400) {
-			const std::string	body = Response::default_error_page(_req.status);
-			_res.add_header_field("Content-Length", body.size());
+			_res_body = Response::default_error_page(_req.status);
+			_res_body_sent = 0;
+			_res.add_header_field("Content-Length", _res_body.size());
 			_res.add_header_field("Content-Type", "text/html");
-			_buf.clear();
-			_res.add_header_end();
-			_res.headers.push_back(body);
-			return (true);
 		}
 		if (_req.method == POST) {
 			const std::string	&up = _loc->get_upload().location;
@@ -810,9 +809,22 @@ void ClientConnection::buffer_file() {
 		_buf.fill(_stream);
 }
 
+void ClientConnection::buffer_inline_body() {
+	while (_res.headers.size() == 0 && _res_body_sent < _res_body.size()
+			&& _buf.fill_capacity() > 1) {
+		int		room = _buf.fill_capacity() - 1;
+		int		left = (int)(_res_body.size() - _res_body_sent);
+		int		n	 = (room < left) ? room : left;
+
+		_buf.fill(_res_body.c_str() + _res_body_sent, n);
+		_res_body_sent += n;
+	}
+}
+
 void ClientConnection::fill_res_buffer() {
 	buffer_res_headers();
 	buffer_file();
+	buffer_inline_body();
 }
 
 bool ClientConnection::setup_cgi() {
@@ -1197,7 +1209,8 @@ bool ClientConnection::handle_response() {
 		_buf.clear();
 		fill_res_buffer();
 	}
-	if (_res.headers.size() == 0 && (!_stream.is_open() || _stream.eof()) && _buf.feed_capacity() == 0)
+	if (_res.headers.size() == 0 && (!_stream.is_open() || _stream.eof()) 
+			&& _res_body_sent == _res_body.size() && _buf.feed_capacity() == 0)
 		return (false);
 	return (_buf.feed(fd) > 0);
 }

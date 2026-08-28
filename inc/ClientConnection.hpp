@@ -45,6 +45,8 @@ private:
 
 	std::string			_file;
 	std::fstream		_stream;
+	std::string			_res_body;
+	size_t				_res_body_sent;
 
 	int					_client_fd;
 	int					_cgi_stdin_fd;
@@ -80,6 +82,7 @@ private:
 	void	fill_res_buffer();
 	void	buffer_res_headers();
 	void	buffer_file();
+	void	buffer_inline_body();
 
 	void 	epi_redirect();
 
