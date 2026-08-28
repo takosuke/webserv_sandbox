@@ -38,17 +38,16 @@ ScratchBuffer &ScratchBuffer::operator=(const ScratchBuffer &other) {
 void ScratchBuffer::set_capacity(size_t cap) {
 	char *new_data = new char[cap];
 
-	if (new_data == NULL)
-		throw (std::runtime_error("Couldn't create new data"));
-	size_t	cpysize = std::min(sizeof(data), sizeof(new_data));
+	size_t	cpysize = std::min(capacity, cap);
 	if (data != NULL)
 		std::memcpy(new_data, data, cpysize);
 	else
-		bzero(new_data, cap);
+		std::memset(new_data, 0, cap);
 	if (!_ref_data)
 		delete[] (data);
 	_ref_data = false;
 	data = new_data;
+	capacity = cap;
 }
 
 void ScratchBuffer::set_data(char *buf, size_t cap) {
