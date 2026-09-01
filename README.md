@@ -36,7 +36,7 @@ The compilation of the program is managed via a `Makefile` provided with the pro
 - `re` cleans up the object, dependency and program files and recompiles the program
 - `install-clojure` installs clojure (needed for testing the server)
 - `prepare-confs` prepare template configurations provided with the program
-- `test` conducts tests with clojure on the prepares configuration files
+- `test` conducts tests with clojure on the prepared configuration files
 
 ## Starting the server
 
@@ -54,6 +54,9 @@ Resources used were:
 
 - Manpages for the different required and allowed fucntions 
 - [RFC 1945](https://datatracker.ietf.org/doc/html/rfc1945) for information about HTTP/1.0
+- [RFC 3875](https://datatracker.ietf.org/doc/html/rfc3875) for information about CGI
 - [Mozilla Developer Network](https://developer.mozilla.org/en-US/docs/Web/HTTP) for additional information and examples of methods and HTTP functionality
 
 Additionally a bunch of small tutorials and specific blog/forum posts were used for specific issues.
+
+AI was used as a helper for advanced rubber ducking, test creation and code review. I (Mario) thought to use Clojure for test writing as it's a language I enjoy greatly, but trying to get 2 real world projects started in 2 unfamiliar languages turned out to be too much of a mental burden. Having lost one team member at the beginning of the project, I decided to enlist the help of AI to write tests and help organize the bug hunt, but all the core logic and architecture was created by us. 
