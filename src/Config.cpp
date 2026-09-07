@@ -13,6 +13,7 @@
 const static std::string methodstrings[4] = {
 	"GET", "POST", "DELETE", "UNKNOWN"
 };
+
 const static HttpMethod methodarr[15] = {
 	GET,
 	POST,
@@ -1067,11 +1068,7 @@ Location::Location(const Location & other) {
 }
 
 Location::Location(const BodyDirective & directive) {
-	try {
-		from_directive(directive);
-	} catch (std::exception &e) {
-		throw e;
-	}
+	from_directive(directive);
 }
 
 Location::Location(const Server & server) : path(""), root("html"), is_prefix(true) {
@@ -1087,6 +1084,7 @@ void Location::delete_locations() {
 		it != locations.end(); it++) {
 		delete *it;
 	}
+	locations.resize(0);
 }
 
 Location & Location::operator=(const Location & other) {
@@ -1259,6 +1257,7 @@ void Location::from_directive(const BodyDirective & directive) {
 		}
 	} catch (std::exception & e) {
 		delete loc;
+		delete_locations();
 		throw (std::runtime_error(std::string("[Location] ") + e.what()));
 	}
 }
@@ -1319,11 +1318,7 @@ Server::Server(const Server & other) {
 }
 
 Server::Server(const BodyDirective & directive) {
-	try {
-		from_directive(directive);
-	} catch ( std::exception &e ) {
-		throw e;
-	}
+	from_directive(directive);
 }
 
 Server::Server(const Http & http) {
@@ -1339,6 +1334,7 @@ void Server::delete_locations() {
 		it != locations.end(); it++) {
 		delete *it;
 	}
+	locations.resize(0);
 }
 
 Server & Server::operator=(const Server & other) {
@@ -1361,6 +1357,7 @@ Server & Server::operator=(const Server & other) {
 
 void Server::from_directive(const BodyDirective & directive) {
 	struct {
+		bool	name;
 		bool	root;
 		bool	header_buffer_size;
 		bool	header_timeout;
@@ -1373,6 +1370,7 @@ void Server::from_directive(const BodyDirective & directive) {
 		bool	autoindex;
 		bool	output;
 	}	was_set;
+	was_set.name = false;
 	was_set.root = false;
 	was_set.header_buffer_size = false;
 	was_set.header_timeout = false;
@@ -1451,6 +1449,7 @@ void Server::from_directive(const BodyDirective & directive) {
 				config::add_listen(listen, it->parameters);
 			} else if (it->name == "server_name") {
 				config::add_server_name(names, it->parameters);
+				was_set.name = true;
 			} else if (it->name == "upload_directory") {
 				config::add_upload_directory(upload, it->parameters);
 			} else if (it->name == "output_buffer") {
@@ -1462,6 +1461,9 @@ void Server::from_directive(const BodyDirective & directive) {
 				throw (std::runtime_error(std::string("invalid directive: ") + it->name));
 			}
 		}
+
+		if (!was_set.name)
+			names.push_back(to_lower(""));
 
 		if (listen.size() == 0)
 			listen.push_back(config::listen());
@@ -1507,6 +1509,7 @@ void Server::from_directive(const BodyDirective & directive) {
 		}
 	} catch (std::exception & e) {
 		delete loc;
+		delete_locations();
 		throw (std::runtime_error(std::string("[Server] ") + e.what()));
 	}
 }
@@ -1646,11 +1649,7 @@ Http::Http(const Http & other) {
 }
 
 Http::Http(const BodyDirective & directive) {
-	try {
-		from_directive(directive);
-	} catch (std::exception &e) {
-		throw e;
-	}
+	from_directive(directive);
 }
 
 Http::~Http() {
@@ -1678,6 +1677,7 @@ void Http::delete_servers() {
 			it != servers.end(); it++) {
 		delete *it;
 	}
+	servers.resize(0);
 }
 
 void Http::from_directive(const BodyDirective & directive) {
@@ -1797,8 +1797,8 @@ void Http::from_directive(const BodyDirective & directive) {
 			for (std::vector<const BodyDirective *>::const_iterator it = server_direc.begin();
 					it != server_direc.end(); it++) {
 				server = new Server(*this);
-				servers.push_back(server);
 				server->from_directive(**it);
+				servers.push_back(server);
 				server = NULL;
 				/* using server.back() should cause future references to this
 				 * server to be focused on this instance making the code for
