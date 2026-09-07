@@ -199,19 +199,8 @@ client_header_buffer_size <size>;
 - **Context:** `http`, `server`
 - **Default:** `1024` (bytes)
 
-Size of the buffer used to read a client's request header. Requests with
-headers larger than this fall back to the large-buffer pool.
-
-#### `large_client_header_buffers`
-
-```
-large_client_header_buffers <count> <size>;
-```
-
-- **Context:** `http`, `server`
-- **Default:** `4` buffers of `8192` bytes
-
-Number and size of the large buffers used for oversized request headers.
+Size of the buffer used to read a client's request header. A request whose
+request line or header block does not fit is rejected with 414 or 431.
 
 #### `client_header_timeout`
 
@@ -483,7 +472,6 @@ error_page 403 = /fallback;                  # keep the redirection's status
 | `listen`                      |        |    ✓     |            |
 | `server_name`                 |        |    ✓     |            |
 | `client_header_buffer_size`   |   ✓    |    ✓     |            |
-| `large_client_header_buffers` |   ✓    |    ✓     |            |
 | `client_header_timeout`       |   ✓    |    ✓     |            |
 | `client_body_buffer_size`     |   ✓    |    ✓     |     ✓      |
 | `client_max_body_size`        |   ✓    |    ✓     |     ✓      |
