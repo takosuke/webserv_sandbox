@@ -74,7 +74,6 @@ $(ODIR)%.o: %.cpp
 
 clean:
 	$(RM) $(ODIR)
-	@$(RM) tot
 
 fclean: clean
 	$(RM) $(NAME)
@@ -82,9 +81,6 @@ fclean: clean
 re:
 	@$(MAKE) --no-print-directory fclean
 	@$(MAKE) --no-print-directory all
-
-tot: tests/timeout.cpp
-	$(CXX) $(CXXFLAGS) $(CPPFLAGS) -Wall -Wextra -Werror -std=c++98 $< -o $@
 
 CLOJURE_BIN	:= $(HOME)/.local/bin/clojure
 WWWROOT		:= $(CURDIR)/www

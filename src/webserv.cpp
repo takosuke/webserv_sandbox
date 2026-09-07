@@ -22,7 +22,9 @@ int main(int ac, char *av[]) {
 		else if (s == "WARN") Logger::instance().setLevel(LOG_WARN);
 		else if (s == "ERROR") Logger::instance().setLevel(LOG_ERROR);
 	}
-    // Create the epoll instance
+
+	ServerConnection *server_conn = NULL;
+  // Create the epoll instance
 	try {
 		Grouper grouper(config_path);
 		if (!grouper.group()) {
@@ -42,7 +44,7 @@ int main(int ac, char *av[]) {
 		{
 			const config::listen &l = it->second.get_listen();
 
-			ServerConnection *server_conn = new ServerConnection();
+			server_conn = new ServerConnection();
 			server_conn->fd   = make_server_socket(l);
 			server_conn->http = &http;
 			server_conn->addr = l.get_sockaddr();
@@ -59,6 +61,7 @@ int main(int ac, char *av[]) {
 
 		EpollLoop::get_instance().run();
 	} catch (std::exception &e) {
+		delete server_conn;
 		std::cerr << e.what() << std::endl;
 		return 1;
 	}

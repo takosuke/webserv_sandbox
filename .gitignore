@@ -3,7 +3,7 @@ webserv
 *.d
 
 www/cgi-bin/__pycache__/
-tot
+www/upload/
  
 conf/generated/
 
@@ -17,6 +17,5 @@ webserv-tests/upload/timeout_body_probe.txt
 webserv-tests/upload/upload_big_probe.txt
 webserv-tests/upload/upload_small_probe.txt
 
-# blablabla
-conversations/
-docs/.obsidian/
+compile_flags.txt
+
