@@ -63,15 +63,13 @@ endif
 
 all: $(NAME)
 
-$(NAME): $(ODIR) $(OBJS)
+$(NAME): $(OBJS)
 	$(CXX) $(LDFLAGS) -o $(NAME) $(OBJS)
-
-$(ODIR):
-	$(MKDIR) $(ODIR)
 
 -include $(DEPS)
 
 $(ODIR)%.o: %.cpp
+	@$(MKDIR) $(@D)
 	$(CXX) $(CXXFLAGS) $(CPPFLAGS) $< -c -o $@
 
 clean:
@@ -81,7 +79,9 @@ clean:
 fclean: clean
 	$(RM) $(NAME)
 
-re: fclean all
+re:
+	@$(MAKE) --no-print-directory fclean
+	@$(MAKE) --no-print-directory all
 
 tot: tests/timeout.cpp
 	$(CXX) $(CXXFLAGS) $(CPPFLAGS) -Wall -Wextra -Werror -std=c++98 $< -o $@
