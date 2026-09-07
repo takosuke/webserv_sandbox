@@ -216,7 +216,6 @@ namespace config {
 		// 0 if no status_code provided, otherwise the code to overwrite
 		long unsigned int	status_code;
 		std::string			path;
-		bool				internal;
 
 		redirect();
 		redirect(const redirect &other);

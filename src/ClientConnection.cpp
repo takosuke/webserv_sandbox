@@ -614,20 +614,20 @@ bool ClientConnection::handle_setup() {
 		/* Check for existing return field in location */
 		if (_loc->get_redirect().is_set) {
 			const config::redirect &red = _loc->get_redirect();
-			if (red.status_code)
-				_req.status = red.status_code;
+			/* `return` is a client-visible redirect whether the target is an
+			 * absolute URL or a local path -- serving the target's bytes under
+			 * a 3xx would answer with a body the status line contradicts, and
+			 * without a Location the client has nothing to follow (RFC 9110
+			 * 15.4). Internal rewriting is `error_page`'s job, not this one. */
+			_req.status = red.status_code ? red.status_code : 302;
 			LOG_DEBUG("return") << "redirection from: " << _req.path << " to " << red.path << std::endl;
 			_req.path = red.path;
-			/* Check if we have a url to an external file */
-			if (config::starts_with_scheme(_req.path)) {
-				_req.no_file = true;
-				_req.internal = false;
-			} else {
-				/* Make sure our paths are prepended by a '/' */
-				if (_req.path[0] != '/')
-					_req.path.insert(0, 1, '/');
-			}
-			_loc = &(_server->get_location(_req.path));
+			/* A local target needs its leading '/' so that Location is an
+			 * absolute-path reference (RFC 9110 10.2.2 permits a relative one). */
+			if (!config::starts_with_scheme(_req.path) && _req.path[0] != '/')
+				_req.path.insert(0, 1, '/');
+			_req.no_file = true;
+			_req.internal = false;
 			++redirects;
 		} else if (!is_method_allowed()) {
 			_req.status = 405; // Method not allowed
