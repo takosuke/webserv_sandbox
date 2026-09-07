@@ -42,6 +42,9 @@ private:
 
 	const Server		*_server;
 	const Location		*_loc;
+	/* The location that refused the method, kept because epi_redirect() moves
+	 * _loc to the error page's location before the Allow header is built. */
+	const Location		*_denied_loc;
 
 	std::string			_file;
 	std::fstream		_stream;

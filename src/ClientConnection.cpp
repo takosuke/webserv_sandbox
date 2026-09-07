@@ -109,7 +109,7 @@ std::string ClientConnection::_500_str = std::string("HTTP/1.0 500 Internal Serv
  */
 
 ClientConnection::ClientConnection(int sockfd, Http *http_conf, struct sockaddr_in addr)
-	: Connection(sockfd, http_conf), _state(REQ_LINE), _addr(addr), _loc(NULL), _res_body_sent(0),
+	: Connection(sockfd, http_conf), _state(REQ_LINE), _addr(addr), _loc(NULL), _denied_loc(NULL), _res_body_sent(0),
 	_client_fd(sockfd), _cgi_stdin_fd(-1), _cgi_stdout_fd(-1), _cgi_pid(-1), _written_body(0) {
 	_server = &(http->get_default_server(_addr));
 	_timeout = _server->get_header().timeout;
@@ -581,6 +581,9 @@ bool ClientConnection::handle_setup() {
 	// wrong status code
 	if (!is_method_allowed()) {
 		_req.status = 405; // Method not allowed
+		/* Allow must list the methods of the resource that refused, so capture
+		 * it before epi_redirect() repoints _loc at the error page. */
+		_denied_loc = _loc;
 		epi_redirect();
 		++redirects;
 	}
@@ -632,6 +635,7 @@ bool ClientConnection::handle_setup() {
 			++redirects;
 		} else if (!is_method_allowed()) {
 			_req.status = 405; // Method not allowed
+			_denied_loc = _loc;
 			epi_redirect();
 			++redirects;
 			} else if (!is_file_existing()) {
@@ -781,7 +785,7 @@ bool ClientConnection::setup_res() {
 		if (!_req.internal)
 			_res.add_header_field("Location", _req.path);
 		if (_req.status == 405)
-			_res.add_allowed(_loc);
+			_res.add_allowed(_denied_loc ? _denied_loc : _loc);
 		_res.add_date();
 		if (!_req.no_file && _req.method != POST) {
 			if (set_file(_loc->get_root() + _req.path)) {
@@ -1183,7 +1187,7 @@ bool ClientConnection::setup_autoindex() {
 		if (!_req.internal)
 			_res.add_header_field("Location", _req.path);
 		if (_req.status == 405)
-			_res.add_allowed(_loc);
+			_res.add_allowed(_denied_loc ? _denied_loc : _loc);
 		_res.add_date();
 		_res.add_header_field("Content-Length", get_file_size());
 		if (std::remove(_file.c_str()) != 0)
