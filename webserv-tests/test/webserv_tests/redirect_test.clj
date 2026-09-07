@@ -19,15 +19,30 @@
       (is (= "https://example.com/" (get-in resp [:headers "location"]))))))
 
 (deftest test-internal-return-redirects
-  (testing "KNOWN-FAILING: internal `return 301 /index.html` yields the redirect, not 500"
-    ;; handle_setup sets _req.path from `return` but never re-resolves _loc, so
-    ;; the same location's `return` fires every loop iteration until
-    ;; REDIRECT_LIMIT is hit and the request collapses into a forced 500.
+  (testing "`return 301 /index.html` sends a 301 with a Location, not the target's body"
+    ;; `return` is a client-visible redirect whether the target is a URL or a
+    ;; local path. It used to keep _req.internal true for a path target, so
+    ;; setup_res skipped the Location header and served index.html's 4832 bytes
+    ;; under the 301 -- a status line the body contradicted, and nothing for the
+    ;; client to follow.
     (let [resp (server/http-request
                  "GET /old HTTP/1.0\r\nHost: 127.0.0.1\r\n\r\n")]
       (is (not= 500 (:status resp))
           "internal return must not collapse into a 500")
-      (is (= 301 (:status resp))))))
+      (is (= 301 (:status resp)))
+      (is (= "/index.html" (get-in resp [:headers "location"]))
+          "a 3xx without Location gives the client nothing to follow")
+      (is (empty? (:body resp))
+          "the target's bytes must not be served under the redirect status"))))
+
+(deftest test-return-without-status-code-defaults-to-302
+  (testing "`return /index.html` with no code redirects with the documented 302 default"
+    ;; status_code 0 used to mean "leave the status alone", so this answered 200
+    ;; with the target's body -- an undocumented internal rewrite.
+    (let [resp (server/http-request
+                 "GET /gone HTTP/1.0\r\nHost: 127.0.0.1\r\n\r\n")]
+      (is (= 302 (:status resp)))
+      (is (= "/index.html" (get-in resp [:headers "location"]))))))
 
 ;; ---------------------------------------------------------------------------
 ;; client_header_buffer_size actually resizes the buffer

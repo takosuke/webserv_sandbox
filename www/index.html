@@ -79,7 +79,7 @@
     <h2>Redirects and errors</h2>
     <ul>
       <li><a href="/ext">/ext</a> <span>— 302 to another host</span></li>
-      <li><a href="/old">/old</a> <span>— internal <code>return</code> (known bug: answers 500)</span></li>
+      <li><a href="/old">/old</a> <span>— <code>return</code> to a local path: 301 + <code>Location</code></span></li>
       <li><a href="/nope">/nope</a> <span>— 404 error page</span></li>
       <li><a href="/quiet/nope">/quiet/nope</a> <span>— same page, forced to 200 by <code>error_page … =200</code></span></li>
     </ul>
