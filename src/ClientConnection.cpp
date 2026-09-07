@@ -167,7 +167,7 @@ void ClientConnection::handle(uint32_t events) {
 		return ;
 	} else if (events & EPOLLIN) {
 		int readret = -1;
-		if (_buf.fill_capacity() > 1) {
+		if (_buf.fill_capacity() > 0) {
 			if (_buf.feed_capacity() == 0)
 				_buf.clear();
 			readret = _buf.fill(fd);
