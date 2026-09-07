@@ -27,11 +27,22 @@
 ;; methods." response-format-test pins the negative case on a 200.
 
 (deftest test-405-carries-allow-header
-  (testing "a 405 response carries an Allow header listing the permitted methods"
-    (let [resp (server/http-request
-                 "POST /readonly HTTP/1.1\r\nHost: 127.0.0.1\r\nContent-Length: 0\r\nConnection: close\r\n\r\n")]
+  (testing "a 405 response carries an Allow header listing only the permitted methods"
+    ;; limit_except.conf also sets `error_page 405 /errorpages/405.html`, and
+    ;; that internal redirect repoints _loc at the error page's location before
+    ;; the header is built. Allow therefore used to describe `location /`
+    ;; (GET, POST, DELETE) — advertising the very method the 405 refuses.
+    ;; Asserting only that it *contains* GET passes on that wrong value, so the
+    ;; refused methods are asserted absent too.
+    (let [resp  (server/http-request
+                  "POST /readonly HTTP/1.1\r\nHost: 127.0.0.1\r\nContent-Length: 0\r\nConnection: close\r\n\r\n")
+          allow (get (:headers resp) "allow")]
       (is (= 405 (:status resp)))
       (is (contains? (:headers resp) "allow")
           "a 405 must advertise the methods the location does allow")
-      (is (clojure.string/includes? (get (:headers resp) "allow") "GET")
-          "the limit_except GET location allows GET"))))
+      (is (clojure.string/includes? allow "GET")
+          "the limit_except GET location allows GET")
+      (is (not (clojure.string/includes? allow "POST"))
+          (str "Allow must not list POST, which this 405 refuses; got: " allow))
+      (is (not (clojure.string/includes? allow "DELETE"))
+          (str "Allow must not list DELETE, which this 405 refuses; got: " allow)))))
