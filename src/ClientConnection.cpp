@@ -140,6 +140,7 @@ void ClientConnection::handle(uint32_t events) {
 		return;
 	}
 	if (_state == DISCARD_BODY) {
+		_buf.clear();
 		int	readret = _buf.fill(fd);
 		if (readret < 0) {
 			_req.status = 500;
@@ -352,6 +353,10 @@ void ClientConnection::handle_timeout() {
 		// For reading timeout we want to overwrite the response
 		_req.status = 408;
 		handle_setup();
+		update_timestamp();
+	} else if (_state == DISCARD_BODY) {
+		_state = RESPONSE;
+		setup_res();
 		update_timestamp();
 	} else {
 		EpollLoop::get_instance().del(this);
@@ -703,8 +708,14 @@ bool ClientConnection::handle_setup() {
 		return (true);
 	}
 	if (_req.status == 413) { // Content Too Large
-    _written_body = _buf.feed_capacity(); // We treat the rest in the buffer as written
-		_state = DISCARD_BODY;
+		_written_body = _buf.feed_capacity(); // We treat the rest in the buffer as written
+		_buf.clear();
+		if (_written_body >= _req.content_length) {
+			_state = RESPONSE;
+			setup_res();
+		} else {
+			_state = DISCARD_BODY;
+		}
 		return (true);
 	}
 	setup_res();
