@@ -58,7 +58,7 @@ int main(int ac, char *av[]) {
 		}
 
 		EpollLoop::get_instance().run();
-	} catch (const std::exception &e) {
+	} catch (std::exception &e) {
 		std::cerr << e.what() << std::endl;
 		return 1;
 	}

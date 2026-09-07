@@ -1067,7 +1067,11 @@ Location::Location(const Location & other) {
 }
 
 Location::Location(const BodyDirective & directive) {
-	from_directive(directive);
+	try {
+		from_directive(directive);
+	} catch (std::exception &e) {
+		throw e;
+	}
 }
 
 Location::Location(const Server & server) : path(""), root("html"), is_prefix(true) {
@@ -1315,7 +1319,11 @@ Server::Server(const Server & other) {
 }
 
 Server::Server(const BodyDirective & directive) {
-	from_directive(directive);
+	try {
+		from_directive(directive);
+	} catch ( std::exception &e ) {
+		throw e;
+	}
 }
 
 Server::Server(const Http & http) {
@@ -1593,10 +1601,9 @@ void Port::add_server(const Server & server) {
 	std::vector<config::listen>::const_iterator it;
 	for (it = server.get_listen().begin();
 		it != server.get_listen().end(); it++) {
+		// Dont validated based on listen alone, check for virtual server name
 		if (*it == listen)
 			break ;
-		else if (it->port == listen.port && it->addr == listen.addr)
-			throw (std::runtime_error("trying to register the same address:port pair with different backlog values"));
 	}
 	if (it == server.get_listen().end())
 		throw (std::runtime_error("**INTERNAL** server not associated wit this port"));
@@ -1639,7 +1646,11 @@ Http::Http(const Http & other) {
 }
 
 Http::Http(const BodyDirective & directive) {
-	from_directive(directive);
+	try {
+		from_directive(directive);
+	} catch (std::exception &e) {
+		throw e;
+	}
 }
 
 Http::~Http() {
@@ -1786,8 +1797,8 @@ void Http::from_directive(const BodyDirective & directive) {
 			for (std::vector<const BodyDirective *>::const_iterator it = server_direc.begin();
 					it != server_direc.end(); it++) {
 				server = new Server(*this);
-				server->from_directive(**it);
 				servers.push_back(server);
+				server->from_directive(**it);
 				server = NULL;
 				/* using server.back() should cause future references to this
 				 * server to be focused on this instance making the code for
@@ -1809,6 +1820,7 @@ void Http::from_directive(const BodyDirective & directive) {
 		}
 	} catch (std::exception & e) {
 		delete server;
+		delete_servers();
 		throw (std::runtime_error(std::string("[Http] ") + e.what()));
 	}
 }

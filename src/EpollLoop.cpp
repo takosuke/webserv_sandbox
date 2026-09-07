@@ -114,7 +114,7 @@ void	EpollLoop::run() {
 			Connection *conn = (Connection*)_events[i].data.ptr;
 			try {
 				conn->handle(_events[i].events);
-			} catch (const std::exception &e) {
+			} catch (std::exception &e) {
 				std::cerr << "connection " << conn->fd << " threw: " << e.what() << std::endl;
 			} catch (...) {
 				std::cerr << "connection " << conn->fd << " threw a custom exception" << std::endl;
@@ -127,7 +127,7 @@ void	EpollLoop::run() {
 		if (clicon != NULL && cur_time - clicon->_last_update > clicon->_timeout) {
 			try {
 				clicon->handle_timeout();
-			} catch (const std::exception &e) {
+			} catch (std::exception &e) {
 				std::cerr << "connection " << clicon->fd << " threw: " << e.what() << std::endl;
 			} catch (...) {
 				std::cerr << "connection " << clicon->fd << " threw a custom exception" << std::endl;

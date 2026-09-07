@@ -598,7 +598,6 @@ bool ClientConnection::handle_setup() {
     } else if (_loc->get_cgi().is_set == false) {
 		if (!setup_post()) {
 			/* Only static POST requests should get here */
-			_req.status = 500;
 			epi_redirect();
 			++redirects;
 		} else {
@@ -726,6 +725,11 @@ bool ClientConnection::handle_setup() {
 #include <dirent.h>
 
 bool ClientConnection::setup_post() {
+	if (_req.path[_req.path.size() - 1] == '/') {
+		_req.status = 400;
+		return false;
+	}
+
 	config::upload const & upload = _loc->get_upload();
 	if (upload.create_path == true) {
 		size_t dir_end = _req.path.find_last_of('/');
@@ -738,6 +742,7 @@ bool ClientConnection::setup_post() {
 			} else if (errno == ENOENT) {
 				// Directory doesn't exist -> Create directory
 				if (mkdir(sub_dir.c_str(), 0777) != 0) {
+					_req.status = 500;
 					return (false);
 				}
 			}
@@ -750,8 +755,10 @@ bool ClientConnection::setup_post() {
 	* the truncating open the file always exists. */
 	struct stat			st;
 	_req.status = (stat(target.c_str(), &st) == 0) ? 204 : 201;
-	if (set_file(target, std::ios_base::out | std::ios_base::trunc) == false)
+	if (set_file(target, std::ios_base::out | std::ios_base::trunc) == false) {
+		_req.status = 500;
 		return (false);
+	}
 	return (true);
 }
 
