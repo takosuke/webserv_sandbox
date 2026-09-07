@@ -217,6 +217,38 @@
           (catch java.net.SocketException _
             {:response (String. (.toByteArray baos) "ISO-8859-1") :timed-out false}))))))
 
+(defn raw-request-keepalive
+  "Like raw-request-timeout, but deliberately does NOT half-close the write
+  side, so the server never sees an EOF on the read direction.
+
+  This matters: every other raw helper here calls .shutdownOutput, which hands
+  the server a read()==0 it can use as an end-of-body signal. curl and browsers
+  do no such thing — they send the request and wait. A server that answers only
+  on EOF looks perfectly healthy to the other helpers and hangs for a real
+  client, so any test about answering mid-request must use this one.
+
+  Returns {:response <string, possibly partial or empty> :timed-out <bool>}."
+  [host port payload timeout-ms]
+  (with-open [sock (Socket. host port)]
+    (.setSoTimeout sock timeout-ms)
+    (let [out (.getOutputStream sock)
+          in  (.getInputStream sock)]
+      (.write out (.getBytes payload "UTF-8"))
+      (.flush out)
+      (let [baos (java.io.ByteArrayOutputStream.)
+            buf  (byte-array 8192)]
+        (try
+          (loop []
+            (let [n (.read in buf)]
+              (when (pos? n)
+                (.write baos buf 0 n)
+                (recur))))
+          {:response (String. (.toByteArray baos) "ISO-8859-1") :timed-out false}
+          (catch java.net.SocketTimeoutException _
+            {:response (String. (.toByteArray baos) "ISO-8859-1") :timed-out true})
+          (catch java.net.SocketException _
+            {:response (String. (.toByteArray baos) "ISO-8859-1") :timed-out false}))))))
+
 (defn abort-request
   "Send payload, wait linger-ms so the server can act on it, then close the
   socket hard without reading a byte — a client that walks away mid-request.
