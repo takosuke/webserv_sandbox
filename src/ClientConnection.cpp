@@ -143,10 +143,8 @@ void ClientConnection::handle(uint32_t events) {
 		_buf.clear();
 		int	readret = _buf.fill(fd);
 		if (readret < 0) {
-			_req.status = 500;
-			_req.no_file = true;
-			_state = RESPONSE;
-			setup_res();
+			// The read failed, there is nobody left to answer
+			EpollLoop::get_instance().del(this);
 			return ;
 		}
 		if (readret == 0) {
@@ -167,18 +165,16 @@ void ClientConnection::handle(uint32_t events) {
 		EpollLoop::get_instance().del(this);
 		return ;
 	} else if (events & EPOLLIN) {
-		int readret = -1;
 		if (_buf.fill_capacity() > 0) {
 			if (_buf.feed_capacity() == 0)
 				_buf.clear();
-			readret = _buf.fill(fd);
-		}
-		if (readret == 0) {
-			EpollLoop::get_instance().del(this);
-			return ;
-		}
-		if (readret > 0)
+			// 0 means the peer closed, -1 an error. The client goes either way
+			if (_buf.fill(fd) <= 0) {
+				EpollLoop::get_instance().del(this);
+				return ;
+			}
 			update_timestamp();
+		}
 		if (_state == REQ_LINE)
 			if (!handle_req_line())
 				_state = REQ_SETUP;
@@ -1071,15 +1067,14 @@ void ClientConnection::handle_cgi_input(uint32_t events) {
 			EpollLoop::get_instance().del(this);
 			return;
 		}
-		int readret = -1;
-		if (_buf.fill_capacity() > 1)
-			readret = _buf.fill(fd);
-		if (readret == 0) {
-			EpollLoop::get_instance().del(this);
-			return ;
-		}
-		if (readret > 0)
+		if (_buf.fill_capacity() > 1) {
+			// 0 means the peer closed, -1 an error. The client goes either way
+			if (_buf.fill(fd) <= 0) {
+				EpollLoop::get_instance().del(this);
+				return ;
+			}
 			update_timestamp();
+		}
 		if (_buf.feed_capacity() > 0) {
 			_state = CGI_TRANSMIT_BODY;
 			EpollLoop::get_instance().rearm(this, EPOLLOUT | EPOLLERR | EPOLLHUP, _cgi_stdin_fd);
@@ -1093,11 +1088,20 @@ void ClientConnection::handle_cgi_input(uint32_t events) {
 		EpollLoop::get_instance().rearm(this, EPOLLIN | EPOLLERR | EPOLLHUP, _cgi_stdout_fd);
 		return;
 	}
-	size_t before = _buf.writepos;
-	_buf.feed(_cgi_stdin_fd);
-	if (_buf.writepos > before)
+	if (_buf.feed_capacity() > 0) {
+		int writeret = _buf.feed(_cgi_stdin_fd);
+		if (writeret <= 0) {
+			// The script stopped reading its stdin. Stop feeding it and go
+			// collect what it wrote, same as on EPOLLERR above
+			close(fd);
+			_cgi_stdin_fd = -1;
+			_state = CGI_HEADERS;
+			EpollLoop::get_instance().rearm(this, EPOLLIN | EPOLLERR | EPOLLHUP, _cgi_stdout_fd);
+			return ;
+		}
 		update_timestamp();
-	_written_body += _buf.writepos - before;
+		_written_body += writeret;
+	}
 	if (_buf.feed_capacity() == 0){
 		_buf.clear();
 		if (_written_body >= _req.content_length) {
@@ -1118,15 +1122,14 @@ void ClientConnection::handle_post(uint32_t events) {
 			EpollLoop::get_instance().del(this);
 			return;
 		}
-		int readret = -1;
-		if (_buf.fill_capacity() > 1)
-			readret = _buf.fill(fd);
-		if (readret == 0) {
-			EpollLoop::get_instance().del(this);
-			return ;
-		}
-		if (readret > 0)
+		if (_buf.fill_capacity() > 1) {
+			// 0 means the peer closed, -1 an error. The client goes either way
+			if (_buf.fill(fd) <= 0) {
+				EpollLoop::get_instance().del(this);
+				return ;
+			}
 			update_timestamp();
+		}
 	}
 	size_t before = _buf.writepos;
 	_buf.feed(_stream);
